@@ -7,6 +7,12 @@ on:
     paths:
       - bootstrap/**
       - .github/workflows/bootstrap.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - bootstrap/**
+      - .github/workflows/bootstrap.yml
 
 permissions:
   contents: write
@@ -19,7 +25,7 @@ jobs:
   publish-and-validate:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out branch
+      - name: Check out source branch
         uses: actions/checkout@v4
         with:
           ref: agent/phase-1-operational-core
@@ -53,7 +59,8 @@ jobs:
           cache-dependency-path: backend/pom.xml
 
       - name: Verify backend
-        run: ./mvnw --file backend/pom.xml verify
+        working-directory: backend
+        run: mvn --batch-mode verify
 
       - name: Set up Node 22
         uses: actions/setup-node@v4
