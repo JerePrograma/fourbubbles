@@ -1,0 +1,66 @@
+name: Diagnostic
+
+on:
+  push:
+    branches: [agent/phase-1-core]
+
+permissions:
+  contents: read
+
+jobs:
+  backend-diagnostic:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compile and print only relevant Maven failures
+        shell: bash
+        run: |
+          set -o pipefail
+          git clone -q --depth 1 --branch agent/phase-1-core https://github.com/JerePrograma/fourbubbles.git repo
+          cd repo/backend
+          set +e
+          mvn -B -Dstyle.color=never clean verify > /tmp/backend.log 2>&1
+          code=$?
+          if [ "$code" -ne 0 ]; then
+            grep -E '^\[ERROR\]|COMPILATION ERROR|Tests run:|Caused by:|Flyway|Schema-validation' /tmp/backend.log | tail -n 80 || tail -n 80 /tmp/backend.log
+          else
+            echo BACKEND_OK
+          fi
+          exit "$code"
+
+  frontend-diagnostic:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build and print only relevant TypeScript failures
+        shell: bash
+        run: |
+          set -o pipefail
+          git clone -q --depth 1 --branch agent/phase-1-core https://github.com/JerePrograma/fourbubbles.git repo
+          cd repo/frontend
+          set +e
+          npm install --no-audit --no-fund --silent > /tmp/npm-install.log 2>&1
+          install_code=$?
+          if [ "$install_code" -ne 0 ]; then tail -n 60 /tmp/npm-install.log; exit "$install_code"; fi
+          npm run build --silent > /tmp/frontend.log 2>&1
+          code=$?
+          if [ "$code" -ne 0 ]; then tail -n 80 /tmp/frontend.log; else echo FRONTEND_OK; fi
+          exit "$code"
+
+  containers-diagnostic:
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: ci-postgres-password
+      APP_DEV_ADMIN_PASSWORD: ci-admin-password
+      JWT_SECRET_BASE64: VGVzdC1zZWNyZXQtd2l0aC1hdC1sZWFzdC0zMi1ieXRlcy1mb3ItY2k=
+    steps:
+      - name: Build and print only relevant container failures
+        shell: bash
+        run: |
+          set -o pipefail
+          git clone -q --depth 1 --branch agent/phase-1-core https://github.com/JerePrograma/fourbubbles.git repo
+          cd repo
+          docker compose config --quiet
+          set +e
+          docker compose build --progress=plain > /tmp/containers.log 2>&1
+          code=$?
+          if [ "$code" -ne 0 ]; then tail -n 80 /tmp/containers.log; else echo CONTAINERS_OK; fi
+          exit "$code"
