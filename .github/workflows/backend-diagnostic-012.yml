@@ -26,15 +26,36 @@ jobs:
           mvn -B -Dstyle.color=never clean verify > /tmp/backend.log 2>&1
           code=$?
           if [ "$code" -ne 0 ]; then
-            grep -E '^\[ERROR\]|COMPILATION ERROR|Tests run:|Failures:|Errors:|Caused by:|expected:|but was:|constraint|duplicate key|AssertionFailedError|BusinessException|Exception:' /tmp/backend.log | tail -n 220 || true
-            for report in target/failsafe-reports/*AdministrativeFlowIT*.txt target/failsafe-reports/TEST-*AdministrativeFlowIT*.xml; do
+            python3 - <<'PY'
+          from pathlib import Path
+          lines = Path('/tmp/backend.log').read_text(encoding='utf-8', errors='replace').splitlines()
+          matches = []
+          for index, line in enumerate(lines):
+              if ('Resolved Exception:' in line or 'Status = 500' in line or
+                  'INTERNAL_ERROR' in line or 'DataIntegrityViolation' in line or
+                  'ConstraintViolation' in line or 'NullPointerException' in line):
+                  matches.append(index)
+          emitted = set()
+          for index in matches:
+              start = max(0, index - 35)
+              end = min(len(lines), index + 70)
+              key = (start, end)
+              if key in emitted:
+                  continue
+              emitted.add(key)
+              print(f'===== backend.log lines {start + 1}-{end} =====')
+              print('\n'.join(lines[start:end]))
+          print('===== Maven summary =====')
+          for line in lines:
+              if line.startswith('[ERROR]') or 'Tests run:' in line or 'Caused by:' in line:
+                  print(line)
+          PY
+            for report in target/failsafe-reports/*AdministrativeFlowIT*.txt; do
               if [ -f "$report" ]; then
                 echo "===== $report ====="
                 cat "$report"
               fi
             done
-            echo '===== application log tail ====='
-            tail -n 320 /tmp/backend.log
           else
             grep -E 'Tests run:|BUILD SUCCESS' /tmp/backend.log | tail -n 50
           fi
