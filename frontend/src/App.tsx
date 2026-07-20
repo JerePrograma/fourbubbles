@@ -11,6 +11,7 @@ import { NewClientPage } from './pages/NewClientPage';
 import { NewOrderPage } from './pages/NewOrderPage';
 import { OrderDetailPage } from './pages/OrderDetailPage';
 import { OrdersPage } from './pages/OrdersPage';
+import { ReceptionPage } from './pages/ReceptionPage';
 
 export default function App(): JSX.Element {
   return (
@@ -25,6 +26,7 @@ export default function App(): JSX.Element {
           <Route path="/orders" element={<OrdersPage />} />
           <Route path="/orders/new" element={<NewOrderPage />} />
           <Route path="/orders/:id" element={<OrderDetailPage />} />
+          <Route path="/orders/:id/reception" element={<ReceptionPage />} />
           <Route path="/agenda" element={<AgendaPage />} />
           <Route path="/audit" element={<AuditPage />} />
         </Route>
