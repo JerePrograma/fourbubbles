@@ -40,7 +40,7 @@ public class Address extends AuditableEntity {
     @Column(nullable = false, length = 120)
     private String locality;
 
-    @Column(columnDefinition = "text")
+    @Column(name = "address_references", columnDefinition = "text")
     private String references;
 
     @Column(precision = 10, scale = 7)
