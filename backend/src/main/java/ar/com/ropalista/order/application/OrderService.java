@@ -19,6 +19,10 @@ import ar.com.ropalista.pricing.domain.PromotionUsage;
 import ar.com.ropalista.pricing.persistence.PromotionUsageRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -28,6 +32,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -154,6 +159,28 @@ public class OrderService {
         return toResponse(find(id));
     }
 
+    @Transactional(readOnly = true)
+    public Page<OrderDtos.OrderSummaryResponse> search(String orderNumber, UUID clientId, OrderStatus status,
+                                                        int page, int size) {
+        Specification<LaundryOrder> specification = (root, query, builder) -> builder.isNull(root.get("deletedAt"));
+        if (orderNumber != null && !orderNumber.isBlank()) {
+            String pattern = "%" + orderNumber.trim().toUpperCase(Locale.ROOT) + "%";
+            specification = specification.and((root, query, builder) ->
+                    builder.like(builder.upper(root.get("orderNumber")), pattern));
+        }
+        if (clientId != null) {
+            specification = specification.and((root, query, builder) ->
+                    builder.equal(root.get("client").get("id"), clientId));
+        }
+        if (status != null) {
+            specification = specification.and((root, query, builder) ->
+                    builder.equal(root.get("status"), status));
+        }
+        var pageable = PageRequest.of(Math.max(page, 0), Math.max(1, Math.min(size, 100)),
+                Sort.by(Sort.Direction.DESC, "createdAt"));
+        return orders.findAll(specification, pageable).map(this::toSummary);
+    }
+
     private void changeStatusInternal(LaundryOrder order, OrderStatus target, String observation,
                                       String location, String notificationReference) {
         OrderStatus previous = order.getStatus();
@@ -185,13 +212,27 @@ public class OrderService {
         }
     }
 
+    private OrderDtos.OrderSummaryResponse toSummary(LaundryOrder order) {
+        String clientName = order.getClient().getLastName() + ", " + order.getClient().getFirstName();
+        return new OrderDtos.OrderSummaryResponse(order.getId(), order.getOrderNumber(), order.getClient().getId(),
+                clientName, order.getService().getCode(), order.getService().getName(), order.getStatus().name(),
+                order.getPaymentStatus().name(), order.getPhysicalPieces(), order.getEquivalentUnits(),
+                order.getQuotedPrice(), order.getConfirmedPrice(), order.getCurrencyCode(),
+                order.getPickupScheduledAt(), order.getPromisedAt(), order.getCreatedAt());
+    }
+
     private OrderDtos.OrderResponse toResponse(LaundryOrder order) {
+        var allowedTransitions = transitionPolicy.allowedTransitions(order.getStatus()).stream()
+                .sorted()
+                .map(Enum::name)
+                .toList();
         return new OrderDtos.OrderResponse(order.getId(), order.getOrderNumber(), order.getClient().getId(),
                 order.getAddress().getId(), order.getService().getCode(), order.getStatus().name(),
                 order.getPaymentStatus().name(), order.getPhysicalPieces(), order.getEquivalentUnits(),
                 order.getDeclaredWeightGrams(), order.getActualWeightGrams(), order.isExclusiveCycle(),
                 order.isRequiresQuote(), order.getLimitReached(), order.getQuotedPrice(), order.getConfirmedPrice(),
                 order.getCurrencyCode(), order.getPriceBreakdown(), order.getPickupScheduledAt(), order.getPromisedAt(),
+                allowedTransitions,
                 order.getItems().stream().map(item -> new OrderDtos.ItemResponse(item.getEquivalence().getCode(),
                         item.getEquivalence().getName(), item.getPhysicalPieces(), item.getGroupCount(),
                         item.getEquivalentUnitsApplied(), item.getEstimatedWeightGrams(), item.getObservations())).toList());

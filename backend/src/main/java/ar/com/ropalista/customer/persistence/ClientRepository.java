@@ -12,4 +12,5 @@ public interface ClientRepository extends JpaRepository<Client, UUID> {
     Page<Client> findByDeletedAtIsNullAndLastNameContainingIgnoreCase(String lastName, Pageable pageable);
     Optional<Client> findByIdAndDeletedAtIsNull(UUID id);
     boolean existsByWhatsappAndDeletedAtIsNull(String whatsapp);
+    boolean existsByWhatsappAndDeletedAtIsNullAndIdNot(String whatsapp, UUID id);
 }

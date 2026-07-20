@@ -1,5 +1,57 @@
 # Changelog
 
+## 0.1.1 - Hardening y flujo operativo completo de Fase 1 base
+
+Fecha: 2026-07-20.
+
+### Agregado
+
+- Respuestas JSON uniformes para autenticación requerida y acceso denegado dentro de Spring Security.
+- Identificador `X-Request-ID` validado o generado por solicitud y propagado mediante MDC.
+- Correlación incluida en logs JSON del perfil `prod`.
+- Protección básica contra intentos repetidos de login por combinación de usuario y origen.
+- Configuración de la protección mediante `LOGIN_MAX_ATTEMPTS`, `LOGIN_ATTEMPT_WINDOW` y `LOGIN_BLOCK_DURATION`.
+- Contrato tipado de preferencias de cliente, conservando compatibilidad temporal con `preferencesJson`.
+- Actualización de perfil, estado y preferencias de cliente mediante `PUT /api/clients/{id}`.
+- Catálogo de servicios vigentes mediante `GET /api/catalog/services`.
+- Búsqueda paginada de pedidos por número, cliente y estado mediante `GET /api/orders`.
+- Resumen operativo de pedidos con cliente, servicio, cantidades, importes y fechas.
+- Transiciones permitidas incluidas en el detalle del pedido.
+- Interfaz de búsqueda y edición de clientes.
+- Interfaz guiada de alta y cotización de pedidos basada en clientes, domicilios, servicios y equivalencias reales.
+- Vista previa de piezas físicas, grupos, unidades equivalentes, peso estimado y necesidad de revisión.
+- Interfaz de listado, filtros y paginación de pedidos.
+- Detalle operativo de pedido con prendas, precio, desglose, estado y pago.
+- Confirmación de precio, cambio de estado y registro de pagos desde la interfaz.
+- Pruebas unitarias del limitador de intentos de login.
+- Pruebas MockMvc de 401, 403, correlación, validación y parámetros inválidos.
+- Prueba integrada con PostgreSQL real del flujo cliente → actualización → pedido → búsqueda → confirmación → pago parcial → pago total.
+- Pruebas Vitest para el cálculo del borrador de pedido y conversión de fechas.
+- Ejecución de `npm test` en CI.
+
+### Modificado
+
+- El frontend deja de depender de Swagger para el recorrido operativo normal disponible en 0.1.1.
+- El listado de clientes permite búsqueda por apellido y muestra el domicilio principal.
+- El alta de cliente captura preferencias operativas estructuradas.
+- La política de estados expone únicamente las transiciones válidas desde el estado actual.
+- La página de pedidos reemplaza el placeholder inicial por funciones reales.
+- La documentación distingue el flujo ya disponible de recepción, producción, logística y finanzas todavía pendientes.
+
+### Corregido
+
+- La auditoría JPA ahora usa un `DateTimeProvider` de `OffsetDateTime` UTC, coherente con los campos persistidos. El proveedor implícito anterior generaba `LocalDateTime` y fallaba al persistir entidades auditadas durante pruebas de API.
+- El detalle de cotización frontend estrecha correctamente valores JSON desconocidos antes de renderizarlos bajo TypeScript estricto.
+
+### Limitaciones conscientes
+
+- El bloqueo de login es local a cada instancia y se pierde al reiniciar; producción distribuida requiere Redis o almacenamiento compartido.
+- La protección usa la dirección observada por la aplicación. En producción debe configurarse y validarse correctamente el proxy de confianza.
+- La actualización de cliente no modifica domicilios para evitar sobrescribir trazabilidad histórica; el versionado de domicilios queda pendiente.
+- No existe aún ajuste manual de cotización para pedidos con `requiresQuote=true`.
+- No existe historial/listado de pagos en la interfaz; se muestra el resultado del pago registrado y el estado consolidado del pedido.
+- Recepción, peso real, evidencias, compatibilidad, ciclos, rutas, caja, costos, inventario y reclamos siguen fuera de este corte.
+
 ## 0.1.0 - Plataforma base y primer corte de Fase 1
 
 Fecha: 2026-07-20.

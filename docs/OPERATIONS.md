@@ -2,17 +2,15 @@
 
 ## Perfiles
 
-- `dev`: crea el administrador desde variables de entorno y habilita mayor detalle de logs.
-- `test`: usado por Testcontainers, Flyway y validación JPA contra PostgreSQL real.
-- `prod`: exige configuración externa, cookies seguras y no muestra SQL.
+- `dev`: crea administrador desde variables y habilita mayor detalle de logs.
+- `test`: usado por Testcontainers, Flyway y validación JPA.
+- `prod`: cookies seguras, logs JSON correlacionados y sin SQL.
 
-El `docker-compose.yml` actual utiliza `dev`. No debe publicarse tal cual como entorno productivo.
+El `docker-compose.yml` actual utiliza `dev`. No debe publicarse tal cual como producción.
 
 ## Puesta en marcha local
 
-La guía reproducible para Windows y PowerShell está en [WINDOWS_SETUP.md](WINDOWS_SETUP.md).
-
-Resumen:
+Guía Windows: [WINDOWS_SETUP.md](WINDOWS_SETUP.md).
 
 ```bash
 cp .env.example .env
@@ -21,25 +19,42 @@ docker compose up --build -d
 docker compose ps
 ```
 
-Servicios locales:
-
 | Servicio | Puerto host | Uso |
 |---|---:|---|
 | PostgreSQL | 5432 | base local |
-| Backend | 8081 | API directa y Swagger |
+| Backend | 8081 | API, Swagger y Actuator |
 | Frontend/Nginx | 8080 | aplicación y proxy `/api` |
 
+## Variables operativas nuevas en 0.1.1
+
+| Variable | Inicial | Uso |
+|---|---|---|
+| `LOGIN_MAX_ATTEMPTS` | `5` | fallos antes del bloqueo |
+| `LOGIN_ATTEMPT_WINDOW` | `PT15M` | ventana de conteo |
+| `LOGIN_BLOCK_DURATION` | `PT15M` | duración del bloqueo |
+
+El contador es local al proceso. En despliegues con más de una réplica debe reemplazarse por almacenamiento compartido.
+
 ## Salud
-
-- Actuator expone liveness y readiness.
-- Compose espera PostgreSQL antes de iniciar el backend.
-- El frontend espera readiness del backend.
-
-Verificación:
 
 ```bash
 curl --fail http://localhost:8081/api/actuator/health
 ```
+
+Compose espera PostgreSQL antes del backend y readiness del backend antes del frontend.
+
+## Correlación
+
+Toda respuesta contiene `X-Request-ID`.
+
+Ejemplo:
+
+```bash
+curl -i -H 'X-Request-ID: soporte-20260720-001' \
+  http://localhost:8081/api/actuator/health
+```
+
+El identificador se utiliza para localizar la solicitud en logs. Valores con caracteres inseguros se reemplazan por UUID.
 
 ## Logs
 
@@ -49,13 +64,17 @@ docker compose logs --tail 300 backend
 docker compose logs --tail 300 frontend
 ```
 
-Los logs no deben contener contraseñas, JWT, refresh tokens ni cuerpos completos con información sensible.
+Seguimiento:
+
+```bash
+docker compose logs -f backend
+```
+
+Los logs no deben contener contraseñas, JWT, refresh tokens ni cuerpos sensibles. El perfil `prod` incluye `requestId` en cada evento JSON.
 
 ## Base de datos
 
-Flyway es la única vía admitida para cambios de esquema. `ddl-auto=validate` detecta divergencias sin modificar la base.
-
-Consultar migraciones:
+Flyway es la única vía admitida. `ddl-auto=validate` detecta divergencias sin modificar la base.
 
 ```bash
 docker compose exec postgres \
@@ -65,39 +84,50 @@ docker compose exec postgres \
 
 Reglas:
 
-- no editar una migración ya desplegada en un ambiente persistente;
-- crear una nueva versión `Vn__descripcion.sql`;
-- validar en PostgreSQL real;
+- no editar migraciones ya desplegadas;
+- crear una nueva `Vn__descripcion.sql`;
+- validar sobre PostgreSQL real;
 - mantener JPA y migraciones coherentes;
 - no habilitar `ddl-auto=update`.
 
 ## Backups
-
-Procedimiento base:
-
-```bash
-pg_dump --format=custom --file=ropalista.dump ropalista
-pg_restore --clean --if-exists --dbname=ropalista_restore_test ropalista.dump
-```
-
-Con Compose:
 
 ```bash
 docker compose exec -T postgres \
   pg_dump -U ropalista -d ropalista --format=custom > ropalista.dump
 ```
 
-No se considera un backup válido hasta comprobar una restauración en otra base.
+Prueba de restauración:
+
+```bash
+createdb ropalista_restore_test
+pg_restore --clean --if-exists --dbname=ropalista_restore_test ropalista.dump
+```
+
+No se considera válido un backup sin restauración probada.
 
 Pendiente:
 
-- automatización programada;
-- cifrado y retención;
+- automatización;
+- cifrado;
+- retención;
 - almacenamiento externo;
-- alerta ante fallos;
-- prueba periódica de restauración.
+- alertas;
+- restauraciones periódicas.
 
 ## Actualización local
+
+Windows recomendado:
+
+```powershell
+git switch main
+git pull --ff-only origin main
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\Start-Local.ps1 -Rebuild
+.\scripts\Verify-Local.ps1
+```
+
+Manual:
 
 ```bash
 git switch main
@@ -106,7 +136,7 @@ docker compose up --build -d
 docker compose ps
 ```
 
-Flyway aplica automáticamente las migraciones pendientes cuando inicia el backend.
+Flyway aplica migraciones pendientes al iniciar el backend.
 
 ## Detención
 
@@ -116,13 +146,13 @@ Conservar datos:
 docker compose down
 ```
 
-Eliminar todo el entorno de desarrollo:
+Eliminar entorno y datos:
 
 ```bash
 docker compose down -v --remove-orphans
 ```
 
-El segundo comando borra la base local.
+El segundo comando es destructivo.
 
 ## Validación previa a release
 
@@ -133,6 +163,7 @@ mvn clean verify
 cd ../frontend
 npm ci
 npm run lint
+npm test
 npm run build
 
 cd ..
@@ -140,25 +171,38 @@ docker compose config --quiet
 docker compose build
 ```
 
-El pipeline de GitHub Actions ejecuta la misma división: backend, frontend y contenedores.
-
 ## Requisitos mínimos de producción
 
-Antes de un despliegue real se requiere:
+Antes de operar comercialmente:
 
-- usar perfil `prod`;
-- secretos administrados fuera de `.env` versionado;
-- TLS terminado en proxy o plataforma;
-- dominio y política CORS explícitos;
-- PostgreSQL persistente con backups restaurables;
-- almacenamiento externo para evidencias cuando se implemente;
+- perfil `prod`;
+- secretos en gestor externo;
+- TLS;
+- dominio y CORS explícitos;
+- proxy confiable que sobrescriba cabeceras reenviadas;
+- rate limiting perimetral;
+- limitador de login compartido, preferentemente Redis;
+- PostgreSQL persistente;
+- backups restaurables;
+- almacenamiento externo de evidencias;
 - límites de CPU, memoria y disco;
 - rotación y agregación de logs;
-- correlación de solicitudes;
-- monitoreo de salud y capacidad;
-- migración previa controlada;
-- procedimiento de rollback;
-- cuenta administrativa creada fuera del inicializador `dev`;
-- protección contra fuerza bruta y rate limiting.
+- monitoreo de salud, errores y capacidad;
+- migración controlada;
+- rollback probado;
+- cuenta administrativa fuera del inicializador `dev`;
+- CSP, HSTS y cabeceras de seguridad;
+- escaneo de dependencias, imágenes y secretos;
+- política de incidentes y retención.
 
-El Compose actual es adecuado para desarrollo, demostración y validación, no para operación comercial sin esos controles.
+## Limitaciones operativas de 0.1.1
+
+- bloqueo de login local a una instancia;
+- sin ajuste manual de cotización;
+- sin recepción real ni evidencias;
+- sin rutas ni agenda operativa completa;
+- sin historial visible de pagos;
+- sin caja ni costos;
+- sin smoke test HTTP automatizado del Compose ya iniciado.
+
+El Compose actual sirve para desarrollo, demostración y validación, no para producción.

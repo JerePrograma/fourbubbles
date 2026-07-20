@@ -21,6 +21,15 @@ public interface ServiceOfferingRepository extends JpaRepository<ServiceOffering
             """)
     List<ServiceOffering> findApplicable(@Param("code") String code, @Param("date") LocalDate date);
 
+    @Query("""
+            select s from ServiceOffering s
+            where s.active = true
+              and s.validFrom <= :date
+              and (s.validTo is null or s.validTo >= :date)
+            order by s.name asc, s.validFrom desc
+            """)
+    List<ServiceOffering> findAllApplicable(@Param("date") LocalDate date);
+
     default Optional<ServiceOffering> findActive(String code, LocalDate date) {
         return findApplicable(code, date).stream().findFirst();
     }

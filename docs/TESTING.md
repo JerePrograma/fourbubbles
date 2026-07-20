@@ -2,28 +2,37 @@
 
 Última actualización: 2026-07-20.
 
-## Evidencia automatizada
+Versión: `0.1.1`.
 
-El pipeline definitivo `.github/workflows/ci.yml` ejecuta tres jobs independientes:
+## Pipeline
 
-1. **Backend**
-   - Java 21 Temurin;
-   - `mvn clean verify`;
-   - pruebas unitarias JUnit 5/Mockito;
-   - prueba de integración `*IT` mediante Maven Failsafe;
-   - PostgreSQL 16 real mediante Testcontainers;
-   - migraciones Flyway completas;
-   - validación Hibernate/JPA contra el esquema.
-2. **Frontend**
-   - Node.js 22;
-   - instalación reproducible con `npm ci`;
-   - validación TypeScript mediante `npm run lint`;
-   - construcción Vite mediante `npm run build`.
-3. **Contenedores**
-   - validación del modelo Compose;
-   - construcción de imágenes backend y frontend.
+`.github/workflows/ci.yml` ejecuta tres jobs independientes.
 
-Comandos equivalentes:
+### Backend
+
+- Java 21 Temurin;
+- `mvn clean verify`;
+- JUnit 5 y Mockito;
+- MockMvc;
+- pruebas `*IT` mediante Failsafe;
+- PostgreSQL 16 mediante Testcontainers;
+- Flyway V1–V5;
+- validación Hibernate/JPA.
+
+### Frontend
+
+- Node.js 22;
+- `npm ci`;
+- validación TypeScript con `npm run lint`;
+- Vitest con `npm test`;
+- build Vite.
+
+### Contenedores
+
+- `docker compose config --quiet`;
+- build de imágenes backend y frontend.
+
+## Comandos locales
 
 ```bash
 cd backend
@@ -32,6 +41,7 @@ mvn clean verify
 cd ../frontend
 npm ci
 npm run lint
+npm test
 npm run build
 
 cd ..
@@ -39,116 +49,173 @@ docker compose config --quiet
 docker compose build
 ```
 
-## Pruebas unitarias implementadas
+## Pruebas unitarias backend
 
 ### Equivalencias
 
 - agrupación de medias;
-- agrupación incompleta de ropa interior;
-- redondeo hacia arriba de grupos incompletos;
+- agrupación incompleta;
+- redondeo hacia arriba;
 - preservación de piezas físicas;
-- cálculo de unidades equivalentes.
+- unidades equivalentes;
+- peso estimado.
 
-### Límites del pedido
+### Límites
 
-- límite exacto de 12 unidades;
-- límite exacto de 2.500 gramos;
-- exceso por equivalencias;
+- límite exacto de unidades;
+- límite exacto de peso;
+- exceso por unidades;
 - exceso por peso;
-- identificación del primer límite;
-- bloqueo de capacidad segura.
+- primer límite alcanzado;
+- capacidad segura.
 
 ### Estados
 
 - transiciones permitidas;
-- bloqueo de saltos inválidos.
+- saltos inválidos;
+- exposición de transiciones válidas.
 
 ### Precios y promociones
 
-- precio base explicable;
+- precio base;
 - precio fijo promocional;
 - primera compra;
-- bloqueo de promoción que exige validación manual;
-- cupos simulados de manera explícita en las pruebas.
+- bloqueo de promoción manual;
+- cupos simulados explícitamente.
 
-El corte actual ejecuta 13 casos unitarios sin errores.
+### Login
 
-## Prueba de integración implementada
+- bloqueo al alcanzar la cantidad configurada;
+- limpieza de fallos tras autenticación correcta;
+- liberación al vencer el bloqueo.
 
-`ApplicationContextIT`:
+## Pruebas frontend
 
-1. inicia PostgreSQL 16 mediante Testcontainers;
-2. configura Spring con el perfil `test`;
-3. aplica V1 a V5 con Flyway;
-4. construye el contexto completo;
-5. obliga a Hibernate a ejecutar `ddl-auto=validate`;
-6. detecta divergencias reales entre migraciones y entidades.
+`orderDraft.test.ts` verifica:
 
-Esta prueba detectó durante la estabilización:
+- redondeo de grupos incompletos sin perder piezas físicas;
+- acumulación de equivalencias;
+- peso conocido y desconocido;
+- necesidad de cotización;
+- ciclo exclusivo;
+- conversión segura de fechas locales a instante ISO.
 
-- uso de una palabra reservada como columna SQL;
-- divergencia `CHAR(3)`/`VARCHAR(3)` en moneda;
-- ambigüedad de mapeo UUID;
-- errores de configuración criptográfica del JWT.
+El cálculo mostrado por la UI es orientativo. La autoridad final sigue siendo el backend, que recalcula todas las reglas.
 
-## Matriz de las 30 reglas originales
+## Integración PostgreSQL
 
-| # | Regla | Estado actual | Próxima evidencia requerida |
-|---:|---|---|---|
-| 1 | cálculo de unidades equivalentes | cubierta | ampliar casos configurables |
-| 2 | agrupación de medias | cubierta | — |
-| 3 | agrupación de ropa interior | cubierta | — |
-| 4 | límite de 12 unidades | cubierta | prueba API |
-| 5 | límite de 2,5 kg | cubierta | peso real en recepción |
-| 6 | primer límite alcanzado | cubierta en dominio | prueba API/UI |
-| 7 | dos pedidos compatibles | pendiente Fase 2 | matriz de compatibilidad |
-| 8 | dos pedidos incompatibles | pendiente Fase 2 | matriz de compatibilidad |
-| 9 | máximo 5 kg compartido | pendiente Fase 2 | entidad y política de ciclo |
-| 10 | ciclo exclusivo | parcial en pedido | ciclo de producción |
-| 11 | cálculo de precios | cubierta parcialmente | adicionales/impuestos/redondeo |
-| 12 | vigencia de precios | cubierta por repositorio | más pruebas de borde temporal |
-| 13 | primera compra | cubierta | prueba integrada con pedidos previos |
-| 14 | una promoción por domicilio | implementada | concurrencia e integración |
-| 15 | no acumulación | implementada por diseño | promociones múltiples futuras |
-| 16 | cupos | parcial | bloqueo transaccional/concurrencia |
-| 17 | abonos | pendiente Fase 5 | módulo de suscripciones |
-| 18 | créditos | pendiente Fase 4/5 | libro de movimientos |
-| 19 | pagos parciales | implementado | prueba de servicio/API |
-| 20 | cambio de estado | cubierta | permisos por transición |
-| 21 | auditoría | implementada | consultas y prueba integrada |
-| 22 | margen | pendiente Fase 4 | motor de costos |
-| 23 | costos | pendiente Fase 4 | motor de costos |
-| 24 | punto de equilibrio | pendiente Fase 4 | simulador financiero |
-| 25 | capacidad diaria | pendiente Fase 2 | calendario de máquinas |
-| 26 | sobrecarga | pedido cubierto | ciclo y máquina pendientes |
-| 27 | relavado | estado modelado | flujo productivo |
-| 28 | reclamos | estado modelado | módulo de reclamos |
-| 29 | eliminación lógica | esquema implementado | prueba de visibilidad/historial |
-| 30 | permisos | configuración base | MockMvc por rol |
+Las pruebas comparten un contenedor PostgreSQL 16 durante la suite.
+
+### ApplicationContextIT
+
+- inicia PostgreSQL;
+- aplica Flyway;
+- construye el contexto;
+- valida entidades contra el esquema.
+
+### ApiContractIT
+
+- 401 uniforme para solicitud sin autenticación;
+- 403 uniforme para rol insuficiente;
+- `X-Request-ID` seguro conservado;
+- identificador inseguro reemplazado;
+- errores de validación con violaciones de campo;
+- parámetros enum inválidos como 400.
+
+### OperationalFlowIT
+
+Recorrido real:
+
+1. crea usuario administrativo;
+2. inicia sesión;
+3. crea cliente con domicilio y preferencias tipadas;
+4. actualiza perfil y preferencias;
+5. crea un pedido con prendas reales del seed;
+6. busca el pedido por número;
+7. confirma el precio;
+8. registra un pago parcial;
+9. registra el pago final;
+10. comprueba saldo y estado `PAID`.
+
+## Defectos que las pruebas ya detectaron
+
+- palabra reservada usada como columna SQL;
+- divergencia `CHAR(3)`/`VARCHAR(3)`;
+- mapeo UUID ambiguo;
+- algoritmo JWT no fijado;
+- configuración TypeScript incorrecta;
+- contratos 401/403 no uniformes;
+- lógica frontend sensible a zona horaria;
+- ausencia de prueba integrada del flujo de pago.
+
+## Cobertura funcional cualitativa
+
+| Área | Estado de prueba |
+|---|---|
+| autenticación básica | integración |
+| refresh/logout | implementación, falta integración específica |
+| autorización por rol | integración parcial |
+| correlación | integración |
+| limitador de login | unitario |
+| cliente alta/actualización | integración |
+| preferencias tipadas | integración |
+| equivalencias | unitario + integración indirecta |
+| límites | unitario + flujo integrado |
+| precio | unitario + integración |
+| promociones | unitario, concurrencia pendiente |
+| búsqueda de pedidos | integración |
+| confirmación de precio | integración |
+| pagos parcial/total | integración |
+| exceso de pago | lógica implementada, falta API específica |
+| UI borrador de pedido | unitario puro + build |
+| UI completa | build, falta E2E de navegador |
+| Docker | construcción, falta smoke HTTP iniciado |
+
+## Matriz de reglas de negocio
+
+| Regla | Estado |
+|---|---|
+| cálculo de equivalencias | cubierta |
+| grupos de medias/ropa interior | cubierta |
+| límites por unidad y peso | cubierta |
+| ciclo exclusivo en pedido | modelado y probado parcialmente |
+| precios y vigencia | cubierta parcialmente |
+| primera compra | cubierta |
+| una promoción por domicilio | implementada; concurrencia pendiente |
+| cupos | parcial; falta prueba concurrente |
+| pagos parciales y totales | cubierta en integración |
+| transiciones | cubierta |
+| auditoría | ejercitada indirectamente; falta consulta |
+| compatibilidad | pendiente Fase 2 |
+| ciclos y máquinas | pendiente Fase 2 |
+| costos y margen | pendiente Fase 4 |
+| reclamos | pendiente Fase 5 |
 
 ## Próximas pruebas prioritarias
 
-1. MockMvc de login, refresh y logout.
-2. Contrato uniforme de errores y validaciones.
-3. Permisos por rol y operación.
-4. Alta y consulta completa de cliente.
-5. Creación de pedido y persistencia del precio histórico.
-6. Confirmación de precio y consumo promocional.
-7. Pago parcial, pago total y exceso rechazado.
-8. Eliminación lógica y exclusión de registros inactivos.
-9. Carrera de cupos promocionales con concurrencia real.
-10. Pruebas React de autenticación y alta de cliente.
-11. Smoke test HTTP del Compose iniciado.
-12. E2E del recorrido cliente → pedido → pago.
+1. login bloqueado mediante endpoint real y reloj controlable;
+2. refresh, rotación y logout;
+3. pago superior al saldo;
+4. consumo promocional y carrera concurrente;
+5. actualización de WhatsApp duplicado;
+6. domicilios versionados;
+7. cotización manual y autorización;
+8. eliminación lógica;
+9. historial de pagos;
+10. pruebas React de formularios y permisos;
+11. E2E de navegador;
+12. smoke test HTTP sobre Compose iniciado;
+13. backup y restauración automatizados.
 
-## Criterio para cerrar una fase
+## Criterio de terminado
 
 Una fase no se considera finalizada hasta que:
 
 - compila;
-- todas sus migraciones aplican sobre PostgreSQL vacío;
+- las migraciones aplican sobre PostgreSQL vacío;
 - Hibernate valida el esquema;
 - las reglas críticas poseen pruebas;
-- frontend compila con lockfile;
-- imágenes Docker se construyen;
-- documentación y backlog reflejan el estado real.
+- frontend ejecuta lint, tests y build con lockfile;
+- las imágenes se construyen;
+- documentación y backlog reflejan el estado real;
+- CI está verde antes de integrar.

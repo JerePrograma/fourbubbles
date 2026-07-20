@@ -2,37 +2,41 @@
 
 Sistema de gestión integral para una lavandería doméstica con retiro y entrega en Marcos Paz y Mariano Acosta.
 
-> Estado: **plataforma base finalizada y Fase 1 parcial**. El repositorio contiene una vertical operativa verificable, pero todavía no representa el MVP completo de producción, logística y finanzas.
+> Versión: **0.1.1**. La plataforma base y el flujo operativo inicial de Fase 1 están implementados. El MVP completo de recepción, producción, logística y finanzas todavía no está terminado.
 
 ## Alcance disponible
 
 - Monolito modular Java 21 + Spring Boot 3.
 - PostgreSQL 16 y migraciones Flyway desde la primera tabla.
 - Autenticación JWT de corta duración y refresh token opaco rotativo en cookie `HttpOnly`.
-- Roles iniciales: administrador, operador, repartidor y consulta/reportes.
-- Auditoría persistente de operaciones sensibles implementadas.
-- Clientes con domicilios y validación de zona.
-- Catálogo de servicios, equivalencias, precios y promociones versionados.
-- Pedidos con número legible, piezas físicas, grupos, unidades equivalentes, peso declarado, precio histórico y trazabilidad de estados.
-- Pagos parciales o totales con saldo.
-- Frontend React/TypeScript mobile first con login, clientes y alta de cliente.
-- API OpenAPI/Swagger para el recorrido operativo todavía no cubierto por pantallas.
+- Roles `ADMIN`, `OPERATOR`, `DRIVER` y `REPORT_VIEWER`.
+- Respuestas JSON uniformes, incluyendo 401 y 403 generados por Spring Security.
+- Protección básica de login por usuario y origen.
+- `X-Request-ID` y correlación de logs.
+- Auditoría persistente de operaciones sensibles.
+- Clientes, domicilios, zonas y preferencias operativas tipadas.
+- Alta, búsqueda y actualización de clientes desde la interfaz.
+- Catálogo versionado de servicios, equivalencias, precios y promociones.
+- Pedidos con piezas físicas, grupos, unidades equivalentes, peso, precio histórico y estados trazables.
+- Alta guiada, búsqueda, filtros, detalle y operación de pedidos desde la interfaz.
+- Confirmación de precio y transiciones válidas desde el detalle del pedido.
+- Pagos parciales o totales con saldo y estado de pago.
 - Docker Compose, Nginx y GitHub Actions.
-- Pruebas unitarias e integración con PostgreSQL mediante Testcontainers.
+- Pruebas unitarias, MockMvc, Vitest e integración con PostgreSQL mediante Testcontainers.
 - Dependencias frontend bloqueadas mediante `package-lock.json` y `npm ci`.
 - Scripts PowerShell para iniciar y verificar el entorno local.
-- Documentación de alcance, arquitectura, datos, seguridad, operación, uso, pruebas, decisiones y backlog.
+- Documentación funcional, técnica, operativa, de seguridad, pruebas y backlog.
 
 ## Requisitos recomendados
 
-Para el camino simple:
+Camino simple:
 
 - Git;
 - Docker Desktop o Docker Engine;
 - Docker Compose v2;
 - PowerShell 7 en Windows.
 
-Para ejecución sin Docker:
+Ejecución sin Docker:
 
 - Java 21;
 - Maven 3.9 o superior;
@@ -50,19 +54,11 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\Verify-Local.ps1
 ```
 
-`Start-Local.ps1` crea `.env` únicamente si no existe, genera secretos aleatorios, construye los contenedores y espera a que el backend esté saludable. La contraseña administrativa generada se muestra una sola vez en la consola.
+`Start-Local.ps1` crea `.env` solo si no existe, genera secretos aleatorios, construye los contenedores y espera a que el backend quede saludable. La contraseña administrativa generada se muestra una sola vez.
 
-La guía manual completa y el diagnóstico están en [docs/WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md).
+La guía manual completa está en [docs/WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md).
 
-## Inicio rápido manual con Docker
-
-Linux/macOS:
-
-```bash
-cp .env.example .env
-```
-
-Windows PowerShell:
+## Inicio manual con Docker
 
 ```powershell
 Copy-Item -LiteralPath '.env.example' -Destination '.env'
@@ -72,11 +68,17 @@ Reemplazar obligatoriamente:
 
 - `POSTGRES_PASSWORD` y `DB_PASSWORD` con el mismo valor;
 - `JWT_SECRET_BASE64` con al menos 32 bytes aleatorios codificados en Base64;
-- `APP_DEV_ADMIN_PASSWORD` con una contraseña de desarrollo propia.
+- `APP_DEV_ADMIN_PASSWORD` con una contraseña propia.
+
+Parámetros opcionales del bloqueo de login:
+
+- `LOGIN_MAX_ATTEMPTS`, valor inicial `5`;
+- `LOGIN_ATTEMPT_WINDOW`, valor inicial `PT15M`;
+- `LOGIN_BLOCK_DURATION`, valor inicial `PT15M`.
 
 Iniciar:
 
-```bash
+```powershell
 docker compose up --build -d
 docker compose ps
 ```
@@ -84,40 +86,40 @@ docker compose ps
 Accesos:
 
 - aplicación: `http://localhost:8080`;
-- backend directo: `http://localhost:8081/api`;
+- backend: `http://localhost:8081/api`;
 - Swagger: `http://localhost:8081/api/swagger-ui.html`;
 - salud: `http://localhost:8081/api/actuator/health`.
 
-El usuario administrador de desarrollo se crea al iniciar con `APP_DEV_ADMIN_USERNAME` y `APP_DEV_ADMIN_PASSWORD`. No existe una contraseña real almacenada en el repositorio.
+El administrador de desarrollo se crea con `APP_DEV_ADMIN_USERNAME` y `APP_DEV_ADMIN_PASSWORD`. No existe una contraseña real en el repositorio.
 
-## Flujo funcional actual
+## Flujo funcional de 0.1.1
 
-1. Iniciar sesión en la aplicación.
-2. Crear un cliente y su domicilio principal desde la interfaz.
-3. Abrir Swagger para consultar equivalencias.
-4. Crear y cotizar un pedido con piezas físicas, peso declarado y servicio.
-5. Revisar unidades equivalentes, límites y desglose del precio.
-6. Confirmar el precio histórico.
-7. Registrar transiciones válidas de estado.
-8. Registrar pagos parciales o totales.
-9. Consultar el pedido y su saldo.
+1. Iniciar sesión.
+2. Crear un cliente con domicilio y preferencias.
+3. Buscar o editar el cliente cuando corresponda.
+4. Entrar en **Pedidos** y seleccionar **Nuevo pedido**.
+5. Elegir cliente, domicilio y servicio vigente.
+6. Agregar las piezas físicas; la vista previa calcula grupos, unidades y peso estimado.
+7. Informar peso declarado, promoción, retiro y promesa cuando correspondan.
+8. Crear y cotizar el pedido.
+9. Abrir el pedido desde el listado.
+10. Revisar prendas, límites y desglose del precio.
+11. Confirmar el precio cuando no requiera cotización manual.
+12. Avanzar únicamente por las transiciones habilitadas.
+13. Registrar pagos parciales o totales.
+14. Continuar el recorrido de estados hasta entrega y cierre.
 
-El recorrido detallado con cuerpos JSON copiables está en [docs/USER_GUIDE.md](docs/USER_GUIDE.md).
+Swagger sigue disponible para inspección y pruebas técnicas, pero ya no es obligatorio para el recorrido operativo implementado.
+
+La guía detallada está en [docs/USER_GUIDE.md](docs/USER_GUIDE.md).
 
 ## Pruebas y validación
 
-Backend completo, incluidas pruebas `*IT` con Testcontainers:
+Backend, incluidas pruebas `*IT` con PostgreSQL real:
 
 ```bash
 cd backend
 mvn clean verify
-```
-
-Solo pruebas unitarias:
-
-```bash
-cd backend
-mvn test
 ```
 
 Frontend:
@@ -126,6 +128,7 @@ Frontend:
 cd frontend
 npm ci
 npm run lint
+npm test
 npm run build
 ```
 
@@ -136,22 +139,25 @@ docker compose config --quiet
 docker compose build
 ```
 
-El workflow `.github/workflows/ci.yml` ejecuta esos tres grupos en cada pull request y en cada actualización de `main`.
+El workflow `.github/workflows/ci.yml` ejecuta backend, frontend y construcción de imágenes en cada pull request y actualización de `main`.
 
-## Endpoints implementados
+## Endpoints principales
 
 | Método | Ruta | Uso |
 |---|---|---|
 | POST | `/api/auth/login` | Iniciar sesión y emitir cookie de renovación |
 | POST | `/api/auth/refresh` | Rotar refresh token y emitir access token |
-| POST | `/api/auth/logout` | Revocar sesión actual |
+| POST | `/api/auth/logout` | Revocar la sesión actual |
 | GET | `/api/catalog/equivalences` | Consultar equivalencias vigentes |
-| POST | `/api/clients` | Crear cliente con domicilios |
+| GET | `/api/catalog/services` | Consultar servicios vigentes |
+| POST | `/api/clients` | Crear cliente con domicilios y preferencias |
 | GET | `/api/clients` | Buscar clientes paginados |
 | GET | `/api/clients/{id}` | Consultar cliente y domicilios actuales |
+| PUT | `/api/clients/{id}` | Actualizar perfil, estado y preferencias |
 | POST | `/api/orders` | Crear y cotizar un pedido |
-| GET | `/api/orders/{id}` | Consultar pedido |
-| POST | `/api/orders/{id}/confirm-price` | Congelar precio confirmado |
+| GET | `/api/orders` | Buscar pedidos por número, cliente y estado |
+| GET | `/api/orders/{id}` | Consultar detalle y transiciones permitidas |
+| POST | `/api/orders/{id}/confirm-price` | Congelar el precio confirmado |
 | PATCH | `/api/orders/{id}/status` | Cambiar estado con transición y auditoría |
 | POST | `/api/payments` | Registrar pago parcial o total |
 
@@ -164,7 +170,7 @@ backend/
     customer/ location/ order/ payment/ pricing/
   src/main/resources/db/migration/
 frontend/
-  src/api/ auth/ components/ models/ pages/
+  src/api/ auth/ components/ models/ order/ pages/
 infra/nginx/
 scripts/
 docs/
@@ -172,7 +178,7 @@ docs/
 .github/workflows/
 ```
 
-La separación es por módulo funcional. No se utiliza una estructura global basada únicamente en controladores, servicios y repositorios.
+La separación se realiza por módulo funcional. No se utiliza una estructura global basada exclusivamente en controladores, servicios y repositorios.
 
 ## Documentación
 
@@ -192,10 +198,12 @@ La separación es por módulo funcional. No se utiliza una estructura global bas
 
 ## Limitaciones actuales
 
-- La interfaz todavía no contiene alta y gestión completa de pedidos; ese recorrido se valida mediante Swagger.
+- Los pedidos con `requiresQuote=true` todavía no pueden recibir un ajuste manual de precio desde la aplicación.
 - La recepción, peso real, fotografías y daños preexistentes siguen pendientes.
+- La edición histórica de domicilios continúa pendiente; 0.1.1 evita sobrescribir domicilios existentes.
+- El bloqueo de login es local a cada instancia y requiere almacenamiento compartido para despliegues distribuidos.
 - Compatibilidad, ciclos, máquinas, bolsas, secado y relavados pertenecen a Fase 2.
 - Rutas, agenda operativa, retiros, entregas y WhatsApp pertenecen a Fase 3.
 - Costos, caja completa, tiempos y rentabilidad pertenecen a Fase 4.
 - Abonos, comercios, inventario, mantenimiento, reclamos y tableros avanzados pertenecen a Fase 5.
-- No debe usarse el perfil `dev` como despliegue de producción.
+- El perfil `dev` no debe utilizarse como despliegue productivo.

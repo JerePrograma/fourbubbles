@@ -14,6 +14,16 @@ export interface ApiErrorResponse {
   violations: Array<{ field: string; message: string; rejectedValue?: unknown }>;
 }
 
+export interface PageResponse<T> {
+  content: T[];
+  number: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+}
+
 export interface AuthSession {
   accessToken: string;
   tokenType: 'Bearer';

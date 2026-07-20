@@ -2,408 +2,331 @@
 
 Última actualización: 2026-07-20.
 
-Versión documentada: `0.1.0`.
+Versión documentada: `0.1.1`.
 
 ## Resumen ejecutivo
 
-Four Bubbles / Ropa Lista partió de un repositorio prácticamente vacío. La versión 0.1.0 entrega:
+Four Bubbles / Ropa Lista dispone de una plataforma técnica reproducible y de un flujo operativo inicial utilizable desde la interfaz.
 
-- plataforma técnica reproducible;
-- arquitectura de monolito modular;
-- seguridad y auditoría base;
-- esquema PostgreSQL gestionado íntegramente por Flyway;
-- primera vertical funcional de clientes, catálogo comercial, pedidos, estados y pagos;
-- frontend inicial mobile first;
-- pruebas unitarias e integración con PostgreSQL real;
-- contenedores y pipeline CI;
-- documentación funcional, técnica, operativa y de uso.
+La versión 0.1.1 completa el hardening y el recorrido base de Fase 1:
 
-La plataforma base está finalizada. La Fase 1 está parcialmente implementada. Las fases de producción, logística, finanzas y crecimiento continúan pendientes.
+- autenticación y autorización con contrato uniforme;
+- correlación de solicitudes;
+- limitación básica de intentos de login;
+- clientes con preferencias tipadas y actualización;
+- catálogo vigente consultable;
+- creación, cotización, búsqueda y detalle de pedidos;
+- confirmación de precio;
+- transiciones válidas de estado;
+- pagos parciales y totales;
+- pruebas unitarias, API, integración PostgreSQL y frontend;
+- documentación actualizada.
 
-La cantidad de clases o tablas no debe confundirse con porcentaje de negocio terminado: compatibilidad, ciclos, logística, costos y reclamos concentran reglas críticas aún no implementadas.
-
-## Leyenda
-
-- **Finalizado:** implementado, validado y documentado en 0.1.0.
-- **Parcial:** existe una base funcional, pero faltan recorridos, reglas o pantallas.
-- **Pendiente:** no existe implementación funcional utilizable.
-- **Bloqueado:** requiere una decisión estructural previa. No hay bloqueos estructurales activos en este corte.
+Esto no equivale al MVP completo. Recepción, producción, logística, costos y crecimiento siguen concentrando las reglas más complejas.
 
 ## Estado por fase
 
 | Fase | Estado | Entregado | Pendiente principal |
 |---|---|---|---|
-| 0. Diagnóstico | Finalizado | stack, arquitectura, dominio, modelo inicial, riesgos y plan | mantenerlo actualizado |
-| Plataforma base | Finalizado | backend, frontend, PostgreSQL, Flyway, seguridad, auditoría, errores, perfiles, OpenAPI, Docker, Nginx y CI | hardening productivo |
-| 1. Núcleo operativo | Parcial | usuarios, zonas, clientes, domicilios, equivalencias, precios, promociones seguras, pedidos, estados, cotización y pagos | UI de pedidos, recepción, peso real, evidencias, administración comercial y agenda |
-| 2. Producción | Pendiente | estados preparatorios en pedido | compatibilidad, ciclos, máquinas, bolsas, secado, calidad y relavados |
-| 3. Logística | Pendiente | fechas de retiro/promesa en pedido | rutas, paradas, kilómetros, agenda, retiro, entrega y WhatsApp |
-| 4. Finanzas | Pendiente | pago básico por pedido | caja, costos, gastos, tiempo, margen, inversión y proyecciones |
-| 5. Crecimiento | Pendiente | catálogo y semillas promocionales | abonos, comercios, inventario, mantenimiento, reclamos, mercado y tableros |
+| 0. Diagnóstico | Finalizado | stack, arquitectura, dominio, riesgos y plan | mantener documentación vigente |
+| Plataforma base | Finalizado | Java, React, PostgreSQL, Flyway, seguridad, auditoría, errores, OpenAPI, Docker y CI | hardening productivo distribuido |
+| 1. Núcleo operativo | Avanzado | clientes, preferencias, catálogo, pedidos, precios, estados, pagos y UI operativa | recepción, cotización manual, domicilios versionados, administración comercial y agenda |
+| 2. Producción | Pendiente | estados preparatorios | compatibilidad, ciclos, máquinas, lavado, secado, calidad y relavados |
+| 3. Logística | Pendiente | fechas de retiro y promesa | rutas, paradas, kilómetros, agenda real, retiro, entrega y WhatsApp |
+| 4. Finanzas | Pendiente | pagos por pedido | caja, costos, gastos, tiempos, margen, inversión y proyecciones |
+| 5. Crecimiento | Pendiente | catálogo y promociones base | abonos, comercios, inventario, mantenimiento, reclamos y tableros |
 
-## Alcance finalizado
+## Finalizado
 
-### Repositorio y entrega
+### Plataforma y arquitectura
 
-- [x] Repositorio inicializado desde cero.
-- [x] Código organizado por módulos funcionales.
-- [x] Historial de desarrollo consolidable mediante squash en `main`.
-- [x] `.gitignore`, `.dockerignore`, `.editorconfig` y `.env.example`.
-- [x] README y changelog.
-- [x] ADR y documentación transversal.
-- [x] Scripts PowerShell de inicio y smoke test local.
-
-### Backend y arquitectura
-
-- [x] Java 21 LTS.
-- [x] Spring Boot 3.
-- [x] Maven.
-- [x] Monolito modular.
-- [x] Separación API, aplicación, dominio, persistencia e infraestructura donde corresponde.
-- [x] Spring Web.
-- [x] Spring Validation.
-- [x] Spring Data JPA/Hibernate.
-- [x] Transacciones en casos de uso de escritura.
-- [x] DTO de entrada y salida; entidades JPA no expuestas.
-- [x] Manejo global de excepciones.
-- [x] Respuesta API uniforme.
+- [x] Java 21, Spring Boot 3 y Maven.
+- [x] React 18, TypeScript, Vite, React Router, React Hook Form y Zod.
+- [x] Monolito modular por dominio.
+- [x] PostgreSQL 16.
+- [x] Flyway V1–V5 como única autoridad de esquema.
+- [x] `ddl-auto=validate`.
+- [x] DTO de entrada y salida.
+- [x] Bean Validation.
+- [x] errores y respuestas uniformes.
 - [x] OpenAPI/Swagger.
 - [x] Actuator y health checks.
-- [x] Perfiles `dev`, `test` y `prod`.
-- [x] Zona horaria `America/Argentina/Buenos_Aires`.
-
-### Base de datos
-
-- [x] PostgreSQL 16 como única base principal.
-- [x] Flyway desde la primera tabla.
-- [x] `ddl-auto=validate`; sin modificación automática de esquema.
-- [x] Migraciones V1 a V5.
-- [x] UUID, claves foráneas, restricciones, índices e índices parciales.
-- [x] Secuencia de número de pedido.
-- [x] Eliminación lógica en entidades que deben preservar historial.
-- [x] Vigencia temporal de configuración comercial.
-- [x] Dinero con `NUMERIC(15,2)`/`BigDecimal`.
-- [x] Peso en gramos enteros.
-- [x] Código de moneda `VARCHAR(3)`, inicialmente ARS.
-- [x] Seeds reproducibles.
+- [x] perfiles `dev`, `test` y `prod`.
+- [x] Dockerfiles multi-stage, Compose y Nginx.
+- [x] pipeline de backend, frontend y contenedores.
+- [x] lockfile y `npm ci`.
 
 ### Seguridad
 
 - [x] Spring Security stateless.
-- [x] JWT de acceso de corta duración con HS256 explícito.
-- [x] Secreto mínimo de 256 bits.
-- [x] Refresh token opaco y aleatorio.
-- [x] Persistencia exclusiva del hash SHA-256 del refresh token.
-- [x] Rotación y revocación.
-- [x] Cookie `HttpOnly`, `SameSite=Strict` y segura en producción.
-- [x] BCrypt para contraseñas.
-- [x] Roles `ADMIN`, `OPERATOR`, `DRIVER` y `REPORT_VIEWER`.
-- [x] Autorización por método.
-- [x] CORS parametrizado.
-- [x] Usuario administrador generado solo bajo perfil `dev`.
-- [x] Secretos fuera del repositorio.
-- [x] Errores sin stacktrace ni valores sensibles rechazados.
+- [x] JWT HS256 de corta duración.
+- [x] refresh token opaco, hasheado, rotativo y revocable.
+- [x] cookie `HttpOnly`, `SameSite=Strict` y segura en producción.
+- [x] BCrypt costo 12.
+- [x] roles `ADMIN`, `OPERATOR`, `DRIVER` y `REPORT_VIEWER`.
+- [x] autorización por método.
+- [x] respuestas JSON uniformes para 401 y 403.
+- [x] `X-Request-ID` validado o generado.
+- [x] MDC y correlación en logs de producción.
+- [x] limitación local de intentos fallidos de login.
+- [x] secretos fuera del repositorio.
+- [x] errores sin stacktrace ni valores sensibles.
 
 ### Auditoría
 
-- [x] Campos de creación, modificación, usuario y versión optimista.
-- [x] Eventos persistidos para operaciones sensibles implementadas.
-- [x] Alta de cliente auditada.
-- [x] Alta y cotización de pedido auditadas.
-- [x] Confirmación de precio auditada.
-- [x] Cambio de estado auditado.
-- [x] Pago auditado.
+- [x] campos de creación, modificación, usuario y versión optimista.
+- [x] eventos persistidos para alta y actualización de cliente.
+- [x] alta y cotización de pedido.
+- [x] confirmación de precio.
+- [x] cambio de estado.
+- [x] registro de pago.
 
-### Clientes y domicilios
+### Clientes
 
-- [x] Alta de cliente.
-- [x] Consulta individual.
-- [x] Búsqueda paginada.
-- [x] Nombre, apellido, teléfono, WhatsApp, correo, fuente, notas y preferencias JSON.
+- [x] alta con uno o más domicilios.
+- [x] exactamente un domicilio principal activo.
 - [x] WhatsApp único entre clientes activos.
-- [x] Uno o más domicilios.
-- [x] Un único domicilio principal activo.
-- [x] Domicilio vinculado a zona habilitada.
-- [x] Zonas iniciales Marcos Paz y Mariano Acosta.
-- [x] Interfaz básica de listado y alta.
+- [x] validación de zona.
+- [x] búsqueda por apellido.
+- [x] consulta individual.
+- [x] actualización de perfil y estado.
+- [x] preferencias tipadas.
+- [x] compatibilidad temporal con `preferencesJson`.
+- [x] interfaz de alta, búsqueda y edición.
 
-### Catálogo y equivalencias
+### Catálogo, precios y promociones
 
-- [x] Servicios versionados y configurables.
-- [x] Equivalencias versionadas y administrables en base.
-- [x] 21 equivalencias iniciales.
-- [x] Separación de piezas físicas, grupos y unidades equivalentes.
-- [x] Agrupación con redondeo hacia arriba.
-- [x] Peso estimado opcional.
-- [x] Admisión de lavado común y secadora.
-- [x] Requerimiento de ciclo exclusivo o presupuesto.
-- [x] Endpoint de consulta de equivalencias vigentes.
-
-### Precios y promociones
-
-- [x] 11 servicios y precios iniciales configurados como datos.
-- [x] Precio por servicio, zona opcional y vigencia.
-- [x] Motivo y responsable.
-- [x] Precio histórico conservado en pedido.
-- [x] Desglose explicable persistido.
-- [x] Nueve promociones iniciales configuradas.
-- [x] Precio fijo y porcentaje para reglas automáticas soportadas.
-- [x] Primera compra.
-- [x] Una promoción por domicilio.
-- [x] Cupos total, diario y mensual modelados.
-- [x] No acumulación por defecto.
-- [x] Bloqueo de promociones con condiciones aún no automatizables.
-- [x] Consumo promocional al confirmar, no al cotizar.
+- [x] servicios versionados.
+- [x] equivalencias versionadas.
+- [x] endpoint de servicios vigentes.
+- [x] endpoint de equivalencias vigentes.
+- [x] piezas físicas, grupos y unidades equivalentes separadas.
+- [x] agrupación con redondeo hacia arriba.
+- [x] peso estimado opcional.
+- [x] reglas de secadora, presupuesto y ciclo exclusivo.
+- [x] precios versionados y desglose persistido.
+- [x] promociones automáticas seguras soportadas.
+- [x] consumo promocional al confirmar.
+- [x] bloqueo de promociones no automatizables.
 
 ### Pedidos
 
-- [x] Número legible `RL-000001`.
-- [x] Cliente, domicilio, zona indirecta, servicio y precio aplicado.
-- [x] Promoción opcional.
-- [x] Piezas físicas, grupos y unidades equivalentes.
-- [x] Peso declarado.
-- [x] Modalidad exclusiva.
-- [x] Requerimiento de presupuesto.
-- [x] Límite alcanzado.
-- [x] Precio cotizado y confirmado.
-- [x] Retiro programado y fecha prometida.
-- [x] Observaciones.
+- [x] número `RL-000001`.
+- [x] cliente, domicilio, servicio, precio y promoción.
+- [x] piezas físicas, grupos y unidades equivalentes.
+- [x] peso declarado y estimado.
+- [x] límites por unidades, peso y capacidad segura.
+- [x] precio cotizado y confirmado.
+- [x] retiro y promesa.
 - [x] 26 estados de negocio.
-- [x] Política explícita de transiciones.
-- [x] Historial de estados con usuario, fecha, observación, ubicación y notificación.
-- [x] Regla de 12 unidades, 2.500 gramos y capacidad segura.
+- [x] política explícita de transiciones.
+- [x] historial de estados.
+- [x] búsqueda por número, cliente y estado.
+- [x] paginación y resumen operativo.
+- [x] transiciones permitidas incluidas en el detalle.
+- [x] interfaz de alta guiada.
+- [x] vista previa de equivalencias.
+- [x] interfaz de listado, filtros y detalle.
+- [x] confirmación y cambio de estado desde la UI.
 
 ### Pagos
 
-- [x] Efectivo, transferencia, Mercado Pago y otro configurable.
-- [x] Importe, fecha, referencia, notas, pedido, cliente y usuario.
-- [x] Pago parcial y total.
-- [x] Total pagado y saldo.
-- [x] Bloqueo de pago sin precio confirmado.
-- [x] Bloqueo de importes no positivos o superiores al saldo.
-
-### Frontend
-
-- [x] React 18.
-- [x] TypeScript.
-- [x] Vite.
-- [x] React Router.
-- [x] React Hook Form y Zod.
-- [x] Cliente HTTP centralizado.
-- [x] Access token solo en memoria.
-- [x] Renovación transparente y deduplicada.
-- [x] Rutas protegidas.
-- [x] Login y logout.
-- [x] Shell responsive/mobile first.
-- [x] Clientes y alta de cliente.
-- [x] Tablero, agenda y pedidos identificados honestamente como incompletos.
-- [x] `package-lock.json` versionado.
-- [x] Instalación reproducible con `npm ci`.
-
-### Infraestructura y CI
-
-- [x] Dockerfile backend multi-stage.
-- [x] Dockerfile frontend multi-stage.
-- [x] PostgreSQL, backend y frontend en Compose.
-- [x] Volumen persistente local.
-- [x] Health checks y dependencias por salud.
-- [x] Nginx como servidor SPA y proxy `/api`.
-- [x] Pipeline backend, frontend y contenedores.
-- [x] Java 21, Node 22, cache Maven/npm.
-- [x] Cancelación de ejecuciones obsoletas.
-- [x] Build frontend e imágenes con lockfile.
-- [x] Workflows temporales de diagnóstico retirados.
+- [x] efectivo, transferencia, Mercado Pago y otro.
+- [x] pago parcial y total.
+- [x] total pagado y saldo.
+- [x] bloqueo sin precio confirmado.
+- [x] bloqueo de pago no positivo o superior al saldo.
+- [x] registro desde el detalle del pedido.
 
 ### Pruebas
 
-- [x] JUnit 5.
-- [x] Mockito.
-- [x] Spring Boot Test.
-- [x] Testcontainers PostgreSQL.
-- [x] Maven Failsafe para `*IT`.
-- [x] 13 casos unitarios.
-- [x] Contexto completo, Flyway y validación JPA en PostgreSQL real.
-- [x] Lint TypeScript y build Vite.
-- [x] Validación y build de Compose.
+- [x] JUnit 5 y Mockito.
+- [x] Testcontainers PostgreSQL 16.
+- [x] Flyway y validación JPA.
+- [x] reglas de equivalencias, límites, estados, precios y promociones.
+- [x] limitador de login.
+- [x] MockMvc para 401, 403, correlación, validación y parámetros inválidos.
+- [x] flujo integrado cliente → pedido → confirmación → pagos.
+- [x] Vitest para cálculo de borrador de pedido.
+- [x] TypeScript, tests y build frontend en CI.
+- [x] construcción de imágenes.
 
-### Documentación
+### Repositorio
 
-- [x] README reproducible.
-- [x] Arquitectura.
-- [x] Modelo de datos.
-- [x] Contrato API.
-- [x] Seguridad.
-- [x] Pruebas y matriz original de 30 reglas.
-- [x] Operación y despliegue.
-- [x] Guía Windows/PowerShell.
-- [x] Guía funcional con JSON copiables.
-- [x] Supuestos.
-- [x] Roadmap.
-- [x] Changelog.
-- [x] ADR de monolito, configuración versionada y tokens.
+- [x] PR alternativo incompatible cerrado como reemplazado.
+- [x] una única línea técnica basada en `main`.
+- [x] documentación transversal y changelog.
+- [x] scripts PowerShell de inicio y verificación.
 
-## Alcance parcial
+## Parcial
 
-- [ ] Preferencias: persisten como JSON; falta modelo tipado y formulario especializado.
-- [ ] Clientes: falta actualización, domicilios alternativos avanzados, métricas e historial agregado.
-- [ ] Catálogo: falta interfaz administrativa para crear nuevas versiones.
-- [ ] Promociones: faltan créditos, condiciones compuestas, autorizaciones y concurrencia atómica.
-- [ ] Pedidos: falta edición, listado/filtros y flujo completo de interfaz.
-- [ ] Recepción: falta peso real, fotografías, daños, manchas y aprobación de diferencia.
-- [ ] Estados: falta permiso específico por transición y configuración de pasos opcionales.
-- [ ] Pagos: faltan comprobantes, reembolsos, deuda y caja.
-- [ ] Auditoría: falta interfaz de consulta y comparación amigable de valores.
-- [ ] Logs: falta identificador de correlación y agregación central.
-- [ ] Agenda/tablero: existen páginas estructurales, no métricas operativas reales.
+- [ ] Domicilios: creación disponible; falta alta de domicilios alternativos, vigencia, cambio de principal e historial.
+- [ ] Preferencias: tipadas para operación; falta convertirlas en reglas de compatibilidad de producción.
+- [ ] Promociones: falta consumo atómico, créditos, condiciones compuestas y autorizaciones.
+- [ ] Cotización: cálculo automático disponible; falta ajuste manual para `requiresQuote=true`.
+- [ ] Pedidos: falta edición controlada antes de confirmación y recepción.
+- [ ] Pagos: falta historial consultable, comprobantes, reembolsos y caja.
+- [ ] Estados: falta permiso específico por transición y evidencia obligatoria por etapa.
+- [ ] Auditoría: falta interfaz de consulta.
+- [ ] Login: bloqueo local; falta almacenamiento compartido y limitación perimetral.
+- [ ] Agenda y tablero: páginas presentes, sin consultas operativas completas.
 
-## Alcance pendiente por módulo
+## Pendiente por fase
+
+### Recepción / cierre de Fase 1
+
+- peso real;
+- recuento contra lo declarado;
+- diferencias de piezas, peso y precio;
+- ajuste manual de cotización;
+- aprobación del cliente;
+- fotografías y daños preexistentes;
+- manchas y observaciones;
+- etiquetas y bolsa;
+- edición controlada del pedido;
+- historial agregado del cliente;
+- administración de servicios, equivalencias, precios y promociones.
 
 ### Fase 2 — Producción
 
 - matriz de compatibilidad;
-- colores, suciedad, alergias, fragancia, suavizante, bebé, mascotas y contaminación;
-- propuesta de pedidos compatibles;
-- bloqueo de incompatibles;
-- excepción manual con motivo y autorización;
-- ciclos compartidos de hasta dos pedidos y 5 kg;
+- reglas por colores, alergias, bebé, mascotas, fragancia y contaminación;
+- propuestas de combinación;
+- autorización de excepciones;
+- ciclos compartidos de hasta dos pedidos;
+- límite de 5 kg por ciclo;
 - ciclos exclusivos;
-- lavarropas, secarropas y programas;
-- bolsas reutilizables y bolsas de red;
-- productos y dosificación;
+- máquinas y programas;
+- bolsas de red y trazabilidad física;
 - lavado, secado, calidad, relavado, doblado y embolsado;
 - capacidad diaria y mantenimiento.
 
 ### Fase 3 — Logística
 
-- localidades, barrios y radios avanzados;
-- rutas por fecha, zona, tipo y franja;
-- paradas y orden;
-- retiros y entregas;
-- kilómetros, combustible, costo y tiempo;
-- bloqueo/autorización de recorrido ineficiente;
+- radios, barrios y restricciones avanzadas;
+- rutas y paradas;
+- orden de visita;
+- retiro y entrega;
+- kilómetros, combustible, tiempo y costo;
 - adicionales fuera de ruta;
 - agenda diaria real;
-- plantillas e historial WhatsApp;
-- enlaces `wa.me`.
+- plantillas e historial WhatsApp.
 
 ### Fase 4 — Finanzas
 
+- caja diaria y arqueos;
+- ingresos y egresos;
+- cuentas por cobrar;
 - costos por pedido y ciclo;
 - gastos fijos;
-- inventario de costos históricos;
-- mano de obra y tiempos;
-- caja diaria, ingresos, egresos y arqueos;
-- cuentas por cobrar;
-- créditos y reembolsos;
-- margen de contribución y resultado operativo;
-- costo por kg/unidad/cliente;
-- rentabilidad por promoción, zona y ruta;
-- inversión, amortización y recuperación;
-- simulador de escenarios.
+- tiempo y mano de obra;
+- margen y resultado;
+- rentabilidad por zona, servicio y promoción;
+- inversión, amortización y escenarios.
 
 ### Fase 5 — Crecimiento
 
-- planes y suscripciones;
-- usos, vencimientos, pausa, renovación y mora;
-- clientes comerciales, cuenta corriente y SLA;
+- abonos y suscripciones;
+- clientes comerciales y SLA;
 - inventario y movimientos;
-- equipamiento, fallas y mantenimiento;
-- reclamos, evidencias, resolución y compensación;
-- políticas versionadas y aceptación;
-- competencia y referencias de mercado;
-- tableros semanales/mensuales y alertas.
+- equipamiento y mantenimiento;
+- reclamos y compensaciones;
+- políticas versionadas;
+- referencias de mercado;
+- tableros y alertas.
 
 ## Criterios de aceptación del MVP
 
-| # | Criterio | Estado | Evidencia o pendiente |
-|---:|---|---|---|
-| 1 | Crear cliente y domicilio | Cumple | UI y `/clients` |
-| 2 | Registrar preferencias | Parcial | JSON persistido |
-| 3 | Crear pedido | Cumple backend | `/orders` |
-| 4 | Registrar piezas físicas | Cumple | `order_items.physical_pieces` |
-| 5 | Calcular equivalencias | Cumple | dominio y pruebas |
-| 6 | Registrar peso real | Pendiente | solo peso declarado |
-| 7 | Aplicar primer límite | Cumple dominio | falta UX recepción |
-| 8 | Calcular precio vigente | Cumple | `PricingService` |
-| 9 | Aplicar promoción válida | Parcial | reglas automáticas seguras |
-| 10 | Impedir promoción inválida | Cumple para reglas soportadas | errores de dominio |
-| 11 | Confirmar precio | Cumple | endpoint e histórico |
-| 12 | Programar retiro | Parcial | fecha sin ruta |
-| 13 | Recibir pedido | Parcial | transición sin pantalla |
-| 14 | Evaluar compatibilidad | Pendiente | Fase 2 |
-| 15 | Asignar hasta dos pedidos | Pendiente | Fase 2 |
-| 16 | Impedir sobrepeso de ciclo | Pendiente | Fase 2 |
-| 17 | Registrar lavado y secado | Pendiente | Fase 2 |
-| 18 | Cambiar estados con trazabilidad | Cumple | historial y auditoría |
-| 19 | Registrar pago | Cumple básico | `/payments` |
-| 20 | Programar entrega | Parcial | fecha/estado sin ruta |
-| 21 | Entregar y cerrar | Cumple en dominio | falta UI/E2E |
-| 22 | Calcular costo y margen | Pendiente | Fase 4 |
-| 23 | Ver agenda diaria | Pendiente real | página estructural |
-| 24 | Ver tablero básico | Parcial | sin métricas inventadas |
-| 25 | Historial del cliente | Parcial | consulta de cliente; falta agregado operacional |
+| # | Criterio | Estado |
+|---:|---|---|
+| 1 | Crear cliente y domicilio | Cumple |
+| 2 | Registrar preferencias | Cumple |
+| 3 | Crear pedido | Cumple UI/backend |
+| 4 | Registrar piezas físicas | Cumple |
+| 5 | Calcular equivalencias | Cumple |
+| 6 | Registrar peso real | Pendiente |
+| 7 | Aplicar primer límite | Cumple dominio/UI |
+| 8 | Calcular precio vigente | Cumple |
+| 9 | Aplicar promoción válida | Parcial |
+| 10 | Impedir promoción inválida | Cumple reglas soportadas |
+| 11 | Confirmar precio | Cumple UI/backend |
+| 12 | Programar retiro | Parcial, sin ruta |
+| 13 | Recibir pedido | Parcial, solo transición |
+| 14 | Evaluar compatibilidad | Pendiente |
+| 15 | Asignar dos pedidos | Pendiente |
+| 16 | Impedir sobrepeso de ciclo | Pendiente |
+| 17 | Registrar lavado y secado | Pendiente |
+| 18 | Cambiar estados con trazabilidad | Cumple |
+| 19 | Registrar pago | Cumple UI/backend |
+| 20 | Programar entrega | Parcial, sin ruta |
+| 21 | Entregar y cerrar | Cumple en flujo de estados |
+| 22 | Calcular costo y margen | Pendiente |
+| 23 | Ver agenda diaria | Pendiente real |
+| 24 | Ver tablero básico | Parcial |
+| 25 | Historial del cliente | Parcial |
 
-Resultado: 10 criterios cumplen, 8 son parciales y 7 continúan pendientes. El MVP completo todavía no está terminado.
-
-## Próximo orden de ejecución recomendado
-
-### Corte 0.1.1 — Hardening de Fase 1
-
-1. MockMvc de autenticación, errores y permisos.
-2. Pruebas integradas cliente → pedido → confirmación → pago.
-3. Actualización de cliente y preferencias tipadas.
-4. Listado, búsqueda y filtros de pedidos.
-5. Pantalla de creación de pedido.
-6. Correlación de logs.
-7. Protección contra fuerza bruta/rate limiting.
-
-### Corte 0.2.0 — Recepción y control
-
-1. Peso real.
-2. Conteo y recálculo.
-3. Fotografías y daños preexistentes.
-4. Diferencia de precio y aprobación.
-5. Etiquetas e identificación de bolsa.
-6. Historial completo del cliente.
-7. Administradores de precios, equivalencias y promociones.
-
-### Corte 0.3.0 — Producción
-
-1. Modelo tipado de preferencias y atributos de compatibilidad.
-2. Matriz de compatibilidad.
-3. Equipos y programas.
-4. Ciclos compartidos/exclusivos.
-5. Capacidad y sobrepeso.
-6. Secado, calidad y relavado.
-7. Bolsas y trazabilidad física.
-
-Después continuar con logística, finanzas y crecimiento en ese orden. Implementar tableros antes de datos confiables produciría decoración, no gestión.
+Resultado 0.1.1: **12 cumplen, 6 son parciales y 7 están pendientes**.
 
 ## Riesgos abiertos
 
-1. Los cupos promocionales requieren consumo atómico o bloqueo transaccional.
-2. Las preferencias JSON no son suficientes para consultas de compatibilidad.
-3. Las promociones complejas necesitan un modelo explícito de condiciones.
-4. Falta idempotencia para pagos externos y webhooks.
-5. Falta almacenamiento externo de evidencias.
-6. Falta automatización y prueba periódica de backups.
-7. Falta rate limiting de autenticación.
-8. Falta política formal de versionado API.
-9. Falta observabilidad y correlación.
-10. El Compose actual usa `dev` y no debe considerarse despliegue productivo.
-11. Agenda y tablero no deben usarse como fuente de verdad hasta implementar sus consultas.
-12. El flujo de pedido todavía depende de Swagger en varias operaciones.
+1. Los cupos promocionales requieren bloqueo transaccional o contador atómico.
+2. El limitador de login no se comparte entre instancias.
+3. La dirección de origen depende de una configuración correcta del proxy.
+4. Las preferencias deben integrarse a un modelo consultable de compatibilidad.
+5. Falta idempotencia para pagos externos y webhooks.
+6. Falta almacenamiento externo y seguro de evidencias.
+7. Falta automatización y prueba periódica de backups.
+8. Falta versionado formal de API.
+9. Falta historial consultable de pagos y auditoría.
+10. El Compose actual usa perfil `dev` y no representa producción.
+11. Agenda y tablero no son fuentes de verdad completas.
+12. Los pedidos con presupuesto manual no tienen ajuste operativo.
 
-## Definición de terminado para próximos cortes
+## Próximo orden recomendado
 
-Cada corte debe finalizar con:
+### 0.1.2 — Cierre administrativo de Fase 1
+
+1. versionado de domicilios;
+2. historial de pagos y comprobantes;
+3. ajuste manual de cotización con motivo y autorización;
+4. edición controlada de pedido antes de confirmar;
+5. consumo promocional atómico;
+6. auditoría consultable;
+7. rate limiter compartido o adaptador Redis;
+8. smoke test HTTP del Compose iniciado.
+
+### 0.2.0 — Recepción
+
+1. peso real;
+2. recuento y diferencia;
+3. fotografías y daños;
+4. manchas e instrucciones;
+5. aprobación de diferencia de precio;
+6. etiqueta y bolsa;
+7. historial operativo del cliente;
+8. administración comercial.
+
+### 0.3.0 — Producción
+
+1. atributos de compatibilidad;
+2. matriz y explicación de incompatibilidades;
+3. máquinas y programas;
+4. ciclos compartidos y exclusivos;
+5. capacidad y sobrepeso;
+6. lavado, secado, calidad y relavado;
+7. trazabilidad física.
+
+Después continuar con logística, finanzas y crecimiento. Implementar tableros antes de datos confiables produciría decoración, no gestión.
+
+## Definición de terminado
+
+Cada corte debe cerrar con:
 
 - compilación exitosa;
-- migraciones nuevas aplicables sobre PostgreSQL vacío y actualización controlada;
-- validación JPA exitosa;
-- pruebas de las reglas críticas;
-- frontend con `npm ci`, lint y build;
+- migraciones aplicables y validación JPA;
+- pruebas de reglas críticas;
+- frontend con `npm ci`, lint, tests y build;
 - imágenes construibles;
 - documentación y changelog actualizados;
-- lista explícita de riesgos y pendientes;
-- evidencia CI verde antes de integrar a `main`.
+- riesgos y pendientes explícitos;
+- CI verde antes de integrar a `main`.
