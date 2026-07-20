@@ -35,15 +35,14 @@ $Health = Invoke-RestMethod -Uri 'http://localhost:8081/api/actuator/health' -Me
 Assert-True -Condition ($Health.status -eq 'UP') -Message "Estado de salud inesperado: $($Health.status)"
 
 Write-Host '3/3 Verificando migraciones Flyway...'
-$MigrationQuery = 'select count(*) from flyway_schema_history where success = true;'
-$MigrationResult = & docker compose exec -T postgres psql -U ropalista -d ropalista -tAc $MigrationQuery
+$MigrationResult = & docker compose exec -T postgres psql -U ropalista -d ropalista -tAc 'select count(*) from flyway_schema_history where success = true;'
 
 if ($LASTEXITCODE -ne 0) {
     throw 'No se pudo consultar flyway_schema_history.'
 }
 
 $MigrationCount = [int]($MigrationResult.Trim())
-Assert-True -Condition ($MigrationCount -ge 5) -Message "Se esperaban al menos 5 migraciones exitosas; se encontraron $MigrationCount."
+Assert-True -Condition ($MigrationCount -ge 6) -Message "Se esperaban al menos 6 migraciones exitosas; se encontraron $MigrationCount."
 
 Write-Host ''
 Write-Host 'Verificación local exitosa.' -ForegroundColor Green
