@@ -55,12 +55,30 @@ public class Client extends AuditableEntity {
         this.whatsapp = whatsapp;
         this.email = email;
         this.acquisitionSource = acquisitionSource;
-        this.preferencesJson = preferencesJson == null || preferencesJson.isBlank() ? "{}" : preferencesJson;
+        this.preferencesJson = normalizePreferences(preferencesJson);
+        this.notes = notes;
+    }
+
+    public void updateProfile(String firstName, String lastName, String phone, String whatsapp,
+                              String email, ClientStatus status, String acquisitionSource,
+                              String preferencesJson, String notes) {
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.phone = phone;
+        this.whatsapp = whatsapp;
+        this.email = email;
+        this.status = status;
+        this.acquisitionSource = acquisitionSource;
+        this.preferencesJson = normalizePreferences(preferencesJson);
         this.notes = notes;
     }
 
     public void addAddress(Address address) {
         address.attachTo(this);
         addresses.add(address);
+    }
+
+    private String normalizePreferences(String value) {
+        return value == null || value.isBlank() ? "{}" : value;
     }
 }
