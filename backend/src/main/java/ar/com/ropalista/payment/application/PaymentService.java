@@ -35,7 +35,7 @@ public class PaymentService {
 
     @Transactional
     public PaymentDtos.PaymentResponse register(PaymentDtos.RegisterPaymentRequest request) {
-        var order = orders.findByIdAndDeletedAtIsNull(request.orderId())
+        var order = orders.findByIdForUpdate(request.orderId())
                 .orElseThrow(() -> new BusinessException("ORDER_NOT_FOUND", "Pedido inexistente", HttpStatus.NOT_FOUND));
         if (order.getConfirmedPrice() == null) {
             throw new BusinessException("PRICE_NOT_CONFIRMED", "No se puede cobrar un pedido sin precio confirmado", HttpStatus.UNPROCESSABLE_ENTITY);
