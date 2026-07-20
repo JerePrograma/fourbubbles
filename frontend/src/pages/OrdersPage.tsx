@@ -97,7 +97,7 @@ export function OrdersPage(): JSX.Element {
             <tbody>
               {orders.map((order) => (
                 <tr key={order.id}>
-                  <td><strong>{order.orderNumber}</strong><div className="muted small-text">{formatDate(order.createdAt)}</div></td>
+                  <td><Link className="text-link" to={`/orders/${order.id}`}>{order.orderNumber}</Link><div className="muted small-text">{formatDate(order.createdAt)}</div></td>
                   <td>{order.clientName}</td>
                   <td>{order.serviceName}<div className="muted small-text">{order.physicalPieces} piezas · {order.equivalentUnits} unidades</div></td>
                   <td><span className="badge">{order.status}</span></td>
