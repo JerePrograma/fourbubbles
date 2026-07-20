@@ -14,6 +14,9 @@ const statusOptions: Array<{ value: '' | OrderStatus; label: string }> = [
   { value: 'PICKUP_SCHEDULED', label: 'Retiro programado' },
   { value: 'PICKED_UP', label: 'Retirado' },
   { value: 'RECEIVED', label: 'Recibido' },
+  { value: 'PENDING_INSPECTION', label: 'Inspección pendiente' },
+  { value: 'WAITING_PRICE_APPROVAL', label: 'Esperando aprobación' },
+  { value: 'CLASSIFIED', label: 'Clasificado' },
   { value: 'WAITING_WASH', label: 'Esperando lavado' },
   { value: 'WASHING', label: 'Lavando' },
   { value: 'DRYING', label: 'Secando' },
@@ -69,19 +72,13 @@ export function OrdersPage(): JSX.Element {
   return (
     <section>
       <div className="page-heading">
-        <div><h1>Pedidos</h1><p className="muted">Cotización, seguimiento y estado de pago</p></div>
+        <div><h1>Pedidos</h1><p className="muted">Cotización, recepción, seguimiento y estado de pago</p></div>
         {canWrite && <Link className="button" to="/orders/new">Nuevo pedido</Link>}
       </div>
       {searchParams.has('created') && <div className="success">Pedido {searchParams.get('created')} creado correctamente.</div>}
       <form className="card filter-bar" onSubmit={(event) => { event.preventDefault(); applyFilters(); }}>
-        <label>Número
-          <input value={orderNumber} onChange={(event) => setOrderNumber(event.target.value)} placeholder="RL-000001" />
-        </label>
-        <label>Estado
-          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as '' | OrderStatus)}>
-            {statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
-        </label>
+        <label>Número<input value={orderNumber} onChange={(event) => setOrderNumber(event.target.value)} placeholder="RL-000001" /></label>
+        <label>Estado<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as '' | OrderStatus)}>{statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
         <button type="submit" disabled={loading}>Buscar</button>
         <button type="button" className="secondary-button" onClick={clearFilters}>Limpiar</button>
       </form>
@@ -93,20 +90,19 @@ export function OrdersPage(): JSX.Element {
         {!loading && orders.length === 0 && <p className="muted">No hay pedidos para el filtro indicado.</p>}
         {orders.length > 0 && (
           <table>
-            <thead><tr><th>Pedido</th><th>Cliente</th><th>Servicio</th><th>Estado</th><th>Pago</th><th>Importe</th><th>Retiro</th></tr></thead>
-            <tbody>
-              {orders.map((order) => (
-                <tr key={order.id}>
-                  <td><Link className="text-link" to={`/orders/${order.id}`}>{order.orderNumber}</Link><div className="muted small-text">{formatDate(order.createdAt)}</div></td>
-                  <td>{order.clientName}</td>
-                  <td>{order.serviceName}<div className="muted small-text">{order.physicalPieces} piezas · {order.equivalentUnits} unidades</div></td>
-                  <td><span className="badge">{order.status}</span></td>
-                  <td><span className="badge neutral-badge">{order.paymentStatus}</span></td>
-                  <td>{formatMoney(order.confirmedPrice ?? order.quotedPrice, order.currencyCode)}</td>
-                  <td>{order.pickupScheduledAt ? formatDate(order.pickupScheduledAt) : 'Sin programar'}</td>
-                </tr>
-              ))}
-            </tbody>
+            <thead><tr><th>Pedido</th><th>Cliente</th><th>Servicio</th><th>Estado</th><th>Pago</th><th>Importe</th><th>Retiro</th><th>Operación</th></tr></thead>
+            <tbody>{orders.map((order) => (
+              <tr key={order.id}>
+                <td><Link className="text-link" to={`/orders/${order.id}`}>{order.orderNumber}</Link><div className="muted small-text">{formatDate(order.createdAt)}</div></td>
+                <td>{order.clientName}</td>
+                <td>{order.serviceName}<div className="muted small-text">{order.physicalPieces} piezas · {order.equivalentUnits} unidades</div></td>
+                <td><span className="badge">{order.status}</span></td>
+                <td><span className="badge neutral-badge">{order.paymentStatus}</span></td>
+                <td>{formatMoney(order.confirmedPrice ?? order.quotedPrice, order.currencyCode)}</td>
+                <td>{order.pickupScheduledAt ? formatDate(order.pickupScheduledAt) : 'Sin programar'}</td>
+                <td><Link className="text-link" to={`/orders/${order.id}/reception`}>{order.status === 'PICKED_UP' ? 'Recibir' : 'Ver recepción'}</Link></td>
+              </tr>
+            ))}</tbody>
           </table>
         )}
       </div>
