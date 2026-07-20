@@ -1,8 +1,7 @@
 name: Diagnostic
 
 on:
-  push:
-    branches: [agent/phase-1-core]
+  pull_request:
 
 permissions:
   contents: read
