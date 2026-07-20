@@ -1,18 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiRequest } from '../api/httpClient';
 import type { PageResponse } from '../models/api';
 import type { GarmentEquivalence, ServiceOffering } from '../models/catalog';
 import type { Client } from '../models/client';
 import type { CreatedOrder } from '../models/order';
+import { calculateOrderDraftTotals, toOffsetDateTime } from '../order/orderDraft';
+import type { DraftOrderItem } from '../order/orderDraft';
 
-interface DraftItem {
-  equivalenceCode: string;
-  physicalPieces: number;
-  observations: string;
-}
-
-const emptyItem = (): DraftItem => ({ equivalenceCode: '', physicalPieces: 1, observations: '' });
+const emptyItem = (): DraftOrderItem => ({ equivalenceCode: '', physicalPieces: 1, observations: '' });
 
 export function NewOrderPage(): JSX.Element {
   const navigate = useNavigate();
@@ -28,7 +25,7 @@ export function NewOrderPage(): JSX.Element {
   const [pickupScheduledAt, setPickupScheduledAt] = useState('');
   const [promisedAt, setPromisedAt] = useState('');
   const [notes, setNotes] = useState('');
-  const [items, setItems] = useState<DraftItem[]>([emptyItem()]);
+  const [items, setItems] = useState<DraftOrderItem[]>([emptyItem()]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +54,7 @@ export function NewOrderPage(): JSX.Element {
 
   const selectedClient = clients.find((client) => client.id === clientId);
   const selectedService = services.find((service) => service.code === serviceCode);
-  const totals = useMemo(() => calculateTotals(items, equivalences), [items, equivalences]);
+  const totals = useMemo(() => calculateOrderDraftTotals(items, equivalences), [items, equivalences]);
 
   const changeClient = (nextClientId: string) => {
     setClientId(nextClientId);
@@ -65,11 +62,11 @@ export function NewOrderPage(): JSX.Element {
     setAddressId(client?.addresses.find((address) => address.primaryAddress)?.id ?? client?.addresses[0]?.id ?? '');
   };
 
-  const updateItem = (index: number, patch: Partial<DraftItem>) => {
+  const updateItem = (index: number, patch: Partial<DraftOrderItem>) => {
     setItems((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item));
   };
 
-  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
     const validItems = items.filter((item) => item.equivalenceCode && item.physicalPieces > 0);
@@ -174,6 +171,7 @@ export function NewOrderPage(): JSX.Element {
             <div><span>Peso estimado</span><strong>{totals.estimatedWeightGrams === null ? 'No calculable' : `${totals.estimatedWeightGrams} g`}</strong></div>
             <div><span>Requiere revisión</span><strong>{totals.requiresQuote ? 'Sí' : 'No'}</strong></div>
           </div>
+          {totals.exclusiveCycleRequired && <div className="alert">La composición exige ciclo exclusivo aunque la casilla manual no esté seleccionada.</div>}
         </article>
 
         <article className="card form-grid span-2">
@@ -190,29 +188,4 @@ export function NewOrderPage(): JSX.Element {
       </form>
     </section>
   );
-}
-
-function calculateTotals(items: DraftItem[], equivalences: GarmentEquivalence[]) {
-  let physicalPieces = 0;
-  let equivalentUnits = 0;
-  let estimatedWeightGrams = 0;
-  let weightKnown = true;
-  let requiresQuote = false;
-  for (const item of items) {
-    const rule = equivalences.find((candidate) => candidate.code === item.equivalenceCode);
-    if (!rule || item.physicalPieces <= 0) continue;
-    const groups = Math.ceil(item.physicalPieces / rule.physicalUnitsPerGroup);
-    physicalPieces += item.physicalPieces;
-    equivalentUnits += groups * rule.equivalentUnits;
-    if (rule.estimatedWeightGrams === null) weightKnown = false;
-    else estimatedWeightGrams += groups * rule.estimatedWeightGrams;
-    requiresQuote ||= rule.quoteRequired;
-  }
-  return { physicalPieces, equivalentUnits, estimatedWeightGrams: weightKnown ? estimatedWeightGrams : null, requiresQuote };
-}
-
-function toOffsetDateTime(value: string): string | null {
-  if (!value) return null;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
