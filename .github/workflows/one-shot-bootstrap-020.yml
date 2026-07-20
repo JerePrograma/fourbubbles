@@ -1,0 +1,110 @@
+name: One-shot bootstrap 0.2.0
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bootstrap:
+    if: github.head_ref == 'agent/0.1.2-administrative'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Wait for 0.1.2 merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 120); do
+            state=$(gh pr view 4 --repo JerePrograma/fourbubbles --json state --jq .state)
+            merged=$(gh pr view 4 --repo JerePrograma/fourbubbles --json mergedAt --jq '.mergedAt // ""')
+            if [ "$state" = "MERGED" ] || [ -n "$merged" ]; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo '0.1.2 was not merged within the bootstrap window' >&2
+          exit 1
+
+      - name: Create reception branch and planning commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo=JerePrograma/fourbubbles
+          branch=agent/0.2.0-reception
+          main_sha=$(gh api repos/$repo/commits/main --jq .sha)
+          if ! gh api repos/$repo/git/ref/heads/$branch >/dev/null 2>&1; then
+            gh api --method POST repos/$repo/git/refs \
+              -f ref="refs/heads/$branch" \
+              -f sha="$main_sha" >/dev/null
+          fi
+
+          git clone -q --depth 1 --branch "$branch" "https://x-access-token:${GH_TOKEN}@github.com/$repo.git" reception
+          cd reception
+          cat > docs/RECEPTION_IMPLEMENTATION_PLAN.md <<'EOF'
+          # Plan de implementación 0.2.0 - Recepción
+
+          ## Objetivo
+
+          Convertir el estado `RECEIVED` en un proceso verificable, no en una etiqueta.
+
+          ## Alcance obligatorio
+
+          1. Registrar fecha, operador y ubicación de recepción.
+          2. Registrar peso real en gramos.
+          3. Recontar piezas físicas.
+          4. Comparar declaración contra recepción.
+          5. Permitir ajustes de composición con historia anterior/nueva.
+          6. Registrar daños, manchas e instrucciones.
+          7. Modelar evidencias como metadatos con almacenamiento externo desacoplado.
+          8. Recalcular equivalencias, límites y precio.
+          9. Exigir aprobación cuando la diferencia cambie importe o servicio.
+          10. Generar etiqueta y asignar bolsa.
+          11. Auditar cada cambio.
+          12. Exponer flujo completo en UI y API.
+
+          ## Diseño propuesto
+
+          - `order_receptions`: cabecera única por recepción vigente.
+          - `order_reception_items`: snapshot recibido por equivalencia.
+          - `order_evidences`: metadatos, hash, tipo y referencia externa.
+          - `bags`: identificador físico, estado y ubicación.
+          - nueva migración V7 exclusivamente aditiva.
+          - estado de recepción separado de la política general cuando requiera aprobación.
+          - idempotencia para confirmar recepción.
+
+          ## Pruebas mínimas
+
+          - peso y conteo exactos;
+          - diferencia sin impacto de precio;
+          - diferencia con aprobación;
+          - evidencia obligatoria para daño;
+          - límite excedido después del pesaje;
+          - carrera de doble confirmación;
+          - trazabilidad de bolsa;
+          - integración PostgreSQL y flujo UI;
+          - upgrade Flyway V6→V7;
+          - runtime smoke.
+
+          ## Fuera de alcance
+
+          Compatibilidad entre pedidos, ciclos, máquinas, rutas, caja y costos. Esos módulos comienzan después de cerrar recepción.
+          EOF
+
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add docs/RECEPTION_IMPLEMENTATION_PLAN.md
+          if ! git diff --cached --quiet; then
+            git commit -m 'docs: plan release 0.2.0 reception workflow'
+            git push origin "$branch"
+          fi
+
+          if ! gh pr list --repo "$repo" --head "$branch" --state open --json number --jq 'length' | grep -q '^1$'; then
+            gh pr create --repo "$repo" \
+              --head "$branch" --base main --draft \
+              --title 'Ropa Lista 0.2.0: recepción, pesaje y evidencias' \
+              --body 'Plan inicial para convertir recepción en un proceso verificable. No se implementarán producción, ciclos, logística o finanzas dentro de este corte.'
+          fi
