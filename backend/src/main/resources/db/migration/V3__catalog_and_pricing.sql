@@ -54,7 +54,7 @@ CREATE TABLE price_definitions (
     service_id UUID NOT NULL REFERENCES service_offerings(id),
     zone_id UUID REFERENCES zones(id),
     amount NUMERIC(15,2) NOT NULL,
-    currency_code CHAR(3) NOT NULL,
+    currency_code VARCHAR(3) NOT NULL,
     customer_type VARCHAR(40),
     channel VARCHAR(40),
     modality VARCHAR(40),
