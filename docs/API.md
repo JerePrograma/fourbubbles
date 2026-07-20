@@ -1,6 +1,6 @@
 # Contrato API
 
-Versión documentada: `0.1.2`.
+Versión documentada: `0.2.0`.
 
 La API se sirve bajo `/api`. Swagger local: `/api/swagger-ui.html`.
 
@@ -9,10 +9,7 @@ La API se sirve bajo `/api`. Swagger local: `/api/swagger-ui.html`.
 Éxito:
 
 ```json
-{
-  "success": true,
-  "data": {}
-}
+{"success":true,"data":{},"timestamp":"2026-07-20T20:00:00-03:00"}
 ```
 
 Error:
@@ -29,23 +26,19 @@ Error:
 }
 ```
 
-Cada respuesta incluye `X-Request-ID`. Un valor entrante válido se conserva; de lo contrario se genera un UUID.
+Cada respuesta incorpora `X-Request-ID`.
 
 ## Autenticación
 
-| Método | Ruta | Autorización | Descripción |
-|---|---|---|---|
-| POST | `/auth/login` | pública | access token y cookie refresh |
-| POST | `/auth/refresh` | cookie refresh | rotación de refresh |
-| POST | `/auth/logout` | sesión | revocación y limpieza de cookie |
-
-El access token se envía como:
+| Método | Ruta | Descripción |
+|---|---|---|
+| POST | `/auth/login` | access token y cookie refresh |
+| POST | `/auth/refresh` | rotación del refresh |
+| POST | `/auth/logout` | revocación y limpieza |
 
 ```http
 Authorization: Bearer <token>
 ```
-
-## Roles
 
 Jerarquía:
 
@@ -53,187 +46,180 @@ Jerarquía:
 ADMIN > OPERATOR > DRIVER > REPORT_VIEWER
 ```
 
-La jerarquía habilita permisos heredados. Las anotaciones específicas continúan restringiendo escrituras administrativas.
-
 ## Catálogo
 
-| Método | Ruta | Roles | Descripción |
-|---|---|---|---|
-| GET | `/catalog/services` | autenticado | servicios vigentes |
-| GET | `/catalog/equivalences` | autenticado | equivalencias vigentes |
+- `GET /catalog/services`
+- `GET /catalog/equivalences`
 
-## Clientes y domicilios
+## Clientes/domicilios
 
-| Método | Ruta | Roles | Descripción |
-|---|---|---|---|
-| POST | `/clients` | ADMIN, OPERATOR | crear cliente con domicilios |
-| GET | `/clients` | lectura | búsqueda paginada |
-| GET | `/clients/{id}` | lectura | perfil, domicilios activos e historial |
-| PUT | `/clients/{id}` | ADMIN, OPERATOR | actualizar perfil/preferencias |
-| POST | `/clients/{id}/addresses` | ADMIN, OPERATOR | agregar domicilio |
-| POST | `/clients/{id}/addresses/{addressId}/make-primary` | ADMIN, OPERATOR | establecer principal |
-| DELETE | `/clients/{id}/addresses/{addressId}` | ADMIN, OPERATOR | baja lógica |
+- `POST /clients`
+- `GET /clients`
+- `GET /clients/{id}`
+- `PUT /clients/{id}`
+- `POST /clients/{id}/addresses`
+- `POST /clients/{id}/addresses/{addressId}/make-primary`
+- `DELETE /clients/{id}/addresses/{addressId}`
 
-### Crear domicilio
-
-```json
-{
-  "zoneCode": "MARCOS_PAZ",
-  "street": "Sarmiento",
-  "number": "123",
-  "extra": null,
-  "locality": "Marcos Paz",
-  "neighborhood": "Centro",
-  "references": "Portón negro",
-  "primaryAddress": false
-}
-```
-
-Reglas:
-
-- debe quedar al menos un domicilio activo;
-- existe un único principal activo;
-- el principal no puede desactivarse;
-- una baja conserva historial y referencias de pedidos.
+Escrituras: `ADMIN`, `OPERATOR`. Lectura: roles heredados.
 
 ## Pedidos
 
-| Método | Ruta | Roles | Descripción |
-|---|---|---|---|
-| POST | `/orders` | ADMIN, OPERATOR | crear y cotizar |
-| GET | `/orders` | lectura operativa | buscar por número, cliente y estado |
-| GET | `/orders/{id}` | lectura operativa | detalle y transiciones permitidas |
-| PATCH | `/orders/{id}/planning` | ADMIN, OPERATOR | retiro, promesa y notas tempranas |
-| POST | `/orders/{id}/manual-quote` | ADMIN | registrar cotización manual |
-| POST | `/orders/{id}/confirm-price` | ADMIN, OPERATOR | confirmar precio |
-| PATCH | `/orders/{id}/status` | ADMIN, OPERATOR, DRIVER | transición válida |
+- `POST /orders`
+- `GET /orders`
+- `GET /orders/{id}`
+- `PATCH /orders/{id}/planning`
+- `POST /orders/{id}/manual-quote`
+- `POST /orders/{id}/confirm-price`
+- `PATCH /orders/{id}/status`
 
-### Crear pedido
+## Recepción
+
+### Registrar
+
+```http
+POST /orders/{orderId}/reception
+Authorization: Bearer <token>
+Idempotency-Key: web-reception-5c2cc70d-7bb1-40d6-a338-667721b72d74
+Content-Type: application/json
+```
+
+Roles: `ADMIN`, `OPERATOR`.
 
 ```json
 {
-  "clientId": "uuid",
-  "addressId": "uuid",
-  "serviceCode": "ROPA_LISTA_12",
-  "promotionCode": null,
-  "declaredWeightGrams": 2200,
-  "exclusiveCycle": false,
-  "pickupScheduledAt": null,
-  "promisedAt": null,
-  "notes": "Observación",
+  "receivedAt": "2026-07-20T17:30:00-03:00",
+  "actualWeightGrams": 2680,
+  "conditionNotes": "Mancha leve en una remera",
+  "bagCode": "BAG-0012",
   "items": [
     {
       "equivalenceCode": "TSHIRT",
-      "physicalPieces": 4,
-      "observations": null
+      "actualPhysicalPieces": 2,
+      "damageDetected": false,
+      "stainDetected": true,
+      "observations": "Mancha frontal"
+    }
+  ],
+  "evidences": [
+    {
+      "objectKey": "receptions/RL-000012/front.jpg",
+      "fileName": "front.jpg",
+      "contentType": "image/jpeg",
+      "sizeBytes": 245331,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "caption": "Vista frontal"
     }
   ]
 }
 ```
 
-### Planificación temprana
+Reglas:
+
+- clave obligatoria y segura;
+- pedido en `PICKED_UP`;
+- una recepción por pedido;
+- todos los códigos declarados presentes;
+- total real positivo;
+- peso real positivo;
+- fecha no futura;
+- la misma clave devuelve el mismo agregado.
+
+Respuesta relevante:
 
 ```json
 {
-  "pickupScheduledAt": "2026-07-21T10:00:00-03:00",
-  "promisedAt": "2026-07-23T18:00:00-03:00",
-  "notes": "Llamar antes"
+  "id": "uuid",
+  "orderId": "uuid",
+  "receivedAt": "2026-07-20T17:30:00-03:00",
+  "declaredPhysicalPieces": 2,
+  "actualPhysicalPieces": 2,
+  "declaredWeightGrams": 2500,
+  "actualWeightGrams": 2680,
+  "pieceDifference": 0,
+  "weightDifferenceGrams": 180,
+  "damageDetected": false,
+  "stainDetected": true,
+  "requiresCustomerApproval": false,
+  "approvalStatus": "NOT_REQUIRED",
+  "labelCode": "RCV-000001",
+  "bagCode": "BAG-0012",
+  "orderStatus": "CLASSIFIED",
+  "items": [],
+  "evidences": []
 }
 ```
 
-Solo se admite en `INQUIRY` o `QUOTED` y antes de confirmar precio.
+### Consultar
 
-### Cotización manual
+```http
+GET /orders/{orderId}/reception
+```
+
+Roles de lectura. Si el pedido existe pero no tiene recepción, `data` es `null`.
+
+### Decidir diferencias
+
+```http
+POST /orders/{orderId}/reception/decision
+```
+
+Roles: `ADMIN`, `OPERATOR`.
 
 ```json
 {
-  "amount": 12000.00,
-  "reason": "Prenda especial que requiere tratamiento individual"
+  "decision": "APPROVED",
+  "notes": "Cliente acepta diferencia documentada"
 }
 ```
 
-La respuesta conserva:
+Valores admitidos:
 
-- `automaticQuotedPrice`;
-- `quotedPrice` vigente;
-- `manualQuoteReason`;
-- `manualQuoteAt`;
-- `manualQuoteBy`;
-- `priceBreakdown` actualizado.
+- `APPROVED` → pedido `CLASSIFIED`;
+- `REJECTED` → pedido `CANCELLED`.
 
-### Cambio de estado
-
-```json
-{
-  "newStatus": "RESERVED",
-  "observation": "Confirmado por cliente",
-  "location": null,
-  "notificationReference": null
-}
-```
-
-El backend rechaza transiciones fuera de la política y devuelve `allowedTransitions` en el detalle.
+Solo se acepta si recepción y pedido están pendientes de decisión.
 
 ## Pagos
 
-| Método | Ruta | Roles | Descripción |
-|---|---|---|---|
-| POST | `/payments` | ADMIN, OPERATOR | registrar pago |
-| GET | `/payments?orderId={uuid}` | lectura | historial del pedido |
+- `POST /payments`
+- `GET /payments?orderId={uuid}`
 
-```json
-{
-  "orderId": "uuid",
-  "methodCode": "TRANSFER",
-  "amount": 3000.00,
-  "paidAt": null,
-  "reference": "TRX-123",
-  "notes": null
-}
-```
-
-Reglas:
-
-- precio confirmado obligatorio;
-- importe positivo;
-- total acumulado no superior al confirmado;
-- pedido bloqueado durante el cálculo de saldo;
-- historial ordenado por fecha.
+El pedido se bloquea durante el cálculo de saldo.
 
 ## Auditoría
 
-| Método | Ruta | Roles | Descripción |
-|---|---|---|---|
-| GET | `/audit` | ADMIN | búsqueda paginada |
+```http
+GET /audit?entityType=ORDER_RECEPTION&entityId=<uuid>&action=CREATE
+```
 
-Parámetros opcionales:
+Solo `ADMIN`.
 
-- `entityType`;
-- `entityId`;
-- `action`;
-- `page`;
-- `size`.
+## Códigos nuevos de recepción
 
-## Códigos relevantes
+- `IDEMPOTENCY_KEY_REQUIRED`;
+- `INVALID_IDEMPOTENCY_KEY`;
+- `IDEMPOTENCY_KEY_CONFLICT`;
+- `ORDER_ALREADY_RECEIVED`;
+- `ORDER_NOT_READY_FOR_RECEPTION`;
+- `INVALID_RECEPTION_TIME`;
+- `DUPLICATE_RECEPTION_ITEM`;
+- `MISSING_DECLARED_RECEPTION_ITEMS`;
+- `EMPTY_RECEPTION`;
+- `RECEPTION_NOT_FOUND`;
+- `RECEPTION_DECISION_NOT_ALLOWED`;
+- `INVALID_RECEPTION_DECISION`.
+
+Constraints únicos o carreras no previstas pueden responder `DATA_CONFLICT` sin exponer detalles de base.
+
+## Errores generales
 
 - `VALIDATION_ERROR`;
 - `INVALID_PARAMETER`;
 - `AUTHENTICATION_REQUIRED`;
 - `ACCESS_DENIED`;
-- `CLIENT_NOT_FOUND`;
-- `ADDRESS_NOT_FOUND`;
-- `DUPLICATE_WHATSAPP`;
-- `PRIMARY_ADDRESS_REQUIRED`;
-- `PRIMARY_ADDRESS_CANNOT_BE_DEACTIVATED`;
 - `ORDER_NOT_FOUND`;
-- `ORDER_NOT_EDITABLE`;
-- `MANUAL_QUOTE_REQUIRED`;
 - `INVALID_STATUS_TRANSITION`;
-- `PRICE_NOT_CONFIRMED`;
-- `PAYMENT_EXCEEDS_BALANCE`;
-- `PROMOTION_ALREADY_USED_AT_ADDRESS`;
-- `PROMOTION_QUOTA_EXHAUSTED`;
-- `DATA_CONFLICT`;
 - `INTERNAL_ERROR`.
 
-Los errores internos no exponen stacktrace ni secretos al cliente.
+Los errores internos se registran con correlación y no exponen stacktrace al cliente.
