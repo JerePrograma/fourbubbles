@@ -222,12 +222,17 @@ public class OrderService {
     }
 
     private OrderDtos.OrderResponse toResponse(LaundryOrder order) {
+        var allowedTransitions = transitionPolicy.allowedTransitions(order.getStatus()).stream()
+                .sorted()
+                .map(Enum::name)
+                .toList();
         return new OrderDtos.OrderResponse(order.getId(), order.getOrderNumber(), order.getClient().getId(),
                 order.getAddress().getId(), order.getService().getCode(), order.getStatus().name(),
                 order.getPaymentStatus().name(), order.getPhysicalPieces(), order.getEquivalentUnits(),
                 order.getDeclaredWeightGrams(), order.getActualWeightGrams(), order.isExclusiveCycle(),
                 order.isRequiresQuote(), order.getLimitReached(), order.getQuotedPrice(), order.getConfirmedPrice(),
                 order.getCurrencyCode(), order.getPriceBreakdown(), order.getPickupScheduledAt(), order.getPromisedAt(),
+                allowedTransitions,
                 order.getItems().stream().map(item -> new OrderDtos.ItemResponse(item.getEquivalence().getCode(),
                         item.getEquivalence().getName(), item.getPhysicalPieces(), item.getGroupCount(),
                         item.getEquivalentUnitsApplied(), item.getEstimatedWeightGrams(), item.getObservations())).toList());
