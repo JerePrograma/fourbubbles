@@ -144,6 +144,9 @@ public class LaundryOrder extends AuditableEntity {
     }
 
     public void updatePlanning(OffsetDateTime pickupScheduledAt, OffsetDateTime promisedAt, String notes) {
+        if (status != OrderStatus.INQUIRY && status != OrderStatus.QUOTED) {
+            throw new IllegalStateException("La planificación solo puede modificarse durante consulta o cotización");
+        }
         if (confirmedPrice != null) {
             throw new IllegalStateException("No se puede editar la planificación después de confirmar el precio");
         }
