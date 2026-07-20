@@ -1,20 +1,12 @@
 # Puesta en marcha en Windows con PowerShell
 
-Versión: `0.1.2`.
-
-Este es el camino recomendado para desarrollo y evaluación funcional.
+Versión: `0.2.0`.
 
 ## 1. Requisitos
 
-Instalar:
-
-- Git para Windows;
-- Docker Desktop;
+- Git para Windows.
+- Docker Desktop usando contenedores Linux.
 - PowerShell 7.
-
-Docker Desktop debe usar contenedores Linux.
-
-Verificar:
 
 ```powershell
 git --version
@@ -24,7 +16,7 @@ docker info
 $PSVersionTable.PSVersion
 ```
 
-## 2. Clonar por primera vez
+## 2. Clonar
 
 ```powershell
 Set-Location "$HOME\Documents"
@@ -34,7 +26,7 @@ git switch main
 git pull --ff-only origin main
 ```
 
-## 3. Actualizar un clon existente
+## 3. Actualizar un clon
 
 ```powershell
 Set-Location 'RUTA\A\fourbubbles'
@@ -43,17 +35,15 @@ git status
 git pull --ff-only origin main
 ```
 
-Si `git status` muestra cambios locales, no los destruyas. Guardalos en un commit, stash o copia antes de actualizar.
+No destruyas cambios locales sin respaldarlos.
 
-## 4. Habilitar scripts en la terminal actual
+## 4. Habilitar scripts
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
 ```
 
-La configuración desaparece al cerrar esa terminal.
-
-## 5. Iniciar el sistema
+## 5. Iniciar
 
 ```powershell
 .\scripts\Start-Local.ps1 -Rebuild
@@ -61,42 +51,32 @@ La configuración desaparece al cerrar esa terminal.
 
 Primera ejecución:
 
-- crea `.env` desde `.env.example`;
+- crea `.env`;
 - genera contraseña PostgreSQL;
 - genera JWT secret;
 - genera contraseña administrativa;
 - construye imágenes;
 - inicia servicios;
-- espera health.
+- espera health;
+- muestra la contraseña inicial una vez.
 
-El script mostrará:
-
-```text
-Usuario: admin
-Contraseña: <generada>
-```
-
-Guardá esa contraseña. Solo se muestra cuando `.env` se crea.
-
-## 6. Verificar el stack
+## 6. Verificar
 
 ```powershell
 .\scripts\Verify-Local.ps1
 ```
 
-Salida esperada:
+Resultado esperado:
 
 ```text
 Verificación local exitosa.
 Salud: UP
-Migraciones exitosas: 6
+Migraciones exitosas: 7
 Servicios disponibles: <cantidad>
 Frontend, autenticación y API protegida: OK
 ```
 
-La verificación usa las credenciales de `.env` pero no las imprime.
-
-## 7. Abrir la aplicación
+## 7. Abrir
 
 ```powershell
 Start-Process 'http://localhost:8080'
@@ -105,52 +85,34 @@ Start-Process 'http://localhost:8081/api/swagger-ui.html'
 
 | Componente | URL |
 |---|---|
-| Aplicación | `http://localhost:8080` |
+| App | `http://localhost:8080` |
 | API | `http://localhost:8081/api` |
 | Swagger | `http://localhost:8081/api/swagger-ui.html` |
 | Health | `http://localhost:8081/api/actuator/health` |
 
-## 8. Consultar contenedores
+## 8. Contenedores y logs
 
 ```powershell
 docker compose ps
-```
-
-Deben existir:
-
-- `postgres`;
-- `backend`;
-- `frontend`.
-
-## 9. Logs
-
-```powershell
 docker compose logs --tail 300 postgres
 docker compose logs --tail 300 backend
 docker compose logs --tail 300 frontend
 ```
 
-Seguimiento en vivo:
+En vivo:
 
 ```powershell
 docker compose logs -f backend
 ```
 
-Salir con `Ctrl+C` no detiene los servicios.
-
-## 10. Detener sin borrar datos
+## 9. Detener/reiniciar
 
 ```powershell
 docker compose down
-```
-
-Reiniciar:
-
-```powershell
 docker compose up -d
 ```
 
-## 11. Actualizar versión
+## 10. Actualizar versión
 
 ```powershell
 git switch main
@@ -159,16 +121,16 @@ git pull --ff-only origin main
 .\scripts\Verify-Local.ps1
 ```
 
-## 12. Reinicio destructivo
+V7 se aplica automáticamente.
+
+## 11. Reinicio destructivo
 
 ```powershell
 docker compose down -v --remove-orphans
 .\scripts\Start-Local.ps1 -Rebuild
 ```
 
-Esto elimina todos los datos locales.
-
-Para regenerar también `.env`:
+Para regenerar `.env`:
 
 ```powershell
 docker compose down -v --remove-orphans
@@ -176,17 +138,46 @@ Remove-Item -LiteralPath '.env' -Force
 .\scripts\Start-Local.ps1 -Rebuild
 ```
 
-## 13. Problema: cambió la contraseña pero no puedo entrar
+Borra todos los datos locales.
 
-`APP_DEV_ADMIN_PASSWORD` solo se utiliza al crear el administrador. Cambiar `.env` después no actualiza el hash existente.
+## 12. Contraseña administrativa
+
+Cambiar `APP_DEV_ADMIN_PASSWORD` después de crear la base no actualiza el usuario persistido.
 
 Opciones:
 
-1. restaurar la contraseña usada originalmente;
-2. conservar los datos y modificar el usuario mediante un procedimiento administrativo futuro;
-3. en desarrollo descartable, recrear el volumen.
+- restaurar contraseña original;
+- recrear el volumen en desarrollo descartable;
+- esperar/implementar administración de usuarios.
 
-## 14. Problema: el backend no queda saludable
+## 13. Probar recepción
+
+1. Iniciar sesión.
+2. Crear cliente/pedido.
+3. Confirmar precio.
+4. Cambiar estados hasta `PICKED_UP`.
+5. En **Pedidos**, abrir **Recibir**.
+6. Informar peso/conteo real.
+7. Registrar daños/manchas.
+8. Opcionalmente informar metadata de un archivo externo.
+9. Registrar.
+10. Aprobar/rechazar si queda pendiente.
+
+El navegador genera una `Idempotency-Key` estable para el formulario. No recargues deliberadamente durante una operación sin comprobar el resultado; si hubo timeout, la misma instancia de formulario reutiliza la clave.
+
+## 14. Evidencia externa
+
+Los campos de evidencia no suben archivos. Requieren previamente:
+
+- `objectKey` real;
+- nombre;
+- MIME;
+- tamaño;
+- SHA-256.
+
+Para una demo sin almacenamiento externo, dejarlos vacíos. No inventar datos y presentarlos como fotografía almacenada.
+
+## 15. Backend no saludable
 
 ```powershell
 docker compose ps
@@ -195,27 +186,14 @@ docker compose logs --tail 300 postgres
 docker compose config --quiet
 ```
 
-Verificar:
+Verificar puertos 5432/8080/8081, contraseñas DB coherentes, JWT válido, memoria y Flyway.
 
-- Docker Desktop iniciado;
-- puertos 5432, 8080 y 8081 libres;
-- `POSTGRES_PASSWORD` igual a `DB_PASSWORD`;
-- JWT secret válido;
-- memoria suficiente;
-- migraciones sin fallos.
-
-## 15. Validación técnica opcional fuera de Docker
-
-Backend:
+## 16. Validación fuera de Docker
 
 ```powershell
 Set-Location '.\backend'
 mvn clean verify
-```
 
-Frontend:
-
-```powershell
 Set-Location '..\frontend'
 npm ci
 npm run lint
@@ -223,17 +201,14 @@ npm test
 npm run build
 ```
 
-Requiere Java 21, Maven 3.9 y Node 22 instalados localmente.
+Requiere Java 21, Maven y Node 22 locales.
 
-## 16. Seguridad
+## 17. Seguridad
 
 No compartir:
 
 - `.env`;
-- contraseñas;
-- JWT;
-- cookies;
-- dumps con datos reales;
-- logs que contengan información personal.
-
-`.env` está ignorado por Git y debe permanecer así.
+- contraseñas/tokens/cookies;
+- dumps reales;
+- hashes o object keys privados de evidencias;
+- logs con información personal.
