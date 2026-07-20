@@ -1,135 +1,169 @@
 # Arquitectura
 
-Versión de referencia: `0.1.2`.
+Versión: `0.2.0`.
 
-## Decisión principal
+## Decisión
 
-Monolito modular. Cada módulo contiene las capas que necesita: API, aplicación, dominio, persistencia e infraestructura. No se distribuye prematuramente una operación todavía pequeña, pero se mantienen límites explícitos para poder evolucionar por módulo.
+Monolito modular con límites por dominio. Se prioriza consistencia transaccional antes que distribución prematura.
 
-## Módulos implementados
+## Módulos
 
 ```text
-auth        identidad, roles, sesiones y login throttling
-audit       eventos sensibles y consulta administrativa
+auth        identidad, sesiones, roles y login throttling
+audit       eventos y consulta administrativa
 catalog     servicios y equivalencias
-customer    clientes, preferencias y domicilios versionados
+customer    clientes, preferencias y domicilios
 location    zonas
-pricing     precios, promociones y revalidación concurrente
-order       pedidos, ítems, límites, cotización y estados
-payment     medios, cobros, saldo e historial
-common      respuestas, excepciones, correlación y base auditable
-config      seguridad, OpenAPI, auditoría JPA e infraestructura transversal
+pricing     precios y promociones
+order       pedido declarado, precio, planificación y estados
+reception   snapshot real, inspección, diferencia, evidencia y decisión
+payment     cobros, saldo e historial
+common      contratos, errores, correlación y auditoría base
+config      seguridad/OpenAPI/infraestructura
 ```
 
-## Dependencias
+## Límite `order` / `reception`
 
-- controladores dependen de DTO y servicios de aplicación;
-- servicios de aplicación orquestan entidades y repositorios;
-- dominio no depende de HTTP;
-- persistencia pertenece al módulo dueño de los datos;
-- los cruces entre módulos se realizan desde aplicación, no desde controladores;
-- no se exponen entidades JPA como contratos API;
-- no se permite lógica comercial duplicada en React.
+### `order`
 
-## Transacciones críticas
+Es dueño de:
 
-### Cliente/domicilio
+- declaración inicial;
+- composición cotizada;
+- precio;
+- planificación;
+- estado;
+- resumen de totales reales (`actualPhysicalPieces`, `actualWeightGrams`).
 
-- alta de domicilio, auditoría y respuesta se ejecutan en una transacción;
-- el domicilio se persiste antes de auditar su UUID;
-- cambiar principal hace flush de la despromoción antes de promover otro registro;
-- la baja es lógica y preserva pedidos históricos.
+### `reception`
 
-### Pedido/precio
+Es dueño de:
 
-- creación de pedido, ítems, historial y auditoría es atómica;
-- cotización manual conserva el precio automático;
-- confirmación congela `confirmed_price`;
-- planificación solo es editable en estados tempranos.
+- agregado único;
+- idempotencia;
+- composición real detallada;
+- diferencias;
+- inspección;
+- aprobación;
+- etiqueta/bolsa;
+- evidencia metadata.
 
-### Promoción
+La recepción referencia el pedido y actualiza su resumen dentro de la misma transacción, pero no muta `order_items`.
 
-La confirmación adquiere un bloqueo pesimista sobre la promoción, revalida reglas y registra el uso dentro de la misma transacción. El cálculo preliminar no reserva cupo.
+## Flujo transaccional de recepción
 
-### Pago
+```text
+HTTP POST + Idempotency-Key
+        ↓
+ReceptionService
+        ↓
+consulta clave previa
+        ↓
+bloqueo PESSIMISTIC_WRITE de LaundryOrder
+        ↓
+revalidación clave/pedido/estado
+        ↓
+construcción OrderReception + items + evidences
+        ↓
+actualización resumen real del pedido
+        ↓
+historial de estados
+        ↓
+auditoría
+        ↓
+commit único
+```
 
-El cobro adquiere un bloqueo pesimista sobre el pedido antes de consultar pagos previos, calcular saldo, guardar el nuevo pago y actualizar el estado financiero.
+La doble consulta alrededor del bloqueo evita respuestas inconsistentes bajo carreras. Los constraints únicos son la última barrera.
 
-## Seguridad
+## Política de diferencias
 
-- Spring Security stateless;
-- jerarquía de roles centralizada;
-- autorización específica por método;
-- JWT de acceso y refresh opaco;
-- access token solo en memoria del frontend;
-- errores de filtro y controlador usan el mismo contrato JSON;
-- `X-Request-ID` atraviesa la solicitud y los logs.
+`ReceptionDifferencePolicy` es un componente puro y probado.
+
+Entrada:
+
+- piezas declaradas/reales;
+- peso declarado/real;
+- daño.
+
+Salida:
+
+- diferencias;
+- peso material;
+- necesidad de aprobación.
+
+Umbral:
+
+```text
+abs(delta peso) > max(250 g, ceil(10 % declarado))
+```
+
+## Evidencias
+
+`ReceptionEvidence` almacena metadata, no bytes. La arquitectura prevista es:
+
+```text
+browser/operador
+   ↓ carga firmada futura
+object storage privado
+   ↓ objectKey/hash/metadata
+API reception
+   ↓
+PostgreSQL
+```
+
+Hasta implementar esa carga, la UI solo permite registrar metadata de un objeto preexistente.
+
+## Estados
+
+La recepción usa la política de transiciones existente y genera historia por cada paso:
+
+```text
+PICKED_UP → RECEIVED → PENDING_INSPECTION
+```
+
+Luego:
+
+- `CLASSIFIED`; o
+- `WAITING_PRICE_APPROVAL`.
+
+La decisión transaccional mueve a `CLASSIFIED` o `CANCELLED`.
 
 ## Persistencia
 
-- UUID internos;
-- secuencia para número humano de pedido;
-- `NUMERIC(15,2)` para dinero;
-- gramos enteros;
-- `TIMESTAMPTZ` para instantes;
-- `DATE` para vigencias comerciales por día;
-- JSONB para snapshots de preferencias, precio y auditoría;
-- baja lógica y vigencias donde importa trazabilidad;
-- constraints e índices definidos por Flyway;
+- UUID internos.
+- secuencias para número de pedido y etiqueta.
+- PostgreSQL/Flyway V1–V7.
+- JSONB solo en snapshots flexibles.
+- TIMESTAMPTZ para instantes.
+- constraints e índices de idempotencia.
 - `ddl-auto=validate`.
 
 ## Frontend
 
-- SPA React 18;
-- TypeScript estricto;
-- cliente HTTP centralizado;
-- sesión renovable;
-- rutas protegidas;
-- formularios con React Hook Form/Zod;
-- cálculos de vista previa aislados en funciones puras probadas;
-- backend como autoridad de precio, permisos, transiciones y saldo.
+- SPA React/TypeScript.
+- pantalla separada `/orders/:id/reception`.
+- estado del formulario genera una clave estable con `crypto.randomUUID()`.
+- backend decide umbrales, transiciones y permisos.
+- frontend no recalcula reglas críticas.
 
 ## Runtime
 
 ```text
-browser
-  ↓
-Nginx / frontend :8080
-  ├── archivos SPA
-  └── proxy /api
-        ↓
-Spring Boot :8081
-        ↓
-PostgreSQL :5432
+browser → Nginx :8080 → Spring :8081 → PostgreSQL :5432
 ```
 
-Compose espera salud de PostgreSQL y backend. El smoke runtime valida el circuito completo.
+CI y runtime smoke validan el conjunto.
 
-## Evolución prevista
+## Próxima evolución
 
-### Evidencias
+Compatibilidad debe consumir `reception_items` y atributos reales. No debe mezclar directamente pedidos sobre `order_items` declarados cuando existe recepción.
 
-Fotografías y archivos deben ir a almacenamiento de objetos o filesystem administrado. PostgreSQL guardará:
+Futuros candidatos a adaptadores separados:
 
-- URL/clave;
-- hash;
-- MIME;
-- tamaño;
-- actor;
-- fecha;
-- relación con recepción/reclamo.
-
-### Mensajería
-
-WhatsApp debe comenzar con plantillas, enlaces e historial. Una API externa requiere adaptador, idempotencia, reintentos y observabilidad; no debe contaminar el dominio.
-
-### Escalado
-
-Antes de separar servicios deben existir presión real y límites claros. Candidatos futuros:
-
-- evidencias;
+- object storage;
 - notificaciones;
-- optimización logística;
-- procesamiento de pagos externos.
+- logística;
+- pagos externos.
 
-La base transaccional de pedidos, recepción y producción debe permanecer coherente; dividirla sin necesidad aumentaría el costo de consistencia.
+No separar microservicios sin presión real: recepción, pedido y estados requieren atomicidad local.
