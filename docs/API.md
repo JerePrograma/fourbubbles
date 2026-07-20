@@ -2,8 +2,6 @@
 
 La API se sirve bajo `/api`. La documentación interactiva local está disponible en `/api/swagger-ui.html`.
 
-El recorrido funcional con ejemplos completos está en [USER_GUIDE.md](USER_GUIDE.md).
-
 ## Convención de éxito
 
 ```json
@@ -30,7 +28,22 @@ El recorrido funcional con ejemplos completos está en [USER_GUIDE.md](USER_GUID
 }
 ```
 
+El mismo formato se utiliza para errores generados dentro de Spring Security:
+
+- `AUTHENTICATION_REQUIRED`, HTTP 401;
+- `AUTHENTICATION_FAILED`, HTTP 401;
+- `ACCESS_DENIED`, HTTP 403;
+- `LOGIN_RATE_LIMITED`, HTTP 429.
+
 Los errores de validación no devuelven valores rechazados de campos sensibles.
+
+## Correlación
+
+Cada respuesta incluye `X-Request-ID`.
+
+- Si el cliente envía un identificador entre 8 y 128 caracteres formado por letras, números, punto, guion o guion bajo, se conserva.
+- Cualquier valor ausente o inseguro se reemplaza por un UUID.
+- El identificador se incorpora al MDC y a los logs JSON de producción.
 
 ## Autenticación
 
@@ -38,21 +51,8 @@ Los errores de validación no devuelven valores rechazados de campos sensibles.
 - refresh token: cookie `HttpOnly` limitada a `/api/auth`;
 - la renovación rota y revoca el refresh token anterior;
 - la UI no persiste el access token en `localStorage`;
-- cerrar sesión revoca la sesión actual y elimina la cookie.
-
-Inicio de sesión:
-
-```http
-POST /api/auth/login
-Content-Type: application/json
-```
-
-```json
-{
-  "username": "admin",
-  "password": "contraseña-configurada"
-}
-```
+- cerrar sesión revoca la sesión actual y elimina la cookie;
+- los intentos repetidos de login se limitan por usuario normalizado y origen observado.
 
 ## Endpoints disponibles
 
@@ -62,25 +62,64 @@ Content-Type: application/json
 | POST | `/auth/refresh` | access token renovado y refresh rotado |
 | POST | `/auth/logout` | sesión revocada |
 | GET | `/catalog/equivalences` | equivalencias vigentes |
-| POST | `/clients` | cliente y domicilios creados |
-| GET | `/clients` | página de clientes |
-| GET | `/clients/{id}` | cliente y domicilios |
-| POST | `/orders` | pedido cotizado |
-| GET | `/orders/{id}` | detalle del pedido |
+| GET | `/catalog/services` | servicios vigentes y límites |
+| POST | `/clients` | cliente, domicilios y preferencias creados |
+| GET | `/clients` | página de clientes, filtrable por apellido |
+| GET | `/clients/{id}` | cliente, preferencias y domicilios activos |
+| PUT | `/clients/{id}` | perfil, estado y preferencias actualizados |
+| POST | `/orders` | pedido creado y cotizado |
+| GET | `/orders` | página de pedidos filtrable por número, cliente y estado |
+| GET | `/orders/{id}` | detalle, prendas y transiciones permitidas |
 | POST | `/orders/{id}/confirm-price` | precio histórico confirmado |
 | PATCH | `/orders/{id}/status` | transición validada y auditada |
-| POST | `/payments` | pago y saldo actualizado |
+| POST | `/payments` | pago registrado y saldo actualizado |
+
+## Preferencias de cliente
+
+Contrato tipado:
+
+```json
+{
+  "fragrance": "sin perfume",
+  "softenerAllowed": false,
+  "dryerAllowed": true,
+  "hypoallergenic": true,
+  "separateColors": true,
+  "specialInstructions": "No usar suavizante"
+}
+```
+
+`preferencesJson` continúa aceptándose transitoriamente para compatibilidad, pero debe contener un objeto JSON válido. Los nuevos consumidores deben usar `preferences`.
+
+La actualización de cliente no reemplaza domicilios existentes. Esa decisión evita borrar trazabilidad hasta implementar versionado explícito de domicilios.
+
+## Búsqueda de pedidos
+
+```http
+GET /api/orders?orderNumber=RL-0001&status=QUOTED&page=0&size=20
+```
+
+Parámetros:
+
+- `orderNumber`: coincidencia parcial, sin distinguir mayúsculas;
+- `clientId`: UUID exacto;
+- `status`: valor válido de `OrderStatus`;
+- `page`: mínimo lógico 0;
+- `size`: limitado internamente entre 1 y 100.
+
+El detalle devuelve `allowedTransitions`, evitando que el consumidor invente pasos no habilitados.
 
 ## Reglas de contrato relevantes
 
 - No se exponen entidades JPA directamente.
 - Los importes se transmiten como números decimales y se procesan con `BigDecimal`.
 - Los pesos se transmiten en gramos enteros.
-- Fechas con hora utilizan ISO 8601 con offset, por ejemplo `2026-07-21T10:00:00-03:00`.
+- Fechas con hora utilizan ISO 8601 con offset.
 - Los códigos de moneda son cadenas de tres caracteres, inicialmente `ARS`.
 - Las operaciones sensibles requieren autenticación y permisos.
-- Las transiciones de pedido inválidas devuelven error de dominio.
+- Las transiciones inválidas devuelven error de dominio.
 - El precio confirmado y su desglose se conservan en el pedido.
+- Los pagos no pueden superar el saldo ni registrarse antes de confirmar el precio.
 
 ## Idempotencia
 
@@ -88,7 +127,7 @@ No está implementada todavía. Antes de integrar pagos externos, webhooks o rei
 
 ## Paginación
 
-La búsqueda de clientes utiliza paginación Spring. Los clientes externos no deben depender de campos internos del formato `Page` sin formalizar primero el contrato.
+Clientes y pedidos utilizan `Page` de Spring. Antes de publicar la API para consumidores externos se debe reemplazar o formalizar este formato para evitar dependencia de detalles del framework.
 
 ## Versionado
 
@@ -96,8 +135,9 @@ La API todavía no lleva `/v1`. Antes de exponerla a consumidores externos se de
 
 ## Pendientes del contrato
 
-- listado y filtros de pedidos;
-- historial completo de cliente;
+- edición y versionado de domicilios;
+- ajuste manual de cotizaciones;
+- historial completo de pagos;
 - recepción y peso real;
 - carga de evidencias;
 - administración comercial;
