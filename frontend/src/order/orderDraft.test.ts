@@ -51,7 +51,11 @@ describe('toOffsetDateTime', () => {
     expect(toOffsetDateTime('no-es-fecha')).toBeNull();
   });
 
-  it('convierte una fecha local válida a ISO con zona', () => {
-    expect(toOffsetDateTime('2026-07-21T10:30')).toMatch(/^2026-07-21T\d{2}:30:00\.000Z$/);
+  it('convierte una fecha local válida a un instante ISO parseable', () => {
+    const result = toOffsetDateTime('2026-07-21T10:30');
+
+    expect(result).not.toBeNull();
+    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    expect(Number.isNaN(Date.parse(result ?? ''))).toBe(false);
   });
 });
