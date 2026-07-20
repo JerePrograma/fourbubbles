@@ -49,7 +49,8 @@ public final class OrderDtos {
                                        OffsetDateTime createdAt) {}
 
     public record OrderResponse(UUID id, String orderNumber, UUID clientId, UUID addressId, String serviceCode,
-                                String status, String paymentStatus, int physicalPieces, BigDecimal equivalentUnits,
+                                String status, String paymentStatus, int physicalPieces,
+                                Integer actualPhysicalPieces, BigDecimal equivalentUnits,
                                 Integer declaredWeightGrams, Integer actualWeightGrams, boolean exclusiveCycle,
                                 boolean requiresQuote, String limitReached, BigDecimal automaticQuotedPrice,
                                 BigDecimal quotedPrice, BigDecimal confirmedPrice, String currencyCode,
