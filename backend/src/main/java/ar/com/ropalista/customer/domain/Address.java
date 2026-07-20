@@ -32,7 +32,7 @@ public class Address extends AuditableEntity {
     private String locality;
     @Column(length = 120)
     private String neighborhood;
-    @Column(length = 500)
+    @Column(name = "delivery_references", length = 500)
     private String references;
     @Column(name = "is_primary", nullable = false)
     private boolean primaryAddress;
