@@ -1,69 +1,198 @@
 # Hoja de ruta
 
-## Corte 1A: estabilización inmediata
+Versión base: `0.1.2`.
 
-- CI verde;
-- lockfile npm;
-- pruebas API y seguridad;
-- correcciones de mapeo Flyway/JPA;
-- endpoint de historial de pedidos del cliente;
-- listado y filtros de pedidos.
+## Completado
 
-## Corte 1B: recepción operativa
+### 0.1.0 — Plataforma y núcleo inicial
 
-- peso real;
-- revisión y daños preexistentes;
-- fotos y metadatos;
-- edición controlada del conteo;
-- recotización y aprobación de diferencia;
-- etiqueta de pedido;
-- pantalla móvil de recepción.
+- arquitectura;
+- seguridad base;
+- PostgreSQL/Flyway;
+- catálogo;
+- clientes;
+- pedidos;
+- estados;
+- pagos;
+- frontend inicial;
+- Docker y CI.
 
-## Corte 1C: administración comercial
+### 0.1.1 — Hardening y flujo operativo
 
-- CRUD versionado de precios y equivalencias;
-- promociones con condiciones explícitas;
-- autorización de descuentos;
-- alertas de ticket/promociones;
-- agenda básica de retiros.
+- 401/403 uniformes;
+- correlación;
+- protección de login;
+- preferencias tipadas;
+- búsqueda y detalle de pedidos;
+- UI operativa;
+- pruebas de contrato e integración.
 
-## Fase 2: producción
+### 0.1.2 — Cierre administrativo
 
-1. perfiles de compatibilidad tipados;
-2. matriz de reglas y explicación;
-3. máquinas y capacidades;
-4. ciclos compartidos/exclusivos;
-5. máximo dos pedidos y 5 kg configurable;
-6. bolsas de red y trazabilidad;
-7. lavado, secado, calidad y relavado;
-8. pruebas de incompatibilidad y sobrecarga.
+- domicilios versionados;
+- cotización manual;
+- planificación temprana;
+- historial de pagos;
+- auditoría consultable;
+- jerarquía RBAC;
+- concurrencia promocional;
+- concurrencia financiera;
+- smoke runtime;
+- verificación local autenticada.
 
-## Fase 3: logística
+## Próximo corte: 0.2.0 — Recepción
 
-- zonas/radios y franjas;
-- rutas, paradas y orden;
-- retiro/entrega;
-- fuera de ruta y autorización;
-- kilómetros, combustible y tiempo;
-- enlaces y plantillas de WhatsApp.
+Objetivo: convertir la transición `RECEIVED` en una operación física trazable.
 
-## Fase 4: finanzas
+### Datos
 
-- costos versionados;
-- consumo real;
-- mano de obra y tiempos;
-- gastos fijos;
-- caja y arqueo;
-- margen, ingreso/hora y rentabilidad;
-- inversión y proyecciones.
+- registro de recepción por pedido;
+- clave idempotente;
+- fecha y operador;
+- peso declarado y real;
+- conteo declarado y real;
+- diferencias;
+- observaciones;
+- daños y manchas;
+- estado de aprobación;
+- etiqueta y bolsa;
+- metadatos de evidencias.
 
-## Fase 5: crecimiento
+### Reglas
+
+- una misma clave no duplica recepción;
+- la recepción exige un estado compatible;
+- diferencias relevantes requieren aprobación;
+- el precio puede recalcularse sin perder snapshots anteriores;
+- una recepción confirmada no se sobrescribe silenciosamente;
+- las evidencias se almacenan fuera de PostgreSQL y se referencian por metadatos.
+
+### API/UI
+
+- formulario de recepción;
+- comparación declarado/real;
+- carga de inspección;
+- decisión de aprobación;
+- historial de recepciones/correcciones;
+- timeline agregado del cliente.
+
+### Pruebas
+
+- idempotencia;
+- concurrencia;
+- diferencias;
+- autorización;
+- recalculo;
+- rollback transaccional;
+- smoke UI/API.
+
+## 0.3.0 — Compatibilidad
+
+- atributos de tratamiento normalizados;
+- matriz de compatibilidad;
+- motor explicable;
+- propuestas de combinación;
+- bloqueo de incompatibles;
+- excepción de administrador con motivo;
+- pruebas de combinaciones críticas.
+
+## 0.4.0 — Producción
+
+- máquinas;
+- programas;
+- ciclos;
+- capacidad real;
+- asignación de hasta dos pedidos cuando sea segura;
+- ciclos exclusivos;
+- bolsas de red;
+- lavado/secado;
+- control de calidad;
+- relavado;
+- doblado y embolsado;
+- mantenimiento.
+
+## 0.5.0 — Logística
+
+- franjas;
+- rutas;
+- paradas;
+- orden de visita;
+- retiro y entrega;
+- kilometraje;
+- combustible;
+- incidencias;
+- agenda real;
+- WhatsApp.
+
+## 0.6.0 — Finanzas
+
+- caja;
+- arqueo;
+- ingresos/egresos;
+- reembolsos;
+- comprobantes;
+- cuentas por cobrar;
+- costos por pedido/ciclo;
+- mano de obra;
+- amortización;
+- margen y rentabilidad;
+- escenarios.
+
+## 0.7.0 — Crecimiento
 
 - abonos;
-- clientes comerciales;
+- comercios;
+- SLA;
 - inventario;
-- mantenimiento;
-- reclamos y compensaciones;
-- políticas versionadas;
-- competencia;
-- tableros y alertas avanzadas.
+- lotes y consumo;
+- equipamiento;
+- reclamos;
+- compensaciones;
+- políticas y aceptación;
+- tableros y alertas.
+
+## Línea transversal productiva
+
+Debe avanzar en paralelo antes de operar comercialmente:
+
+- TLS;
+- secretos administrados;
+- PostgreSQL gestionado;
+- backups y restauración;
+- almacenamiento de objetos;
+- observabilidad;
+- alertas;
+- rate limiting compartido;
+- escaneo de dependencias e imágenes;
+- política de datos personales;
+- rollback;
+- versionado de API.
+
+## Priorización
+
+Orden obligatorio recomendado:
+
+```text
+recepción
+→ compatibilidad
+→ producción
+→ logística
+→ costos/finanzas
+→ crecimiento
+```
+
+Razón: compatibilidad, ciclos y rutas necesitan composición y peso reales. Implementarlos antes de recepción produciría optimizaciones sobre datos declarados no confiables.
+
+## Definición de terminado por corte
+
+Un corte no está terminado por tener tablas. Requiere:
+
+1. migración aditiva;
+2. dominio y transacciones;
+3. API y permisos;
+4. interfaz cuando sea operativa;
+5. pruebas unitarias/integración/concurrencia según riesgo;
+6. runtime smoke;
+7. documentación;
+8. CI verde;
+9. integración limpia en `main`.
