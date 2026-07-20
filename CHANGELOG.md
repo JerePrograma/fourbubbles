@@ -1,56 +1,89 @@
 # Changelog
 
+## 0.1.2 - Cierre administrativo de Fase 1
+
+Fecha: 2026-07-20.
+
+### Agregado
+
+- Migración Flyway `V6__administrative_closure.sql`.
+- Vigencia de domicilios mediante `valid_from` y `valid_to`.
+- Historial de domicilios activos e inactivos.
+- Alta de domicilios alternativos desde API e interfaz.
+- Cambio controlado de domicilio principal.
+- Baja lógica de domicilios conservando referencias históricas.
+- Cotización manual exclusiva de `ADMIN` con importe, motivo, actor y fecha.
+- Conservación separada del precio automático original.
+- Edición de retiro, promesa y notas durante `INQUIRY` o `QUOTED`.
+- Historial de pagos por pedido.
+- Búsqueda administrativa de auditoría por entidad, identificador y acción.
+- Interfaz de auditoría.
+- Jerarquía de roles `ADMIN > OPERATOR > DRIVER > REPORT_VIEWER`.
+- Bloqueo pesimista de promociones durante la confirmación.
+- Revalidación de vigencia, servicio, primera compra, domicilio y cupos al confirmar.
+- Bloqueo pesimista del pedido durante el registro de pagos.
+- Prueba concurrente que impide consumir dos veces una promoción restringida.
+- Prueba concurrente que impide superar el saldo con pagos simultáneos.
+- Workflow permanente de smoke runtime con Compose, login y API protegida.
+- Verificación local PowerShell de frontend, autenticación y API protegida.
+
+### Modificado
+
+- El detalle de pedido permite registrar cotización manual y planificación temprana.
+- El detalle muestra historial de pagos.
+- La edición de cliente administra domicilios actuales e históricos.
+- El menú expone auditoría solo cuando corresponde al rol.
+- La promoción deja de considerarse consumida durante la cotización y se confirma bajo bloqueo transaccional.
+- Los pagos se serializan por pedido para calcular el saldo sobre una fuente consistente.
+- La documentación transversal pasa a describir 0.1.2.
+
+### Corregido
+
+- Persistencia explícita del domicilio antes de auditar su UUID generado.
+- `flush` intermedio al reemplazar el domicilio principal para respetar el índice único parcial.
+- Orden de domicilios: principal primero y luego vigencia descendente.
+- Bloqueo de planificación fuera de `INQUIRY` y `QUOTED`.
+- Fixtures de promociones unitarias con estado `ACTIVE` explícito.
+- Prueba de autorización con payload válido para comprobar realmente el 403.
+- Auditoría temporal coherente con `OffsetDateTime`.
+
+### Validación
+
+- 16 pruebas unitarias backend.
+- Integraciones sobre PostgreSQL 16 y Flyway V1–V6.
+- Contrato API, autorización, flujo operativo y flujo administrativo.
+- Concurrencia de promociones y pagos.
+- TypeScript estricto, Vitest y build Vite.
+- Validación y construcción de imágenes Docker.
+- Arranque completo, readiness, SPA, login y API autenticada.
+
+### Limitaciones conscientes
+
+- Recepción física, peso real, evidencias y aprobación de diferencias no están implementados.
+- No hay todavía caja, reembolsos ni comprobantes externos.
+- Falta idempotencia para proveedores de pago y webhooks.
+- El limitador de login es local a cada instancia.
+- El perfil `dev` y Compose no representan una topología productiva.
+
 ## 0.1.1 - Hardening y flujo operativo completo de Fase 1 base
 
 Fecha: 2026-07-20.
 
 ### Agregado
 
-- Respuestas JSON uniformes para autenticación requerida y acceso denegado dentro de Spring Security.
-- Identificador `X-Request-ID` validado o generado por solicitud y propagado mediante MDC.
-- Correlación incluida en logs JSON del perfil `prod`.
-- Protección básica contra intentos repetidos de login por combinación de usuario y origen.
-- Configuración de la protección mediante `LOGIN_MAX_ATTEMPTS`, `LOGIN_ATTEMPT_WINDOW` y `LOGIN_BLOCK_DURATION`.
-- Contrato tipado de preferencias de cliente, conservando compatibilidad temporal con `preferencesJson`.
-- Actualización de perfil, estado y preferencias de cliente mediante `PUT /api/clients/{id}`.
-- Catálogo de servicios vigentes mediante `GET /api/catalog/services`.
-- Búsqueda paginada de pedidos por número, cliente y estado mediante `GET /api/orders`.
-- Resumen operativo de pedidos con cliente, servicio, cantidades, importes y fechas.
-- Transiciones permitidas incluidas en el detalle del pedido.
-- Interfaz de búsqueda y edición de clientes.
-- Interfaz guiada de alta y cotización de pedidos basada en clientes, domicilios, servicios y equivalencias reales.
-- Vista previa de piezas físicas, grupos, unidades equivalentes, peso estimado y necesidad de revisión.
-- Interfaz de listado, filtros y paginación de pedidos.
-- Detalle operativo de pedido con prendas, precio, desglose, estado y pago.
-- Confirmación de precio, cambio de estado y registro de pagos desde la interfaz.
-- Pruebas unitarias del limitador de intentos de login.
-- Pruebas MockMvc de 401, 403, correlación, validación y parámetros inválidos.
-- Prueba integrada con PostgreSQL real del flujo cliente → actualización → pedido → búsqueda → confirmación → pago parcial → pago total.
-- Pruebas Vitest para el cálculo del borrador de pedido y conversión de fechas.
-- Ejecución de `npm test` en CI.
-
-### Modificado
-
-- El frontend deja de depender de Swagger para el recorrido operativo normal disponible en 0.1.1.
-- El listado de clientes permite búsqueda por apellido y muestra el domicilio principal.
-- El alta de cliente captura preferencias operativas estructuradas.
-- La política de estados expone únicamente las transiciones válidas desde el estado actual.
-- La página de pedidos reemplaza el placeholder inicial por funciones reales.
-- La documentación distingue el flujo ya disponible de recepción, producción, logística y finanzas todavía pendientes.
+- Respuestas JSON uniformes para autenticación requerida y acceso denegado.
+- `X-Request-ID`, MDC y correlación de logs.
+- Protección básica contra intentos repetidos de login.
+- Preferencias tipadas y actualización de clientes.
+- Catálogo de servicios vigente.
+- Búsqueda, resumen y detalle de pedidos.
+- Interfaz de alta, cotización, estados y pagos.
+- Pruebas MockMvc, PostgreSQL y Vitest.
 
 ### Corregido
 
-- La auditoría JPA ahora usa un `DateTimeProvider` de `OffsetDateTime` UTC, coherente con los campos persistidos. El proveedor implícito anterior generaba `LocalDateTime` y fallaba al persistir entidades auditadas durante pruebas de API.
-- El detalle de cotización frontend estrecha correctamente valores JSON desconocidos antes de renderizarlos bajo TypeScript estricto.
-
-### Limitaciones conscientes
-
-- El bloqueo de login es local a cada instancia y se pierde al reiniciar; producción distribuida requiere Redis o almacenamiento compartido.
-- La protección usa la dirección observada por la aplicación. En producción debe configurarse y validarse correctamente el proxy de confianza.
-- La actualización de cliente no modifica domicilios para evitar sobrescribir trazabilidad histórica; el versionado de domicilios queda pendiente.
-- No existe aún ajuste manual de cotización para pedidos con `requiresQuote=true`.
-- No existe historial/listado de pagos en la interfaz; se muestra el resultado del pago registrado y el estado consolidado del pedido.
-- Recepción, peso real, evidencias, compatibilidad, ciclos, rutas, caja, costos, inventario y reclamos siguen fuera de este corte.
+- Proveedor temporal de auditoría con `OffsetDateTime` UTC.
+- Renderizado seguro de valores JSON desconocidos en TypeScript.
 
 ## 0.1.0 - Plataforma base y primer corte de Fase 1
 
@@ -58,45 +91,10 @@ Fecha: 2026-07-20.
 
 ### Agregado
 
-- Estructura inicial de monolito modular.
-- Java 21, Spring Boot 3, Maven, PostgreSQL 16, Flyway y OpenAPI.
-- Perfiles `dev`, `test` y `prod`.
-- Autenticación JWT y refresh token opaco rotativo.
-- Roles y autorización por método.
-- Auditoría JPA y eventos sensibles persistidos.
-- Módulos de zonas, clientes, domicilios, catálogo, precios, promociones, pedidos y pagos.
-- Migraciones V1 a V5 con restricciones, índices y datos iniciales.
-- Cálculo de grupos y unidades equivalentes sin perder piezas físicas.
-- Validación de límites de servicio y capacidad segura.
-- Precio histórico y explicación persistida del cálculo.
-- Estados de pedido y política explícita de transiciones.
-- Pagos parciales, saldo y estado de pago.
-- Frontend mobile first inicial.
-- Dockerfiles, Docker Compose, Nginx y pipeline CI.
-- Pruebas unitarias e integración Testcontainers con PostgreSQL real.
-- Lockfile npm y uso de `npm ci`.
-- Guía reproducible para Windows/PowerShell.
-- Guía funcional con recorrido completo mediante Swagger.
-- Documentación técnica, funcional, operativa y backlog.
-
-### Corregido durante la estabilización
-
-- Nombre de columna SQL reservado `references`, reemplazado por `delivery_references`.
-- Tipos de moneda normalizados de `CHAR(3)` a `VARCHAR(3)` para coincidir con JPA y evitar padding.
-- Mapeo UUID explícito en uso de promociones.
-- Configuración TypeScript de Vite.
-- Pruebas de cupos promocionales con mocks numéricos explícitos.
-- Selección explícita de HS256 para JWT.
-- Pipeline con logs de error útiles, cache y cancelación de ejecuciones obsoletas.
-- Imagen frontend reproducible mediante `package-lock.json` y `npm ci`.
-
-### No incluido en 0.1.0
-
-- recepción y pesaje real;
-- fotografías y daños preexistentes;
-- compatibilidad y ciclos;
-- logística y rutas;
-- caja completa, costos y rentabilidad;
-- abonos, inventario, reclamos y tableros avanzados.
-
-Consultar `docs/PROJECT_STATUS.md` y `docs/ROADMAP.md` para el detalle completo.
+- Monolito modular Java 21 y Spring Boot 3.
+- PostgreSQL 16, JPA/Hibernate y Flyway V1–V5.
+- Seguridad JWT y refresh token opaco.
+- Auditoría, clientes, catálogo, precios, promociones, pedidos y pagos.
+- React 18, TypeScript y Vite.
+- Docker Compose, Nginx y GitHub Actions.
+- Documentación técnica y funcional inicial.

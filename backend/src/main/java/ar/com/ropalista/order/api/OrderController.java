@@ -6,6 +6,7 @@ import ar.com.ropalista.order.domain.OrderStatus;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -47,6 +48,21 @@ public class OrderController {
     @PreAuthorize("hasAnyRole('ADMIN','OPERATOR','DRIVER','REPORT_VIEWER')")
     ApiResponse<OrderDtos.OrderResponse> get(@PathVariable UUID id) {
         return ApiResponse.ok(service.get(id));
+    }
+
+    @PatchMapping("/{id}/planning")
+    @PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
+    ApiResponse<OrderDtos.OrderResponse> updatePlanning(@PathVariable UUID id,
+                                                         @Valid @RequestBody OrderDtos.UpdatePlanningRequest request) {
+        return ApiResponse.ok(service.updatePlanning(id, request));
+    }
+
+    @PostMapping("/{id}/manual-quote")
+    @PreAuthorize("hasRole('ADMIN')")
+    ApiResponse<OrderDtos.OrderResponse> manualQuote(@PathVariable UUID id,
+                                                      @Valid @RequestBody OrderDtos.ManualQuoteRequest request,
+                                                      Authentication authentication) {
+        return ApiResponse.ok(service.applyManualQuote(id, request, authentication.getName()));
     }
 
     @PostMapping("/{id}/confirm-price")

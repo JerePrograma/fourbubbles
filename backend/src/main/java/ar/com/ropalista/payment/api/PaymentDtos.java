@@ -20,4 +20,8 @@ public final class PaymentDtos {
     public record PaymentResponse(UUID id, UUID orderId, String methodCode, BigDecimal amount,
                                   String currencyCode, OffsetDateTime paidAt, String reference,
                                   BigDecimal totalPaid, BigDecimal remainingBalance, String orderPaymentStatus) {}
+
+    public record PaymentHistoryResponse(UUID id, UUID orderId, String methodCode, String methodName,
+                                         BigDecimal amount, String currencyCode, OffsetDateTime paidAt,
+                                         String reference, String notes, String status, String registeredBy) {}
 }

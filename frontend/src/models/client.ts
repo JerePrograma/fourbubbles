@@ -18,6 +18,9 @@ export interface ClientAddress {
   neighborhood: string | null;
   references: string | null;
   primaryAddress: boolean;
+  active: boolean;
+  validFrom: string;
+  validTo: string | null;
 }
 
 export interface Client {
@@ -33,4 +36,5 @@ export interface Client {
   preferences: ClientPreferences;
   notes: string | null;
   addresses: ClientAddress[];
+  addressHistory: ClientAddress[];
 }

@@ -18,7 +18,9 @@ import ar.com.ropalista.pricing.application.PricingService;
 import ar.com.ropalista.pricing.domain.PromotionUsage;
 import ar.com.ropalista.pricing.persistence.PromotionUsageRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -29,6 +31,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -101,13 +104,10 @@ public class OrderService {
         }
 
         var limit = limitPolicy.evaluate(service, equivalentTotal, request.declaredWeightGrams());
-        if (limit.splitOrDifferentServiceRequired()) {
-            requiresQuote = true;
-        }
+        if (limit.splitOrDifferentServiceRequired()) requiresQuote = true;
         boolean firstOrder = !orders.existsByClientIdAndDeletedAtIsNull(client.getId());
         var priceQuote = pricingService.quote(service, client, address, request.promotionCode(), firstOrder, OffsetDateTime.now());
-        String orderNumber = nextOrderNumber();
-        LaundryOrder order = new LaundryOrder(orderNumber, client, address, service,
+        LaundryOrder order = new LaundryOrder(nextOrderNumber(), client, address, service,
                 priceQuote.priceDefinition(), priceQuote.promotion(), physicalTotal, equivalentTotal,
                 request.declaredWeightGrams(), exclusive, requiresQuote, limit.firstLimitReached(),
                 priceQuote.total(), priceQuote.currency(), json(priceQuote.breakdown()),
@@ -124,15 +124,55 @@ public class OrderService {
     }
 
     @Transactional
+    public OrderDtos.OrderResponse applyManualQuote(UUID id, OrderDtos.ManualQuoteRequest request, String actor) {
+        LaundryOrder order = find(id);
+        if (order.getConfirmedPrice() != null) {
+            throw new BusinessException("PRICE_ALREADY_CONFIRMED", "El precio ya fue confirmado", HttpStatus.CONFLICT);
+        }
+        if (order.getStatus() != OrderStatus.INQUIRY && order.getStatus() != OrderStatus.QUOTED) {
+            throw new BusinessException("ORDER_NOT_EDITABLE", "La cotización manual solo puede aplicarse antes de reservar el pedido", HttpStatus.UNPROCESSABLE_ENTITY);
+        }
+        BigDecimal amount = money(request.amount());
+        var before = java.util.Map.of("quotedPrice", order.getQuotedPrice(), "requiresQuote", order.isRequiresQuote());
+        order.applyManualQuote(amount, request.reason(), actor, OffsetDateTime.now(),
+                manualBreakdown(order.getPriceBreakdown(), order.getAutomaticQuotedPrice(), amount, request.reason(), actor));
+        if (order.getStatus() == OrderStatus.INQUIRY) {
+            changeStatusInternal(order, OrderStatus.QUOTED, "Cotización manual registrada", null, null);
+        }
+        audit.record("ORDER", order.getId(), "MANUAL_QUOTE", before,
+                java.util.Map.of("quotedPrice", amount, "automaticQuotedPrice", order.getAutomaticQuotedPrice(), "actor", actor),
+                request.reason());
+        return toResponse(order);
+    }
+
+    @Transactional
+    public OrderDtos.OrderResponse updatePlanning(UUID id, OrderDtos.UpdatePlanningRequest request) {
+        LaundryOrder order = find(id);
+        var before = planningSummary(order);
+        try {
+            order.updatePlanning(request.pickupScheduledAt(), request.promisedAt(), request.notes());
+        } catch (IllegalStateException ex) {
+            throw new BusinessException("ORDER_NOT_EDITABLE", ex.getMessage(), HttpStatus.UNPROCESSABLE_ENTITY);
+        }
+        audit.record("ORDER", order.getId(), "UPDATE_PLANNING", before, planningSummary(order),
+                "Actualización controlada antes de confirmar precio");
+        return toResponse(order);
+    }
+
+    @Transactional
     public OrderDtos.OrderResponse confirmPrice(UUID id) {
         LaundryOrder order = find(id);
+        if (order.getConfirmedPrice() != null) return toResponse(order);
         if (order.isRequiresQuote()) {
             throw new BusinessException("MANUAL_QUOTE_REQUIRED", "El pedido requiere presupuesto manual antes de confirmar", HttpStatus.UNPROCESSABLE_ENTITY);
         }
-        order.confirmPrice();
         if (order.getPromotion() != null && !promotionUsages.existsByOrderId(order.getId())) {
-            promotionUsages.save(new PromotionUsage(order.getId(), order.getPromotion(), order.getClient(), order.getAddress()));
+            boolean firstOrder = orders.countByClientIdAndDeletedAtIsNull(order.getClient().getId()) == 1;
+            var lockedPromotion = pricingService.lockAndValidateForConfirmation(order.getPromotion(), order.getService(),
+                    order.getAddress(), firstOrder, OffsetDateTime.now());
+            promotionUsages.save(new PromotionUsage(order.getId(), lockedPromotion, order.getClient(), order.getAddress()));
         }
+        order.confirmPrice();
         if (order.getStatus() == OrderStatus.QUOTED) {
             changeStatusInternal(order, OrderStatus.WAITING_CONFIRMATION, "Precio confirmado", null, null);
         }
@@ -168,16 +208,9 @@ public class OrderService {
             specification = specification.and((root, query, builder) ->
                     builder.like(builder.upper(root.get("orderNumber")), pattern));
         }
-        if (clientId != null) {
-            specification = specification.and((root, query, builder) ->
-                    builder.equal(root.get("client").get("id"), clientId));
-        }
-        if (status != null) {
-            specification = specification.and((root, query, builder) ->
-                    builder.equal(root.get("status"), status));
-        }
-        var pageable = PageRequest.of(Math.max(page, 0), Math.max(1, Math.min(size, 100)),
-                Sort.by(Sort.Direction.DESC, "createdAt"));
+        if (clientId != null) specification = specification.and((root, query, builder) -> builder.equal(root.get("client").get("id"), clientId));
+        if (status != null) specification = specification.and((root, query, builder) -> builder.equal(root.get("status"), status));
+        var pageable = PageRequest.of(Math.max(page, 0), Math.max(1, Math.min(size, 100)), Sort.by(Sort.Direction.DESC, "createdAt"));
         return orders.findAll(specification, pageable).map(this::toSummary);
     }
 
@@ -185,8 +218,8 @@ public class OrderService {
                                       String location, String notificationReference) {
         OrderStatus previous = order.getStatus();
         if (!transitionPolicy.canTransition(previous, target)) {
-            throw new BusinessException("INVALID_STATUS_TRANSITION",
-                    "No se permite pasar de " + previous + " a " + target, HttpStatus.UNPROCESSABLE_ENTITY);
+            throw new BusinessException("INVALID_STATUS_TRANSITION", "No se permite pasar de " + previous + " a " + target,
+                    HttpStatus.UNPROCESSABLE_ENTITY);
         }
         order.changeStatus(target);
         histories.save(new OrderStateHistory(order, previous, target, observation, location, notificationReference));
@@ -204,12 +237,41 @@ public class OrderService {
         return "RL-%06d".formatted(value);
     }
 
+    private String manualBreakdown(String current, BigDecimal automatic, BigDecimal manual, String reason, String actor) {
+        try {
+            JsonNode parsed = objectMapper.readTree(current);
+            ArrayNode lines = objectMapper.createArrayNode();
+            if (parsed != null && parsed.isArray()) lines.addAll((ArrayNode) parsed);
+            else if (parsed != null) lines.add(parsed);
+            var line = lines.addObject();
+            line.put("code", "MANUAL_QUOTE");
+            line.put("description", reason);
+            line.put("amount", manual.subtract(automatic));
+            line.put("actor", actor);
+            return objectMapper.writeValueAsString(lines);
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("No se pudo actualizar el desglose de precio", ex);
+        }
+    }
+
     private String json(Object value) {
         try {
             return objectMapper.writeValueAsString(value);
         } catch (JsonProcessingException ex) {
             throw new IllegalStateException("No se pudo persistir el detalle del precio", ex);
         }
+    }
+
+    private BigDecimal money(BigDecimal value) {
+        return value.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private Object planningSummary(LaundryOrder order) {
+        var values = new java.util.LinkedHashMap<String, Object>();
+        values.put("pickupScheduledAt", order.getPickupScheduledAt());
+        values.put("promisedAt", order.getPromisedAt());
+        values.put("notes", order.getNotes());
+        return values;
     }
 
     private OrderDtos.OrderSummaryResponse toSummary(LaundryOrder order) {
@@ -222,17 +284,15 @@ public class OrderService {
     }
 
     private OrderDtos.OrderResponse toResponse(LaundryOrder order) {
-        var allowedTransitions = transitionPolicy.allowedTransitions(order.getStatus()).stream()
-                .sorted()
-                .map(Enum::name)
-                .toList();
+        var allowedTransitions = transitionPolicy.allowedTransitions(order.getStatus()).stream().sorted().map(Enum::name).toList();
         return new OrderDtos.OrderResponse(order.getId(), order.getOrderNumber(), order.getClient().getId(),
                 order.getAddress().getId(), order.getService().getCode(), order.getStatus().name(),
                 order.getPaymentStatus().name(), order.getPhysicalPieces(), order.getEquivalentUnits(),
                 order.getDeclaredWeightGrams(), order.getActualWeightGrams(), order.isExclusiveCycle(),
-                order.isRequiresQuote(), order.getLimitReached(), order.getQuotedPrice(), order.getConfirmedPrice(),
-                order.getCurrencyCode(), order.getPriceBreakdown(), order.getPickupScheduledAt(), order.getPromisedAt(),
-                allowedTransitions,
+                order.isRequiresQuote(), order.getLimitReached(), order.getAutomaticQuotedPrice(), order.getQuotedPrice(),
+                order.getConfirmedPrice(), order.getCurrencyCode(), order.getPriceBreakdown(), order.getManualQuoteReason(),
+                order.getManualQuoteAt(), order.getManualQuoteBy(), order.getPickupScheduledAt(), order.getPromisedAt(),
+                order.getNotes(), allowedTransitions,
                 order.getItems().stream().map(item -> new OrderDtos.ItemResponse(item.getEquivalence().getCode(),
                         item.getEquivalence().getName(), item.getPhysicalPieces(), item.getGroupCount(),
                         item.getEquivalentUnitsApplied(), item.getEstimatedWeightGrams(), item.getObservations())).toList());

@@ -4,7 +4,8 @@ import { Link, useParams } from 'react-router-dom';
 import { apiRequest } from '../api/httpClient';
 import { useAuth } from '../auth/AuthContext';
 import type { Client } from '../models/client';
-import type { OrderDetail, OrderStatus, PaymentResult } from '../models/order';
+import type { OrderDetail, OrderStatus, PaymentHistoryItem, PaymentResult } from '../models/order';
+import { toOffsetDateTime } from '../order/orderDraft';
 
 const paymentMethods = [
   ['CASH', 'Efectivo'],
@@ -18,6 +19,7 @@ export function OrderDetailPage(): JSX.Element {
   const { session } = useAuth();
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [client, setClient] = useState<Client | null>(null);
+  const [paymentHistory, setPaymentHistory] = useState<PaymentHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +30,12 @@ export function OrderDetailPage(): JSX.Element {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
   const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(null);
+  const [manualQuoteAmount, setManualQuoteAmount] = useState('');
+  const [manualQuoteReason, setManualQuoteReason] = useState('');
+  const [pickupScheduledAt, setPickupScheduledAt] = useState('');
+  const [promisedAt, setPromisedAt] = useState('');
+  const [planningNotes, setPlanningNotes] = useState('');
+  const isAdmin = session?.roles.includes('ADMIN') ?? false;
   const canWrite = session?.roles.some((role) => role === 'ADMIN' || role === 'OPERATOR') ?? false;
   const canChangeStatus = session?.roles.some((role) => role === 'ADMIN' || role === 'OPERATOR' || role === 'DRIVER') ?? false;
 
@@ -37,10 +45,18 @@ export function OrderDetailPage(): JSX.Element {
     setError(null);
     try {
       const loadedOrder = await apiRequest<OrderDetail>(`/orders/${id}`);
+      const [loadedClient, loadedPayments] = await Promise.all([
+        apiRequest<Client>(`/clients/${loadedOrder.clientId}`),
+        apiRequest<PaymentHistoryItem[]>(`/payments?orderId=${encodeURIComponent(id)}`),
+      ]);
       setOrder(loadedOrder);
-      setTargetStatus(loadedOrder.allowedTransitions[0] ?? '');
-      const loadedClient = await apiRequest<Client>(`/clients/${loadedOrder.clientId}`);
       setClient(loadedClient);
+      setPaymentHistory(loadedPayments);
+      setTargetStatus(loadedOrder.allowedTransitions[0] ?? '');
+      setManualQuoteAmount(String(loadedOrder.quotedPrice));
+      setPickupScheduledAt(toLocalInput(loadedOrder.pickupScheduledAt));
+      setPromisedAt(toLocalInput(loadedOrder.promisedAt));
+      setPlanningNotes(loadedOrder.notes ?? '');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'No se pudo cargar el pedido');
     } finally {
@@ -53,6 +69,7 @@ export function OrderDetailPage(): JSX.Element {
   const confirmedAmount = order?.confirmedPrice ?? null;
   const remainingAfterLastPayment = paymentResult?.remainingBalance ?? null;
   const priceBreakdown = useMemo(() => parseBreakdown(order?.priceBreakdown), [order?.priceBreakdown]);
+  const totalPaid = paymentHistory.reduce((total, payment) => payment.status === 'PAID' ? total + payment.amount : total, 0);
 
   const perform = async (action: () => Promise<unknown>, message: string) => {
     setWorking(true);
@@ -73,6 +90,37 @@ export function OrderDetailPage(): JSX.Element {
     () => apiRequest<OrderDetail>(`/orders/${id}/confirm-price`, { method: 'POST' }),
     'Precio confirmado y congelado correctamente.',
   );
+
+  const applyManualQuote = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!manualQuoteAmount || Number(manualQuoteAmount) <= 0 || !manualQuoteReason.trim()) {
+      setError('La cotización manual requiere importe positivo y motivo.');
+      return;
+    }
+    await perform(
+      () => apiRequest<OrderDetail>(`/orders/${id}/manual-quote`, {
+        method: 'POST',
+        body: JSON.stringify({ amount: Number(manualQuoteAmount), reason: manualQuoteReason.trim() }),
+      }),
+      'Cotización manual registrada con trazabilidad.',
+    );
+    setManualQuoteReason('');
+  };
+
+  const updatePlanning = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    await perform(
+      () => apiRequest<OrderDetail>(`/orders/${id}/planning`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          pickupScheduledAt: toOffsetDateTime(pickupScheduledAt),
+          promisedAt: toOffsetDateTime(promisedAt),
+          notes: planningNotes.trim() || null,
+        }),
+      }),
+      'Planificación actualizada.',
+    );
+  };
 
   const changeStatus = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -131,7 +179,7 @@ export function OrderDetailPage(): JSX.Element {
   return (
     <section>
       <div className="page-heading">
-        <div><h1>{order.orderNumber}</h1><p className="muted">Detalle, precio, estado y cobros</p></div>
+        <div><h1>{order.orderNumber}</h1><p className="muted">Detalle, precio, planificación, estado y cobros</p></div>
         <Link className="text-link" to="/orders">Volver</Link>
       </div>
       {success && <div className="success">{success}</div>}
@@ -141,7 +189,7 @@ export function OrderDetailPage(): JSX.Element {
         <article className="card metric"><span className="muted">Estado</span><strong className="metric-text">{order.status}</strong></article>
         <article className="card metric"><span className="muted">Pago</span><strong className="metric-text">{order.paymentStatus}</strong></article>
         <article className="card metric"><span className="muted">Precio</span><strong>{formatMoney(order.confirmedPrice ?? order.quotedPrice, order.currencyCode)}</strong></article>
-        <article className="card metric"><span className="muted">Unidades</span><strong>{order.equivalentUnits}</strong></article>
+        <article className="card metric"><span className="muted">Pagado</span><strong>{formatMoney(totalPaid, order.currencyCode)}</strong></article>
       </div>
 
       <div className="detail-grid">
@@ -152,31 +200,48 @@ export function OrderDetailPage(): JSX.Element {
             <div><dt>WhatsApp</dt><dd>{client?.whatsapp ?? '—'}</dd></div>
             <div><dt>Servicio</dt><dd>{order.serviceCode}</dd></div>
             <div><dt>Piezas físicas</dt><dd>{order.physicalPieces}</dd></div>
+            <div><dt>Unidades</dt><dd>{order.equivalentUnits}</dd></div>
             <div><dt>Peso declarado</dt><dd>{order.declaredWeightGrams ? `${order.declaredWeightGrams} g` : 'No informado'}</dd></div>
             <div><dt>Ciclo exclusivo</dt><dd>{order.exclusiveCycle ? 'Sí' : 'No'}</dd></div>
             <div><dt>Límite alcanzado</dt><dd>{order.limitReached}</dd></div>
-            <div><dt>Retiro</dt><dd>{formatDate(order.pickupScheduledAt)}</dd></div>
-            <div><dt>Promesa</dt><dd>{formatDate(order.promisedAt)}</dd></div>
           </dl>
         </article>
 
         <article className="card">
           <h2>Cotización</h2>
           <dl className="detail-list">
-            <div><dt>Cotizado</dt><dd>{formatMoney(order.quotedPrice, order.currencyCode)}</dd></div>
+            <div><dt>Automático</dt><dd>{formatMoney(order.automaticQuotedPrice, order.currencyCode)}</dd></div>
+            <div><dt>Vigente</dt><dd>{formatMoney(order.quotedPrice, order.currencyCode)}</dd></div>
             <div><dt>Confirmado</dt><dd>{confirmedAmount === null ? 'Pendiente' : formatMoney(confirmedAmount, order.currencyCode)}</dd></div>
             <div><dt>Requiere presupuesto manual</dt><dd>{order.requiresQuote ? 'Sí' : 'No'}</dd></div>
-            <div><dt>Último saldo informado</dt><dd>{remainingAfterLastPayment === null ? 'Sin pago en esta sesión' : formatMoney(remainingAfterLastPayment, order.currencyCode)}</dd></div>
+            <div><dt>Último saldo informado</dt><dd>{remainingAfterLastPayment === null ? 'Ver historial' : formatMoney(remainingAfterLastPayment, order.currencyCode)}</dd></div>
           </dl>
+          {order.manualQuoteAt && <div className="info-box"><strong>Cotización manual</strong><span>{order.manualQuoteReason}</span><span>{order.manualQuoteBy} · {formatDate(order.manualQuoteAt)}</span></div>}
           {priceBreakdown !== null && <pre className="json-preview">{JSON.stringify(priceBreakdown, null, 2)}</pre>}
+          {isAdmin && order.confirmedPrice === null && order.requiresQuote && (
+            <form className="form-stack manual-quote-form" onSubmit={(event) => void applyManualQuote(event)}>
+              <label>Importe manual<input type="number" min="0.01" step="0.01" value={manualQuoteAmount} onChange={(event) => setManualQuoteAmount(event.target.value)} /></label>
+              <label>Motivo<textarea rows={3} value={manualQuoteReason} onChange={(event) => setManualQuoteReason(event.target.value)} /></label>
+              <button disabled={working}>Registrar cotización manual</button>
+            </form>
+          )}
           {canWrite && order.confirmedPrice === null && !order.requiresQuote && (
             <button disabled={working} onClick={() => void confirmPrice()}>Confirmar precio</button>
           )}
-          {order.requiresQuote && order.confirmedPrice === null && (
-            <div className="alert">El backend exige una cotización manual antes de confirmar. Ese ajuste todavía pertenece al corte de recepción.</div>
-          )}
         </article>
       </div>
+
+      {canWrite && order.confirmedPrice === null && (
+        <article className="card planning-card">
+          <h2>Planificación editable antes de confirmar</h2>
+          <form className="form-grid" onSubmit={(event) => void updatePlanning(event)}>
+            <label>Retiro programado<input type="datetime-local" value={pickupScheduledAt} onChange={(event) => setPickupScheduledAt(event.target.value)} /></label>
+            <label>Promesa de entrega<input type="datetime-local" value={promisedAt} onChange={(event) => setPromisedAt(event.target.value)} /></label>
+            <label className="span-2">Notas<textarea rows={3} value={planningNotes} onChange={(event) => setPlanningNotes(event.target.value)} /></label>
+            <button className="span-2" disabled={working}>Guardar planificación</button>
+          </form>
+        </article>
+      )}
 
       <article className="card table-wrap">
         <h2>Prendas</h2>
@@ -222,6 +287,23 @@ export function OrderDetailPage(): JSX.Element {
           {order.paymentStatus === 'PAID' && <div className="success">Pedido completamente pagado.</div>}
         </article>
       </div>
+
+      <article className="card table-wrap payment-history-card">
+        <h2>Historial de pagos</h2>
+        {paymentHistory.length === 0 && <p className="muted">Todavía no hay pagos registrados.</p>}
+        {paymentHistory.length > 0 && (
+          <table>
+            <thead><tr><th>Fecha</th><th>Medio</th><th>Importe</th><th>Referencia</th><th>Estado</th><th>Registrado por</th></tr></thead>
+            <tbody>{paymentHistory.map((payment) => (
+              <tr key={payment.id}>
+                <td>{formatDate(payment.paidAt)}</td><td>{payment.methodName}</td>
+                <td>{formatMoney(payment.amount, payment.currencyCode)}</td><td>{payment.reference ?? '—'}</td>
+                <td><span className="badge neutral-badge">{payment.status}</span></td><td>{payment.registeredBy}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        )}
+      </article>
     </section>
   );
 }
@@ -233,6 +315,14 @@ function formatMoney(amount: number, currency: string): string {
 function formatDate(value: string | null): string {
   if (!value) return 'Sin programar';
   return new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
+}
+
+function toLocalInput(value: string | null): string {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
 }
 
 function parseBreakdown(value: string | undefined): unknown {

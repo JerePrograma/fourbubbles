@@ -5,6 +5,7 @@ import ar.com.ropalista.common.api.BusinessException;
 import ar.com.ropalista.customer.api.ClientDtos;
 import ar.com.ropalista.customer.domain.Address;
 import ar.com.ropalista.customer.domain.Client;
+import ar.com.ropalista.customer.persistence.AddressRepository;
 import ar.com.ropalista.customer.persistence.ClientRepository;
 import ar.com.ropalista.location.persistence.ZoneRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -16,17 +17,22 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
+import java.util.Comparator;
 import java.util.UUID;
 
 @Service
 public class ClientService {
     private final ClientRepository clients;
+    private final AddressRepository addresses;
     private final ZoneRepository zones;
     private final AuditService audit;
     private final ObjectMapper objectMapper;
 
-    public ClientService(ClientRepository clients, ZoneRepository zones, AuditService audit, ObjectMapper objectMapper) {
+    public ClientService(ClientRepository clients, AddressRepository addresses, ZoneRepository zones,
+                         AuditService audit, ObjectMapper objectMapper) {
         this.clients = clients;
+        this.addresses = addresses;
         this.zones = zones;
         this.audit = audit;
         this.objectMapper = objectMapper;
@@ -41,14 +47,10 @@ public class ClientService {
         if (primaryCount != 1) {
             throw new BusinessException("INVALID_PRIMARY_ADDRESS", "Debe existir exactamente un domicilio principal", HttpStatus.BAD_REQUEST);
         }
-        String preferencesJson = resolvePreferences(request.preferences(), request.preferencesJson());
         Client client = new Client(request.firstName(), request.lastName(), request.phone(), request.whatsapp(),
-                request.email(), request.acquisitionSource(), preferencesJson, request.notes());
+                request.email(), request.acquisitionSource(), resolvePreferences(request.preferences(), request.preferencesJson()), request.notes());
         for (var addressRequest : request.addresses()) {
-            var zone = zones.findByCodeAndActiveTrue(addressRequest.zoneCode())
-                    .orElseThrow(() -> new BusinessException("ZONE_NOT_AVAILABLE", "La zona indicada no está habilitada", HttpStatus.UNPROCESSABLE_ENTITY));
-            client.addAddress(new Address(zone, addressRequest.street(), addressRequest.number(), addressRequest.extra(),
-                    addressRequest.locality(), addressRequest.neighborhood(), addressRequest.references(), addressRequest.primaryAddress()));
+            client.addAddress(toAddress(addressRequest));
         }
         Client saved = clients.save(client);
         audit.record("CLIENT", saved.getId(), "CREATE", null, summary(saved), "Alta de cliente");
@@ -69,6 +71,58 @@ public class ClientService {
         return toResponse(client);
     }
 
+    @Transactional
+    public ClientDtos.ClientResponse addAddress(UUID clientId, ClientDtos.AddressRequest request) {
+        Client client = find(clientId);
+        var activeAddresses = addresses.findByClientIdAndActiveTrueOrderByPrimaryAddressDescValidFromDesc(clientId);
+        if (activeAddresses.isEmpty() && !request.primaryAddress()) {
+            throw new BusinessException("PRIMARY_ADDRESS_REQUIRED", "El primer domicilio activo debe ser principal", HttpStatus.BAD_REQUEST);
+        }
+        if (request.primaryAddress()) {
+            activeAddresses.stream().filter(Address::isPrimaryAddress).forEach(Address::demotePrimary);
+            addresses.flush();
+        }
+        Address address = toAddress(request);
+        client.addAddress(address);
+        Address saved = addresses.saveAndFlush(address);
+        audit.record("CLIENT_ADDRESS", saved.getId(), "CREATE", null, addressSummary(saved), "Alta de domicilio");
+        return toResponse(client);
+    }
+
+    @Transactional
+    public ClientDtos.ClientResponse makePrimary(UUID clientId, UUID addressId) {
+        Client client = find(clientId);
+        Address target = findActiveAddress(clientId, addressId);
+        Object before = addressSummary(target);
+        addresses.findByClientIdAndActiveTrueOrderByPrimaryAddressDescValidFromDesc(clientId)
+                .stream().filter(Address::isPrimaryAddress).forEach(Address::demotePrimary);
+        addresses.flush();
+        target.makePrimary();
+        addresses.flush();
+        audit.record("CLIENT_ADDRESS", target.getId(), "MAKE_PRIMARY", before, addressSummary(target),
+                "Cambio de domicilio principal");
+        return toResponse(client);
+    }
+
+    @Transactional
+    public ClientDtos.ClientResponse deactivateAddress(UUID clientId, UUID addressId) {
+        Client client = find(clientId);
+        Address target = findActiveAddress(clientId, addressId);
+        if (target.isPrimaryAddress()) {
+            throw new BusinessException("PRIMARY_ADDRESS_CANNOT_BE_DEACTIVATED",
+                    "Seleccione otro domicilio principal antes de desactivar este domicilio", HttpStatus.UNPROCESSABLE_ENTITY);
+        }
+        if (addresses.countByClientIdAndActiveTrue(clientId) <= 1) {
+            throw new BusinessException("LAST_ADDRESS_CANNOT_BE_DEACTIVATED",
+                    "El cliente debe conservar al menos un domicilio activo", HttpStatus.UNPROCESSABLE_ENTITY);
+        }
+        Object before = addressSummary(target);
+        target.deactivate(OffsetDateTime.now());
+        audit.record("CLIENT_ADDRESS", target.getId(), "DEACTIVATE", before, addressSummary(target),
+                "Baja lógica de domicilio");
+        return toResponse(client);
+    }
+
     @Transactional(readOnly = true)
     public ClientDtos.ClientResponse get(UUID id) {
         return toResponse(find(id));
@@ -85,14 +139,35 @@ public class ClientService {
                 .orElseThrow(() -> new BusinessException("CLIENT_NOT_FOUND", "Cliente inexistente", HttpStatus.NOT_FOUND));
     }
 
+    private Address findActiveAddress(UUID clientId, UUID addressId) {
+        return addresses.findByIdAndClientIdAndActiveTrue(addressId, clientId)
+                .orElseThrow(() -> new BusinessException("ADDRESS_NOT_FOUND", "Domicilio activo inexistente", HttpStatus.NOT_FOUND));
+    }
+
+    private Address toAddress(ClientDtos.AddressRequest request) {
+        var zone = zones.findByCodeAndActiveTrue(request.zoneCode())
+                .orElseThrow(() -> new BusinessException("ZONE_NOT_AVAILABLE", "La zona indicada no está habilitada", HttpStatus.UNPROCESSABLE_ENTITY));
+        return new Address(zone, request.street(), request.number(), request.extra(), request.locality(),
+                request.neighborhood(), request.references(), request.primaryAddress());
+    }
+
     private ClientDtos.ClientResponse toResponse(Client client) {
+        var active = client.getAddresses().stream().filter(Address::isActive)
+                .sorted(Comparator.comparing(Address::isPrimaryAddress).reversed()
+                        .thenComparing(Address::getValidFrom, Comparator.reverseOrder()))
+                .map(this::toAddressResponse).toList();
+        var history = client.getAddresses().stream().filter(address -> !address.isActive())
+                .sorted(Comparator.comparing(Address::getValidTo, Comparator.nullsLast(Comparator.reverseOrder())))
+                .map(this::toAddressResponse).toList();
         return new ClientDtos.ClientResponse(client.getId(), client.getFirstName(), client.getLastName(), client.getPhone(),
                 client.getWhatsapp(), client.getEmail(), client.getStatus().name(), client.getAcquisitionSource(),
-                client.getPreferencesJson(), parsePreferences(client.getPreferencesJson()), client.getNotes(),
-                client.getAddresses().stream().filter(Address::isActive)
-                        .map(a -> new ClientDtos.AddressResponse(a.getId(), a.getZone().getCode(), a.getZone().getName(),
-                                a.getStreet(), a.getNumber(), a.getExtra(), a.getLocality(), a.getNeighborhood(),
-                                a.getReferences(), a.isPrimaryAddress())).toList());
+                client.getPreferencesJson(), parsePreferences(client.getPreferencesJson()), client.getNotes(), active, history);
+    }
+
+    private ClientDtos.AddressResponse toAddressResponse(Address address) {
+        return new ClientDtos.AddressResponse(address.getId(), address.getZone().getCode(), address.getZone().getName(),
+                address.getStreet(), address.getNumber(), address.getExtra(), address.getLocality(), address.getNeighborhood(),
+                address.getReferences(), address.isPrimaryAddress(), address.isActive(), address.getValidFrom(), address.getValidTo());
     }
 
     private String resolvePreferences(ClientDtos.ClientPreferencesRequest typed, String legacyJson) {
@@ -103,14 +178,10 @@ public class ClientService {
                 throw new IllegalStateException("No se pudieron serializar las preferencias", ex);
             }
         }
-        if (legacyJson == null || legacyJson.isBlank()) {
-            return "{}";
-        }
+        if (legacyJson == null || legacyJson.isBlank()) return "{}";
         try {
             JsonNode node = objectMapper.readTree(legacyJson);
-            if (node == null || !node.isObject()) {
-                throw invalidPreferences();
-            }
+            if (node == null || !node.isObject()) throw invalidPreferences();
             return objectMapper.writeValueAsString(node);
         } catch (JsonProcessingException ex) {
             throw invalidPreferences();
@@ -120,12 +191,8 @@ public class ClientService {
     private ClientDtos.ClientPreferencesResponse parsePreferences(String json) {
         try {
             JsonNode node = objectMapper.readTree(json == null || json.isBlank() ? "{}" : json);
-            return new ClientDtos.ClientPreferencesResponse(
-                    text(node, "fragrance"),
-                    bool(node, "softenerAllowed"),
-                    bool(node, "dryerAllowed"),
-                    bool(node, "hypoallergenic"),
-                    bool(node, "separateColors"),
+            return new ClientDtos.ClientPreferencesResponse(text(node, "fragrance"), bool(node, "softenerAllowed"),
+                    bool(node, "dryerAllowed"), bool(node, "hypoallergenic"), bool(node, "separateColors"),
                     text(node, "specialInstructions"));
         } catch (JsonProcessingException ex) {
             throw new IllegalStateException("Las preferencias persistidas no contienen JSON válido", ex);
@@ -148,5 +215,10 @@ public class ClientService {
 
     private Object summary(Client client) {
         return java.util.Map.of("id", client.getId(), "whatsapp", client.getWhatsapp(), "status", client.getStatus().name());
+    }
+
+    private Object addressSummary(Address address) {
+        return java.util.Map.of("id", address.getId(), "active", address.isActive(),
+                "primary", address.isPrimaryAddress(), "street", address.getStreet(), "number", address.getNumber());
     }
 }

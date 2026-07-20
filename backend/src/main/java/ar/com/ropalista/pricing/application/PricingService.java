@@ -32,7 +32,8 @@ public class PricingService {
         this.usages = usages;
     }
 
-    public PriceQuote quote(ServiceOffering service, Client client, Address address, String promotionCode, boolean firstOrder, OffsetDateTime at) {
+    public PriceQuote quote(ServiceOffering service, Client client, Address address, String promotionCode,
+                            boolean firstOrder, OffsetDateTime at) {
         PriceDefinition price = prices.findApplicable(service.getId(), address.getZone().getId(), at).stream().findFirst()
                 .orElseThrow(() -> new BusinessException("PRICE_NOT_FOUND", "No existe un precio vigente para el servicio y la zona", HttpStatus.UNPROCESSABLE_ENTITY));
         List<BreakdownLine> breakdown = new ArrayList<>();
@@ -43,7 +44,9 @@ public class PricingService {
         BigDecimal discount = BigDecimal.ZERO.setScale(2);
         BigDecimal total = base;
         if (promotionCode != null && !promotionCode.isBlank()) {
-            promotion = validatePromotion(promotionCode, service, address, firstOrder, at);
+            promotion = promotions.findActive(promotionCode, at)
+                    .orElseThrow(() -> new BusinessException("PROMOTION_NOT_FOUND", "La promoción no existe o está inactiva", HttpStatus.UNPROCESSABLE_ENTITY));
+            validatePromotion(promotion, service, address, firstOrder, at);
             if (promotion.getFixedPrice() != null) {
                 total = money(promotion.getFixedPrice());
                 discount = base.subtract(total).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
@@ -57,9 +60,19 @@ public class PricingService {
         return new PriceQuote(price, promotion, base, discount, money(total.max(BigDecimal.ZERO)), "ARS", List.copyOf(breakdown));
     }
 
-    private Promotion validatePromotion(String code, ServiceOffering service, Address address, boolean firstOrder, OffsetDateTime at) {
-        Promotion promotion = promotions.findActive(code, at)
-                .orElseThrow(() -> new BusinessException("PROMOTION_NOT_FOUND", "La promoción no existe o está inactiva", HttpStatus.UNPROCESSABLE_ENTITY));
+    public Promotion lockAndValidateForConfirmation(Promotion selected, ServiceOffering service, Address address,
+                                                     boolean firstOrder, OffsetDateTime at) {
+        Promotion locked = promotions.findByIdForUpdate(selected.getId())
+                .orElseThrow(() -> new BusinessException("PROMOTION_NOT_FOUND", "La promoción ya no existe", HttpStatus.UNPROCESSABLE_ENTITY));
+        validatePromotion(locked, service, address, firstOrder, at);
+        return locked;
+    }
+
+    private void validatePromotion(Promotion promotion, ServiceOffering service, Address address,
+                                   boolean firstOrder, OffsetDateTime at) {
+        if (!"ACTIVE".equals(promotion.getStatus())) {
+            throw new BusinessException("PROMOTION_NOT_FOUND", "La promoción no está activa", HttpStatus.UNPROCESSABLE_ENTITY);
+        }
         if (!promotion.isAutomaticApplicable()) {
             throw new BusinessException("PROMOTION_REQUIRES_MANUAL_VALIDATION",
                     "La promoción requiere validación manual de sus condiciones", HttpStatus.UNPROCESSABLE_ENTITY);
@@ -95,7 +108,6 @@ public class PricingService {
                 throw new BusinessException("PROMOTION_MONTHLY_QUOTA_EXHAUSTED", "La promoción agotó su cupo mensual", HttpStatus.UNPROCESSABLE_ENTITY);
             }
         }
-        return promotion;
     }
 
     private BigDecimal money(BigDecimal value) {

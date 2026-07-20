@@ -1,121 +1,148 @@
 # Four Bubbles / Ropa Lista
 
-Sistema de gestión integral para una lavandería doméstica con retiro y entrega en Marcos Paz y Mariano Acosta.
+Sistema de gestión para una lavandería doméstica con retiro y entrega, inicialmente orientado a Marcos Paz y Mariano Acosta.
 
-> Versión: **0.1.1**. La plataforma base y el flujo operativo inicial de Fase 1 están implementados. El MVP completo de recepción, producción, logística y finanzas todavía no está terminado.
+> Versión: **0.1.2**. El circuito administrativo base está implementado y operable desde la interfaz. Recepción física, producción, logística, costos y crecimiento continúan en fases posteriores.
 
-## Alcance disponible
+## Qué incluye 0.1.2
 
-- Monolito modular Java 21 + Spring Boot 3.
-- PostgreSQL 16 y migraciones Flyway desde la primera tabla.
-- Autenticación JWT de corta duración y refresh token opaco rotativo en cookie `HttpOnly`.
-- Roles `ADMIN`, `OPERATOR`, `DRIVER` y `REPORT_VIEWER`.
-- Respuestas JSON uniformes, incluyendo 401 y 403 generados por Spring Security.
-- Protección básica de login por usuario y origen.
-- `X-Request-ID` y correlación de logs.
-- Auditoría persistente de operaciones sensibles.
-- Clientes, domicilios, zonas y preferencias operativas tipadas.
-- Alta, búsqueda y actualización de clientes desde la interfaz.
-- Catálogo versionado de servicios, equivalencias, precios y promociones.
-- Pedidos con piezas físicas, grupos, unidades equivalentes, peso, precio histórico y estados trazables.
-- Alta guiada, búsqueda, filtros, detalle y operación de pedidos desde la interfaz.
-- Confirmación de precio y transiciones válidas desde el detalle del pedido.
-- Pagos parciales o totales con saldo y estado de pago.
-- Docker Compose, Nginx y GitHub Actions.
-- Pruebas unitarias, MockMvc, Vitest e integración con PostgreSQL mediante Testcontainers.
-- Dependencias frontend bloqueadas mediante `package-lock.json` y `npm ci`.
-- Scripts PowerShell para iniciar y verificar el entorno local.
-- Documentación funcional, técnica, operativa, de seguridad, pruebas y backlog.
+### Plataforma
 
-## Requisitos recomendados
-
-Camino simple:
-
-- Git;
-- Docker Desktop o Docker Engine;
-- Docker Compose v2;
-- PowerShell 7 en Windows.
-
-Ejecución sin Docker:
-
-- Java 21;
-- Maven 3.9 o superior;
-- Node.js 22;
+- Java 21, Spring Boot 3 y Maven.
+- React 18, TypeScript, Vite, React Router, React Hook Form, Zod y Vitest.
 - PostgreSQL 16.
+- Flyway V1–V6 como única autoridad del esquema.
+- Hibernate con `ddl-auto=validate`.
+- Monolito modular por dominio.
+- OpenAPI/Swagger y Actuator.
+- Docker Compose, Nginx e imágenes multi-stage.
+- CI de backend, frontend y contenedores.
+- smoke test que levanta el stack, inicia sesión y consulta una API protegida.
+
+### Seguridad y observabilidad
+
+- JWT HS256 de corta duración.
+- refresh token opaco, hasheado, rotativo y revocable.
+- cookie `HttpOnly`, `SameSite=Strict` y segura en producción.
+- BCrypt.
+- roles `ADMIN`, `OPERATOR`, `DRIVER` y `REPORT_VIEWER`.
+- jerarquía `ADMIN > OPERATOR > DRIVER > REPORT_VIEWER`.
+- autorización por método para operaciones sensibles.
+- contrato JSON uniforme para 401, 403, validaciones y errores de negocio.
+- `X-Request-ID`, MDC y logs correlacionados.
+- protección básica contra intentos repetidos de login.
+
+### Operación administrativa
+
+- clientes, estado y preferencias tipadas;
+- múltiples domicilios activos;
+- un único domicilio principal;
+- cambio de principal, baja lógica, vigencia e historial;
+- catálogo versionado de servicios, equivalencias, precios y promociones;
+- pedidos con piezas físicas, grupos, unidades equivalentes y peso declarado;
+- precio automático histórico y desglose explicable;
+- cotización manual exclusiva de administrador, conservando el cálculo original;
+- edición controlada de retiro, promesa y notas antes de confirmar;
+- confirmación de precio y estados trazables;
+- revalidación promocional bajo bloqueo pesimista;
+- pagos parciales y totales, saldo e historial;
+- serialización de pagos concurrentes para impedir sobrecobros;
+- consulta administrativa de auditoría;
+- interfaz de clientes, pedidos, pagos y auditoría.
+
+## Lo que no está terminado
+
+- recepción con peso y conteo reales;
+- diferencias contra lo declarado;
+- fotografías, daños, manchas y aprobación del cliente;
+- etiquetas, bolsas e idempotencia de recepción;
+- compatibilidad de prendas y ciclos de lavado/secado;
+- máquinas, calidad, relavados y trazabilidad física;
+- rutas, paradas, kilómetros y WhatsApp;
+- caja, costos, margen y rentabilidad;
+- abonos, comercios, inventario, mantenimiento y reclamos.
+
+El detalle está en [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) y [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Inicio rápido en Windows
+
+Requisitos: Git, Docker Desktop y PowerShell 7.
 
 ```powershell
 git clone https://github.com/JerePrograma/fourbubbles.git
 Set-Location '.\fourbubbles'
 git switch main
+git pull --ff-only origin main
 Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\Start-Local.ps1 -Rebuild
 .\scripts\Verify-Local.ps1
 ```
 
-`Start-Local.ps1` crea `.env` solo si no existe, genera secretos aleatorios, construye los contenedores y espera a que el backend quede saludable. La contraseña administrativa generada se muestra una sola vez.
+`Start-Local.ps1` crea `.env` cuando no existe, genera secretos aleatorios, construye el stack y muestra una sola vez la contraseña del administrador de desarrollo.
 
-La guía manual completa está en [docs/WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md).
+`Verify-Local.ps1` comprueba:
+
+1. servicios de Compose;
+2. health del backend;
+3. seis migraciones Flyway o más;
+4. carga de la SPA;
+5. login con `.env`;
+6. consulta autenticada del catálogo.
+
+Accesos locales:
+
+| Componente | URL |
+|---|---|
+| Aplicación | `http://localhost:8080` |
+| API | `http://localhost:8081/api` |
+| Swagger | `http://localhost:8081/api/swagger-ui.html` |
+| Health | `http://localhost:8081/api/actuator/health` |
+
+Guía completa: [docs/WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md).
 
 ## Inicio manual con Docker
 
 ```powershell
-Copy-Item -LiteralPath '.env.example' -Destination '.env'
+Copy-Item '.env.example' '.env'
 ```
 
-Reemplazar obligatoriamente:
+Reemplazar en `.env`:
 
 - `POSTGRES_PASSWORD` y `DB_PASSWORD` con el mismo valor;
-- `JWT_SECRET_BASE64` con al menos 32 bytes aleatorios codificados en Base64;
+- `JWT_SECRET_BASE64` con al menos 32 bytes aleatorios en Base64;
 - `APP_DEV_ADMIN_PASSWORD` con una contraseña propia.
 
-Parámetros opcionales del bloqueo de login:
-
-- `LOGIN_MAX_ATTEMPTS`, valor inicial `5`;
-- `LOGIN_ATTEMPT_WINDOW`, valor inicial `PT15M`;
-- `LOGIN_BLOCK_DURATION`, valor inicial `PT15M`.
-
-Iniciar:
+Luego:
 
 ```powershell
+docker compose config --quiet
 docker compose up --build -d
 docker compose ps
 ```
 
-Accesos:
-
-- aplicación: `http://localhost:8080`;
-- backend: `http://localhost:8081/api`;
-- Swagger: `http://localhost:8081/api/swagger-ui.html`;
-- salud: `http://localhost:8081/api/actuator/health`.
-
-El administrador de desarrollo se crea con `APP_DEV_ADMIN_USERNAME` y `APP_DEV_ADMIN_PASSWORD`. No existe una contraseña real en el repositorio.
-
-## Flujo funcional de 0.1.1
+## Flujo funcional disponible
 
 1. Iniciar sesión.
-2. Crear un cliente con domicilio y preferencias.
-3. Buscar o editar el cliente cuando corresponda.
-4. Entrar en **Pedidos** y seleccionar **Nuevo pedido**.
-5. Elegir cliente, domicilio y servicio vigente.
-6. Agregar las piezas físicas; la vista previa calcula grupos, unidades y peso estimado.
-7. Informar peso declarado, promoción, retiro y promesa cuando correspondan.
-8. Crear y cotizar el pedido.
-9. Abrir el pedido desde el listado.
-10. Revisar prendas, límites y desglose del precio.
-11. Confirmar el precio cuando no requiera cotización manual.
+2. Crear un cliente y su domicilio principal.
+3. Configurar preferencias operativas.
+4. Agregar domicilios alternativos cuando corresponda.
+5. Elegir el domicilio principal vigente.
+6. Crear un pedido desde **Pedidos → Nuevo pedido**.
+7. Agregar prendas físicas; la interfaz calcula grupos, unidades y peso estimado.
+8. Revisar el precio automático y sus límites.
+9. Si requiere presupuesto, un `ADMIN` registra una cotización manual con motivo.
+10. Editar retiro, promesa y notas mientras el pedido esté en `INQUIRY` o `QUOTED`.
+11. Confirmar el precio.
 12. Avanzar únicamente por las transiciones habilitadas.
 13. Registrar pagos parciales o totales.
-14. Continuar el recorrido de estados hasta entrega y cierre.
+14. Consultar el historial financiero.
+15. Consultar auditoría con un usuario `ADMIN`.
 
-Swagger sigue disponible para inspección y pruebas técnicas, pero ya no es obligatorio para el recorrido operativo implementado.
+Guía completa: [docs/USER_GUIDE.md](docs/USER_GUIDE.md).
 
-La guía detallada está en [docs/USER_GUIDE.md](docs/USER_GUIDE.md).
+## Validación técnica
 
-## Pruebas y validación
-
-Backend, incluidas pruebas `*IT` con PostgreSQL real:
+Backend:
 
 ```bash
 cd backend
@@ -139,71 +166,56 @@ docker compose config --quiet
 docker compose build
 ```
 
-El workflow `.github/workflows/ci.yml` ejecuta backend, frontend y construcción de imágenes en cada pull request y actualización de `main`.
+Smoke local:
+
+```powershell
+.\scripts\Start-Local.ps1 -Rebuild
+.\scripts\Verify-Local.ps1
+```
 
 ## Endpoints principales
 
 | Método | Ruta | Uso |
 |---|---|---|
-| POST | `/api/auth/login` | Iniciar sesión y emitir cookie de renovación |
-| POST | `/api/auth/refresh` | Rotar refresh token y emitir access token |
-| POST | `/api/auth/logout` | Revocar la sesión actual |
-| GET | `/api/catalog/equivalences` | Consultar equivalencias vigentes |
-| GET | `/api/catalog/services` | Consultar servicios vigentes |
-| POST | `/api/clients` | Crear cliente con domicilios y preferencias |
-| GET | `/api/clients` | Buscar clientes paginados |
-| GET | `/api/clients/{id}` | Consultar cliente y domicilios actuales |
-| PUT | `/api/clients/{id}` | Actualizar perfil, estado y preferencias |
-| POST | `/api/orders` | Crear y cotizar un pedido |
-| GET | `/api/orders` | Buscar pedidos por número, cliente y estado |
-| GET | `/api/orders/{id}` | Consultar detalle y transiciones permitidas |
-| POST | `/api/orders/{id}/confirm-price` | Congelar el precio confirmado |
-| PATCH | `/api/orders/{id}/status` | Cambiar estado con transición y auditoría |
-| POST | `/api/payments` | Registrar pago parcial o total |
-
-## Estructura
-
-```text
-backend/
-  src/main/java/ar/com/ropalista/
-    auth/ audit/ catalog/ common/ config/
-    customer/ location/ order/ payment/ pricing/
-  src/main/resources/db/migration/
-frontend/
-  src/api/ auth/ components/ models/ order/ pages/
-infra/nginx/
-scripts/
-docs/
-  adr/
-.github/workflows/
-```
-
-La separación se realiza por módulo funcional. No se utiliza una estructura global basada exclusivamente en controladores, servicios y repositorios.
+| POST | `/api/auth/login` | iniciar sesión |
+| POST | `/api/auth/refresh` | rotar la sesión |
+| POST | `/api/auth/logout` | cerrar y revocar sesión |
+| GET | `/api/catalog/services` | servicios vigentes |
+| GET | `/api/catalog/equivalences` | equivalencias vigentes |
+| POST | `/api/clients` | crear cliente |
+| GET | `/api/clients` | buscar clientes |
+| GET | `/api/clients/{id}` | consultar cliente, domicilios e historial |
+| PUT | `/api/clients/{id}` | actualizar perfil y preferencias |
+| POST | `/api/clients/{id}/addresses` | agregar domicilio |
+| POST | `/api/clients/{id}/addresses/{addressId}/make-primary` | cambiar principal |
+| DELETE | `/api/clients/{id}/addresses/{addressId}` | dar de baja un domicilio |
+| POST | `/api/orders` | crear y cotizar pedido |
+| GET | `/api/orders` | buscar pedidos |
+| GET | `/api/orders/{id}` | consultar detalle |
+| POST | `/api/orders/{id}/manual-quote` | cotización manual de administrador |
+| PATCH | `/api/orders/{id}/planning` | editar planificación temprana |
+| POST | `/api/orders/{id}/confirm-price` | congelar precio |
+| PATCH | `/api/orders/{id}/status` | cambiar estado |
+| POST | `/api/payments` | registrar pago |
+| GET | `/api/payments?orderId=...` | historial de pagos |
+| GET | `/api/audit` | buscar auditoría como administrador |
 
 ## Documentación
 
-- [Estado, alcance y progreso](docs/PROJECT_STATUS.md)
-- [Alcance funcional completo](docs/FUNCTIONAL_SCOPE.md)
-- [Guía de puesta en marcha en Windows](docs/WINDOWS_SETUP.md)
-- [Guía de uso funcional](docs/USER_GUIDE.md)
+- [Estado integral](docs/PROJECT_STATUS.md)
+- [Alcance funcional](docs/FUNCTIONAL_SCOPE.md)
+- [Guía Windows](docs/WINDOWS_SETUP.md)
+- [Guía de uso](docs/USER_GUIDE.md)
 - [Arquitectura](docs/ARCHITECTURE.md)
 - [Modelo de datos](docs/DATA_MODEL.md)
-- [API](docs/API.md)
+- [Contrato API](docs/API.md)
 - [Pruebas](docs/TESTING.md)
 - [Seguridad](docs/SECURITY.md)
-- [Operación y despliegue](docs/OPERATIONS.md)
-- [Supuestos explícitos](docs/ASSUMPTIONS.md)
-- [Plan de fases](docs/ROADMAP.md)
-- [Registro de cambios](CHANGELOG.md)
+- [Operación](docs/OPERATIONS.md)
+- [Supuestos](docs/ASSUMPTIONS.md)
+- [Roadmap](docs/ROADMAP.md)
+- [Changelog](CHANGELOG.md)
 
-## Limitaciones actuales
+## Advertencia productiva
 
-- Los pedidos con `requiresQuote=true` todavía no pueden recibir un ajuste manual de precio desde la aplicación.
-- La recepción, peso real, fotografías y daños preexistentes siguen pendientes.
-- La edición histórica de domicilios continúa pendiente; 0.1.1 evita sobrescribir domicilios existentes.
-- El bloqueo de login es local a cada instancia y requiere almacenamiento compartido para despliegues distribuidos.
-- Compatibilidad, ciclos, máquinas, bolsas, secado y relavados pertenecen a Fase 2.
-- Rutas, agenda operativa, retiros, entregas y WhatsApp pertenecen a Fase 3.
-- Costos, caja completa, tiempos y rentabilidad pertenecen a Fase 4.
-- Abonos, comercios, inventario, mantenimiento, reclamos y tableros avanzados pertenecen a Fase 5.
-- El perfil `dev` no debe utilizarse como despliegue productivo.
+El Compose actual usa el perfil `dev`. Es adecuado para desarrollo, demostración y pruebas, no para operación comercial sin TLS, secretos administrados, backups restaurables, observabilidad central, almacenamiento de evidencias, límites de recursos y estrategia de rollback.

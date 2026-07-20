@@ -11,6 +11,8 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.OffsetDateTime;
+
 @Getter
 @NoArgsConstructor
 @Entity
@@ -38,6 +40,10 @@ public class Address extends AuditableEntity {
     private boolean primaryAddress;
     @Column(nullable = false)
     private boolean active = true;
+    @Column(name = "valid_from", nullable = false)
+    private OffsetDateTime validFrom;
+    @Column(name = "valid_to")
+    private OffsetDateTime validTo;
 
     public Address(Zone zone, String street, String number, String extra, String locality,
                    String neighborhood, String references, boolean primaryAddress) {
@@ -49,9 +55,34 @@ public class Address extends AuditableEntity {
         this.neighborhood = neighborhood;
         this.references = references;
         this.primaryAddress = primaryAddress;
+        this.validFrom = OffsetDateTime.now();
     }
 
     void attachTo(Client client) {
         this.client = client;
+    }
+
+    public void makePrimary() {
+        ensureActive();
+        this.primaryAddress = true;
+    }
+
+    public void demotePrimary() {
+        this.primaryAddress = false;
+    }
+
+    public void deactivate(OffsetDateTime at) {
+        ensureActive();
+        if (primaryAddress) {
+            throw new IllegalStateException("No se puede desactivar el domicilio principal");
+        }
+        this.active = false;
+        this.validTo = at;
+    }
+
+    private void ensureActive() {
+        if (!active) {
+            throw new IllegalStateException("El domicilio ya no está activo");
+        }
     }
 }

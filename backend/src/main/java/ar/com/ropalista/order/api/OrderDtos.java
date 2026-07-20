@@ -35,6 +35,12 @@ public final class OrderDtos {
                                       @Size(max = 200) String location,
                                       @Size(max = 200) String notificationReference) {}
 
+    public record ManualQuoteRequest(@NotNull @Positive BigDecimal amount,
+                                     @NotBlank @Size(max = 1000) String reason) {}
+
+    public record UpdatePlanningRequest(OffsetDateTime pickupScheduledAt, OffsetDateTime promisedAt,
+                                        @Size(max = 2000) String notes) {}
+
     public record OrderSummaryResponse(UUID id, String orderNumber, UUID clientId, String clientName,
                                        String serviceCode, String serviceName, String status, String paymentStatus,
                                        int physicalPieces, BigDecimal equivalentUnits, BigDecimal quotedPrice,
@@ -45,10 +51,11 @@ public final class OrderDtos {
     public record OrderResponse(UUID id, String orderNumber, UUID clientId, UUID addressId, String serviceCode,
                                 String status, String paymentStatus, int physicalPieces, BigDecimal equivalentUnits,
                                 Integer declaredWeightGrams, Integer actualWeightGrams, boolean exclusiveCycle,
-                                boolean requiresQuote, String limitReached, BigDecimal quotedPrice,
-                                BigDecimal confirmedPrice, String currencyCode, String priceBreakdown,
-                                OffsetDateTime pickupScheduledAt, OffsetDateTime promisedAt,
-                                List<String> allowedTransitions, List<ItemResponse> items) {}
+                                boolean requiresQuote, String limitReached, BigDecimal automaticQuotedPrice,
+                                BigDecimal quotedPrice, BigDecimal confirmedPrice, String currencyCode,
+                                String priceBreakdown, String manualQuoteReason, OffsetDateTime manualQuoteAt,
+                                String manualQuoteBy, OffsetDateTime pickupScheduledAt, OffsetDateTime promisedAt,
+                                String notes, List<String> allowedTransitions, List<ItemResponse> items) {}
 
     public record ItemResponse(String equivalenceCode, String name, int physicalPieces, int groups,
                                BigDecimal equivalentUnits, Integer estimatedWeightGrams, String observations) {}

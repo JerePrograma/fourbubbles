@@ -1,60 +1,64 @@
 # Operación y despliegue
 
+Versión: `0.1.2`.
+
 ## Perfiles
 
 - `dev`: crea administrador desde variables y habilita mayor detalle de logs.
-- `test`: usado por Testcontainers, Flyway y validación JPA.
-- `prod`: cookies seguras, logs JSON correlacionados y sin SQL.
+- `test`: Testcontainers, Flyway y validación JPA.
+- `prod`: cookies seguras, logs JSON correlacionados y SQL deshabilitado.
 
-El `docker-compose.yml` actual utiliza `dev`. No debe publicarse tal cual como producción.
+El `docker-compose.yml` actual usa `dev`. Es para desarrollo, demostración y evaluación, no para producción comercial.
 
-## Puesta en marcha local
+## Servicios locales
 
-Guía Windows: [WINDOWS_SETUP.md](WINDOWS_SETUP.md).
+| Servicio | Puerto | Uso |
+|---|---:|---|
+| PostgreSQL | 5432 | base local |
+| Backend | 8081 | API, Swagger y Actuator |
+| Frontend/Nginx | 8080 | SPA y proxy `/api` |
+
+## Inicio recomendado
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\Start-Local.ps1 -Rebuild
+.\scripts\Verify-Local.ps1
+```
+
+`Start-Local.ps1`:
+
+- verifica Docker;
+- crea `.env` si falta;
+- genera contraseñas y JWT secret;
+- valida Compose;
+- inicia el stack;
+- espera health;
+- muestra la contraseña inicial solo cuando la genera.
+
+`Verify-Local.ps1`:
+
+- verifica servicios;
+- health;
+- seis migraciones o más;
+- HTML de la SPA;
+- login con `.env`;
+- consulta protegida del catálogo.
+
+## Inicio manual
 
 ```bash
-cp .env.example .env
 docker compose config --quiet
 docker compose up --build -d
 docker compose ps
 ```
 
-| Servicio | Puerto host | Uso |
-|---|---:|---|
-| PostgreSQL | 5432 | base local |
-| Backend | 8081 | API, Swagger y Actuator |
-| Frontend/Nginx | 8080 | aplicación y proxy `/api` |
-
-## Variables operativas nuevas en 0.1.1
-
-| Variable | Inicial | Uso |
-|---|---|---|
-| `LOGIN_MAX_ATTEMPTS` | `5` | fallos antes del bloqueo |
-| `LOGIN_ATTEMPT_WINDOW` | `PT15M` | ventana de conteo |
-| `LOGIN_BLOCK_DURATION` | `PT15M` | duración del bloqueo |
-
-El contador es local al proceso. En despliegues con más de una réplica debe reemplazarse por almacenamiento compartido.
-
 ## Salud
 
 ```bash
 curl --fail http://localhost:8081/api/actuator/health
+curl --fail http://localhost:8081/api/actuator/health/readiness
 ```
-
-Compose espera PostgreSQL antes del backend y readiness del backend antes del frontend.
-
-## Correlación
-
-Toda respuesta contiene `X-Request-ID`.
-
-Ejemplo:
-
-```bash
-curl -i -H 'X-Request-ID: soporte-20260720-001' \
-  http://localhost:8081/api/actuator/health
-```
-
-El identificador se utiliza para localizar la solicitud en logs. Valores con caracteres inseguros se reemplazan por UUID.
 
 ## Logs
 
@@ -62,81 +66,66 @@ El identificador se utiliza para localizar la solicitud en logs. Valores con car
 docker compose logs --tail 300 postgres
 docker compose logs --tail 300 backend
 docker compose logs --tail 300 frontend
-```
-
-Seguimiento:
-
-```bash
 docker compose logs -f backend
 ```
 
-Los logs no deben contener contraseñas, JWT, refresh tokens ni cuerpos sensibles. El perfil `prod` incluye `requestId` en cada evento JSON.
+No deben aparecer contraseñas, access tokens, refresh tokens ni cuerpos completos sensibles.
 
-## Base de datos
+## Migraciones
 
-Flyway es la única vía admitida. `ddl-auto=validate` detecta divergencias sin modificar la base.
+Consultar:
 
 ```bash
-docker compose exec postgres \
+docker compose exec -T postgres \
   psql -U ropalista -d ropalista \
   -c 'select installed_rank, version, description, success from flyway_schema_history order by installed_rank;'
 ```
 
 Reglas:
 
-- no editar migraciones ya desplegadas;
-- crear una nueva `Vn__descripcion.sql`;
+- no editar V1–V6;
+- cada cambio usa una migración nueva;
 - validar sobre PostgreSQL real;
-- mantener JPA y migraciones coherentes;
-- no habilitar `ddl-auto=update`.
+- mantener JPA y SQL alineados;
+- no usar `ddl-auto=update`.
 
 ## Backups
+
+Crear backup:
 
 ```bash
 docker compose exec -T postgres \
   pg_dump -U ropalista -d ropalista --format=custom > ropalista.dump
 ```
 
-Prueba de restauración:
+Prueba de restauración orientativa:
 
 ```bash
 createdb ropalista_restore_test
 pg_restore --clean --if-exists --dbname=ropalista_restore_test ropalista.dump
 ```
 
-No se considera válido un backup sin restauración probada.
+Un archivo no es un backup confiable hasta probar su restauración.
 
-Pendiente:
+Pendiente productivo:
 
-- automatización;
+- programación;
 - cifrado;
 - retención;
 - almacenamiento externo;
 - alertas;
-- restauraciones periódicas.
+- restauración periódica automatizada.
 
 ## Actualización local
-
-Windows recomendado:
 
 ```powershell
 git switch main
 git pull --ff-only origin main
-Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\Start-Local.ps1 -Rebuild
 .\scripts\Verify-Local.ps1
 ```
 
-Manual:
-
-```bash
-git switch main
-git pull --ff-only origin main
-docker compose up --build -d
-docker compose ps
-```
-
-Flyway aplica migraciones pendientes al iniciar el backend.
+Flyway aplica automáticamente V6 sobre una base existente en V5.
 
 ## Detención
 
@@ -146,15 +135,15 @@ Conservar datos:
 docker compose down
 ```
 
-Eliminar entorno y datos:
+Borrar entorno y datos:
 
 ```bash
 docker compose down -v --remove-orphans
 ```
 
-El segundo comando es destructivo.
+El segundo comando elimina la base local completa.
 
-## Validación previa a release
+## Validación de release
 
 ```bash
 cd backend
@@ -171,38 +160,51 @@ docker compose config --quiet
 docker compose build
 ```
 
+Luego debe pasar el smoke runtime:
+
+- stack completo;
+- readiness;
+- SPA;
+- login;
+- JWT;
+- API protegida.
+
+## Procedimiento de diagnóstico
+
+1. `docker compose ps`.
+2. `docker compose logs --tail 300 backend`.
+3. comprobar `.env` sin compartir su contenido.
+4. ejecutar `docker compose config --quiet`.
+5. ejecutar `Verify-Local.ps1`.
+6. revisar `flyway_schema_history`.
+7. si la contraseña del administrador cambió después de crear el volumen, restaurar la original o recrear conscientemente la base.
+
 ## Requisitos mínimos de producción
 
-Antes de operar comercialmente:
-
 - perfil `prod`;
-- secretos en gestor externo;
 - TLS;
 - dominio y CORS explícitos;
-- proxy confiable que sobrescriba cabeceras reenviadas;
-- rate limiting perimetral;
-- limitador de login compartido, preferentemente Redis;
+- secretos administrados;
 - PostgreSQL persistente;
 - backups restaurables;
-- almacenamiento externo de evidencias;
-- límites de CPU, memoria y disco;
-- rotación y agregación de logs;
-- monitoreo de salud, errores y capacidad;
+- observabilidad central;
+- límites CPU/memoria/disco;
+- rate limiting compartido;
+- almacenamiento externo para evidencias;
 - migración controlada;
-- rollback probado;
-- cuenta administrativa fuera del inicializador `dev`;
-- CSP, HSTS y cabeceras de seguridad;
-- escaneo de dependencias, imágenes y secretos;
-- política de incidentes y retención.
+- rollback;
+- cuenta administrativa creada fuera del inicializador `dev`;
+- política de retención y datos personales;
+- escaneo de dependencias e imágenes.
 
-## Limitaciones operativas de 0.1.1
+## Rollback
 
-- bloqueo de login local a una instancia;
-- sin ajuste manual de cotización;
-- sin recepción real ni evidencias;
-- sin rutas ni agenda operativa completa;
-- sin historial visible de pagos;
-- sin caja ni costos;
-- sin smoke test HTTP automatizado del Compose ya iniciado.
+Las migraciones Flyway actuales son forward-only. Un rollback productivo debe combinar:
 
-El Compose actual sirve para desarrollo, demostración y validación, no para producción.
+1. restauración o migración correctiva explícita;
+2. imagen de aplicación compatible con el esquema resultante;
+3. backup validado previo;
+4. ventana de mantenimiento;
+5. verificación funcional posterior.
+
+No se debe intentar rollback editando una migración ya aplicada.
