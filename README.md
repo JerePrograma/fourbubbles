@@ -77,7 +77,7 @@ mvn verify
 
 cd ../frontend
 npm install
-npm run lint
+npm run typecheck
 npm run build
 ```
 
