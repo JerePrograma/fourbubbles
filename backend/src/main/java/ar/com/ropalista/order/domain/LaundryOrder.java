@@ -16,10 +16,10 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -68,6 +68,8 @@ public class LaundryOrder extends AuditableEntity {
     private boolean requiresQuote;
     @Column(name = "limit_reached", nullable = false, length = 30)
     private String limitReached;
+    @Column(name = "automatic_quoted_price", nullable = false, precision = 15, scale = 2)
+    private BigDecimal automaticQuotedPrice;
     @Column(name = "quoted_price", nullable = false, precision = 15, scale = 2)
     private BigDecimal quotedPrice;
     @Column(name = "confirmed_price", precision = 15, scale = 2)
@@ -77,6 +79,12 @@ public class LaundryOrder extends AuditableEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "price_breakdown", nullable = false, columnDefinition = "jsonb")
     private String priceBreakdown;
+    @Column(name = "manual_quote_reason", length = 1000)
+    private String manualQuoteReason;
+    @Column(name = "manual_quote_at")
+    private OffsetDateTime manualQuoteAt;
+    @Column(name = "manual_quote_by", length = 100)
+    private String manualQuoteBy;
     @Column(name = "pickup_scheduled_at")
     private OffsetDateTime pickupScheduledAt;
     @Column(name = "promised_at")
@@ -108,6 +116,7 @@ public class LaundryOrder extends AuditableEntity {
         this.exclusiveCycle = exclusiveCycle;
         this.requiresQuote = requiresQuote;
         this.limitReached = limitReached;
+        this.automaticQuotedPrice = quotedPrice;
         this.quotedPrice = quotedPrice;
         this.currencyCode = currencyCode;
         this.priceBreakdown = priceBreakdown;
@@ -119,6 +128,28 @@ public class LaundryOrder extends AuditableEntity {
     public void addItem(OrderItem item) {
         item.attach(this);
         items.add(item);
+    }
+
+    public void applyManualQuote(BigDecimal amount, String reason, String actor,
+                                 OffsetDateTime at, String updatedBreakdown) {
+        if (confirmedPrice != null) {
+            throw new IllegalStateException("El precio ya fue confirmado");
+        }
+        this.quotedPrice = amount;
+        this.requiresQuote = false;
+        this.manualQuoteReason = reason;
+        this.manualQuoteBy = actor;
+        this.manualQuoteAt = at;
+        this.priceBreakdown = updatedBreakdown;
+    }
+
+    public void updatePlanning(OffsetDateTime pickupScheduledAt, OffsetDateTime promisedAt, String notes) {
+        if (confirmedPrice != null) {
+            throw new IllegalStateException("No se puede editar la planificación después de confirmar el precio");
+        }
+        this.pickupScheduledAt = pickupScheduledAt;
+        this.promisedAt = promisedAt;
+        this.notes = notes;
     }
 
     public void confirmPrice() {
