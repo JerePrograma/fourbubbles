@@ -35,6 +35,13 @@ public final class OrderDtos {
                                       @Size(max = 200) String location,
                                       @Size(max = 200) String notificationReference) {}
 
+    public record OrderSummaryResponse(UUID id, String orderNumber, UUID clientId, String clientName,
+                                       String serviceCode, String serviceName, String status, String paymentStatus,
+                                       int physicalPieces, BigDecimal equivalentUnits, BigDecimal quotedPrice,
+                                       BigDecimal confirmedPrice, String currencyCode,
+                                       OffsetDateTime pickupScheduledAt, OffsetDateTime promisedAt,
+                                       OffsetDateTime createdAt) {}
+
     public record OrderResponse(UUID id, String orderNumber, UUID clientId, UUID addressId, String serviceCode,
                                 String status, String paymentStatus, int physicalPieces, BigDecimal equivalentUnits,
                                 Integer declaredWeightGrams, Integer actualWeightGrams, boolean exclusiveCycle,
