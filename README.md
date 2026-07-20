@@ -2,9 +2,9 @@
 
 Sistema de gestión integral para una lavandería doméstica con retiro y entrega en Marcos Paz y Mariano Acosta.
 
-> Estado: **Fase 1 en curso**. La rama de trabajo contiene una plataforma ejecutable y una primera vertical operativa; no representa todavía el MVP completo.
+> Estado: **plataforma base finalizada y Fase 1 parcial**. El repositorio contiene una vertical operativa verificable, pero todavía no representa el MVP completo de producción, logística y finanzas.
 
-## Qué incluye esta entrega
+## Alcance disponible
 
 - Monolito modular Java 21 + Spring Boot 3.
 - PostgreSQL 16 y migraciones Flyway desde la primera tabla.
@@ -12,45 +12,56 @@ Sistema de gestión integral para una lavandería doméstica con retiro y entreg
 - Roles iniciales: administrador, operador, repartidor y consulta/reportes.
 - Auditoría persistente de operaciones sensibles implementadas.
 - Clientes con domicilios y validación de zona.
-- Catálogo de servicios, equivalencias y precios versionados.
-- Promociones con vigencia, cupos y restricción por domicilio; las reglas no automatizadas se bloquean.
-- Pedidos con número legible, piezas físicas, grupos, unidades equivalentes, peso, precio histórico y trazabilidad de estados.
-- Registro de pagos parciales con saldo y estado de pago.
-- Frontend React/TypeScript mobile first con inicio de sesión, renovación transparente, tablero inicial y clientes.
+- Catálogo de servicios, equivalencias, precios y promociones versionados.
+- Pedidos con número legible, piezas físicas, grupos, unidades equivalentes, peso declarado, precio histórico y trazabilidad de estados.
+- Pagos parciales o totales con saldo.
+- Frontend React/TypeScript mobile first con login, clientes y alta de cliente.
+- API OpenAPI/Swagger para el recorrido operativo todavía no cubierto por pantallas.
 - Docker Compose, Nginx y GitHub Actions.
 - Pruebas unitarias e integración con PostgreSQL mediante Testcontainers.
-- Documentación de alcance, arquitectura, datos, seguridad, operación, pruebas, decisiones y backlog.
+- Dependencias frontend bloqueadas mediante `package-lock.json` y `npm ci`.
+- Documentación de alcance, arquitectura, datos, seguridad, operación, uso, pruebas, decisiones y backlog.
 
-## Requisitos locales
+## Requisitos recomendados
 
-- Docker Engine con Docker Compose v2, o:
-  - Java 21;
-  - Maven 3.6.3 o superior;
-  - Node.js 22;
-  - PostgreSQL 16.
+Para el camino simple:
+
+- Git;
+- Docker Desktop o Docker Engine;
+- Docker Compose v2.
+
+Para ejecución sin Docker:
+
+- Java 21;
+- Maven 3.9 o superior;
+- Node.js 22;
+- PostgreSQL 16.
 
 ## Inicio rápido con Docker
+
+Linux/macOS:
 
 ```bash
 cp .env.example .env
 ```
 
+Windows PowerShell:
+
+```powershell
+Copy-Item -LiteralPath '.env.example' -Destination '.env'
+```
+
 Reemplazar obligatoriamente:
 
-- `POSTGRES_PASSWORD`;
-- `JWT_SECRET_BASE64`;
-- `APP_DEV_ADMIN_PASSWORD`.
-
-Generar un secreto JWT válido, por ejemplo:
-
-```bash
-openssl rand -base64 48
-```
+- `POSTGRES_PASSWORD` y `DB_PASSWORD` con el mismo valor;
+- `JWT_SECRET_BASE64` con al menos 32 bytes aleatorios codificados en Base64;
+- `APP_DEV_ADMIN_PASSWORD` con una contraseña de desarrollo propia.
 
 Iniciar:
 
 ```bash
-docker compose up --build
+docker compose up --build -d
+docker compose ps
 ```
 
 Accesos:
@@ -60,48 +71,57 @@ Accesos:
 - Swagger: `http://localhost:8081/api/swagger-ui.html`;
 - salud: `http://localhost:8081/api/actuator/health`.
 
-El usuario administrador de desarrollo se crea al iniciar con las variables `APP_DEV_ADMIN_USERNAME` y `APP_DEV_ADMIN_PASSWORD`. No existe una contraseña real almacenada en el repositorio.
+El usuario administrador de desarrollo se crea al iniciar con `APP_DEV_ADMIN_USERNAME` y `APP_DEV_ADMIN_PASSWORD`. No existe una contraseña real almacenada en el repositorio.
 
-## Ejecución sin Docker
+La guía completa para Windows, incluida generación segura de secretos y diagnóstico, está en [docs/WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md).
 
-Base de datos:
+## Flujo funcional actual
 
-```bash
-createdb ropalista
-```
+1. Iniciar sesión en la aplicación.
+2. Crear un cliente y su domicilio principal desde la interfaz.
+3. Abrir Swagger para consultar equivalencias.
+4. Crear y cotizar un pedido con piezas físicas, peso declarado y servicio.
+5. Revisar unidades equivalentes, límites y desglose del precio.
+6. Confirmar el precio histórico.
+7. Registrar transiciones válidas de estado.
+8. Registrar pagos parciales o totales.
+9. Consultar el pedido y su saldo.
 
-Backend:
+El recorrido detallado con cuerpos JSON copiables está en [docs/USER_GUIDE.md](docs/USER_GUIDE.md).
+
+## Pruebas y validación
+
+Backend completo, incluidas pruebas `*IT` con Testcontainers:
 
 ```bash
 cd backend
-export DB_HOST=localhost
-export DB_NAME=ropalista
-export DB_USER=ropalista
-export DB_PASSWORD=...
-export JWT_SECRET_BASE64=...
-export APP_DEV_ADMIN_PASSWORD=...
-mvn spring-boot:run
+mvn clean verify
+```
+
+Solo pruebas unitarias:
+
+```bash
+cd backend
+mvn test
 ```
 
 Frontend:
 
 ```bash
 cd frontend
-npm install
-npm run dev
-```
-
-## Pruebas
-
-```bash
-cd backend
-mvn clean test             # unitarias
-mvn verify -DskipTests     # integración *IT con Testcontainers
-
-cd ../frontend
+npm ci
 npm run lint
 npm run build
 ```
+
+Contenedores:
+
+```bash
+docker compose config --quiet
+docker compose build
+```
+
+El workflow `.github/workflows/ci.yml` ejecuta esos tres grupos en cada pull request y en cada actualización de `main`.
 
 ## Endpoints implementados
 
@@ -111,9 +131,9 @@ npm run build
 | POST | `/api/auth/refresh` | Rotar refresh token y emitir access token |
 | POST | `/api/auth/logout` | Revocar sesión actual |
 | GET | `/api/catalog/equivalences` | Consultar equivalencias vigentes |
-| POST | `/api/clients` | Crear cliente con domicilio principal |
+| POST | `/api/clients` | Crear cliente con domicilios |
 | GET | `/api/clients` | Buscar clientes paginados |
-| GET | `/api/clients/{id}` | Consultar cliente e historial domiciliario actual |
+| GET | `/api/clients/{id}` | Consultar cliente y domicilios actuales |
 | POST | `/api/orders` | Crear y cotizar un pedido |
 | GET | `/api/orders/{id}` | Consultar pedido |
 | POST | `/api/orders/{id}/confirm-price` | Congelar precio confirmado |
@@ -136,12 +156,14 @@ docs/
 .github/workflows/
 ```
 
-La separación es por módulo funcional. No se utiliza una carpeta global de controladores/servicios/repositorios.
+La separación es por módulo funcional. No se utiliza una estructura global basada únicamente en controladores, servicios y repositorios.
 
-## Documentación obligatoria
+## Documentación
 
 - [Estado, alcance y progreso](docs/PROJECT_STATUS.md)
 - [Alcance funcional completo](docs/FUNCTIONAL_SCOPE.md)
+- [Guía de puesta en marcha en Windows](docs/WINDOWS_SETUP.md)
+- [Guía de uso funcional](docs/USER_GUIDE.md)
 - [Arquitectura](docs/ARCHITECTURE.md)
 - [Modelo de datos](docs/DATA_MODEL.md)
 - [API](docs/API.md)
@@ -152,11 +174,12 @@ La separación es por módulo funcional. No se utiliza una carpeta global de con
 - [Plan de fases](docs/ROADMAP.md)
 - [Registro de cambios](CHANGELOG.md)
 
-## Limitaciones verificadas de la entrega
+## Limitaciones actuales
 
-- La UI de recepción y carga de pedido todavía no está terminada; la API sí está modelada.
-- Compatibilidad y ciclos pertenecen a Fase 2 y no se simulan.
-- Rutas y agenda operativa real pertenecen a Fase 3.
-- Costos, caja completa y rentabilidad pertenecen a Fase 4.
-- No hay integración directa con WhatsApp ni almacenamiento de fotografías todavía.
-- No existe `package-lock.json` porque el entorno de generación no tuvo acceso de red a npm; el CI debe generarlo y se debe versionar en el siguiente corte.
+- La interfaz todavía no contiene alta y gestión completa de pedidos; ese recorrido se valida mediante Swagger.
+- La recepción, peso real, fotografías y daños preexistentes siguen pendientes.
+- Compatibilidad, ciclos, máquinas, bolsas, secado y relavados pertenecen a Fase 2.
+- Rutas, agenda operativa, retiros, entregas y WhatsApp pertenecen a Fase 3.
+- Costos, caja completa, tiempos y rentabilidad pertenecen a Fase 4.
+- Abonos, comercios, inventario, mantenimiento, reclamos y tableros avanzados pertenecen a Fase 5.
+- No debe usarse el perfil `dev` como despliegue de producción.
