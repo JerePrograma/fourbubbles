@@ -26,7 +26,13 @@ jobs:
           mvn -B -Dstyle.color=never clean verify > /tmp/backend.log 2>&1
           code=$?
           if [ "$code" -ne 0 ]; then
-            grep -E '^\[ERROR\]|COMPILATION ERROR|Tests run:|Failures:|Errors:|Caused by:|expected:|but was:|constraint|duplicate key|AssertionFailedError|BusinessException' /tmp/backend.log | tail -n 220 || tail -n 220 /tmp/backend.log
+            grep -E '^\[ERROR\]|COMPILATION ERROR|Tests run:|Failures:|Errors:|Caused by:|expected:|but was:|constraint|duplicate key|AssertionFailedError|BusinessException|Exception:' /tmp/backend.log | tail -n 180 || true
+            for report in target/failsafe-reports/*AdministrativeFlowIT*.txt target/failsafe-reports/*AdministrativeAuthorizationIT*.txt; do
+              if [ -f "$report" ]; then
+                echo "===== $report ====="
+                tail -n 180 "$report"
+              fi
+            done
           else
             grep -E 'Tests run:|BUILD SUCCESS' /tmp/backend.log | tail -n 40
           fi
