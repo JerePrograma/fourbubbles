@@ -8,6 +8,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -28,6 +29,13 @@ public class ClientController {
     @PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
     ApiResponse<ClientDtos.ClientResponse> create(@Valid @RequestBody ClientDtos.CreateClientRequest request) {
         return ApiResponse.ok(service.create(request));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
+    ApiResponse<ClientDtos.ClientResponse> update(@PathVariable UUID id,
+                                                   @Valid @RequestBody ClientDtos.UpdateClientRequest request) {
+        return ApiResponse.ok(service.update(id, request));
     }
 
     @GetMapping("/{id}")
