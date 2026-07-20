@@ -1,0 +1,12 @@
+spring:
+  config:
+    activate:
+      on-profile: test
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+app:
+  security:
+    jwt-secret-base64: VGVzdC1zZWNyZXQtd2l0aC1hdC1sZWFzdC0zMi1ieXRlcy1mb3ItdGVzdHM=
+    secure-cookie: false
