@@ -1,0 +1,38 @@
+name: Backend diagnostic 0.3.0
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend-diagnostic:
+    if: github.head_ref == 'agent/0.3.0-compatibility'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print Maven failures
+        shell: bash
+        run: |
+          set -o pipefail
+          git clone -q --depth 1 --branch agent/0.3.0-compatibility https://github.com/JerePrograma/fourbubbles.git repo
+          cd repo/backend
+          if [ -n "${JAVA_HOME_21_X64:-}" ]; then
+            export JAVA_HOME="$JAVA_HOME_21_X64"
+            export PATH="$JAVA_HOME/bin:$PATH"
+          fi
+          set +e
+          mvn -B -Dstyle.color=never clean verify > /tmp/backend.log 2>&1
+          code=$?
+          if [ "$code" -ne 0 ]; then
+            grep -E '^\[ERROR\]|COMPILATION ERROR|Tests run:|Failures:|Errors:|Caused by:|expected:|but was:|constraint|duplicate key|AssertionFailedError|BusinessException|Exception:' /tmp/backend.log | tail -n 240 || true
+            for report in target/failsafe-reports/*CompatibilityFlowIT*.txt target/surefire-reports/*CompatibilityEngineTest*.txt; do
+              if [ -f "$report" ]; then
+                echo "===== $report ====="
+                cat "$report"
+              fi
+            done
+          else
+            grep -E 'Tests run:|BUILD SUCCESS' /tmp/backend.log | tail -n 60
+          fi
+          exit "$code"
