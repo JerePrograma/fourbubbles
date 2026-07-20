@@ -35,9 +35,8 @@ $Health = Invoke-RestMethod -Uri 'http://localhost:8081/api/actuator/health' -Me
 Assert-True -Condition ($Health.status -eq 'UP') -Message "Estado de salud inesperado: $($Health.status)"
 
 Write-Host '3/3 Verificando migraciones Flyway...'
-$MigrationResult = & docker compose exec -T postgres \
-    psql -U ropalista -d ropalista -tAc \
-    'select count(*) from flyway_schema_history where success = true;'
+$MigrationQuery = 'select count(*) from flyway_schema_history where success = true;'
+$MigrationResult = & docker compose exec -T postgres psql -U ropalista -d ropalista -tAc $MigrationQuery
 
 if ($LASTEXITCODE -ne 0) {
     throw 'No se pudo consultar flyway_schema_history.'
