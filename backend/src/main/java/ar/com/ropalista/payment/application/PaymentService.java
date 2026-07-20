@@ -15,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.UUID;
 
 @Service
 public class PaymentService {
@@ -55,6 +57,22 @@ public class PaymentService {
         return new PaymentDtos.PaymentResponse(payment.getId(), order.getId(), method.getCode(), payment.getAmount(),
                 payment.getCurrencyCode(), payment.getPaidAt(), payment.getReference(), money(newPaid), remaining,
                 order.getPaymentStatus().name());
+    }
+
+    @Transactional(readOnly = true)
+    public List<PaymentDtos.PaymentHistoryResponse> history(UUID orderId) {
+        orders.findByIdAndDeletedAtIsNull(orderId)
+                .orElseThrow(() -> new BusinessException("ORDER_NOT_FOUND", "Pedido inexistente", HttpStatus.NOT_FOUND));
+        return payments.findByOrderIdOrderByPaidAtAsc(orderId).stream()
+                .map(this::toHistoryResponse)
+                .toList();
+    }
+
+    private PaymentDtos.PaymentHistoryResponse toHistoryResponse(Payment payment) {
+        return new PaymentDtos.PaymentHistoryResponse(payment.getId(), payment.getOrder().getId(),
+                payment.getMethod().getCode(), payment.getMethod().getName(), payment.getAmount(),
+                payment.getCurrencyCode(), payment.getPaidAt(), payment.getReference(), payment.getNotes(),
+                payment.getStatus(), payment.getCreatedBy());
     }
 
     private BigDecimal money(BigDecimal value) {
