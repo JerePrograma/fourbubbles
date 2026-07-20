@@ -1,7 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 
-const navItems = [
+const baseNavItems = [
   ['/dashboard', 'Inicio'],
   ['/clients', 'Clientes'],
   ['/orders', 'Pedidos'],
@@ -10,6 +10,9 @@ const navItems = [
 
 export function AppShell(): JSX.Element {
   const { session, logout } = useAuth();
+  const navItems = session?.roles.includes('ADMIN')
+    ? [...baseNavItems, ['/audit', 'Auditoría'] as const]
+    : [...baseNavItems];
   return (
     <div className="app-shell">
       <header className="topbar">
