@@ -22,18 +22,7 @@ jobs:
           cache: maven
       - name: Verify backend
         working-directory: backend
-        run: |
-          set +e
-          mvn --batch-mode verify > ../backend-verify.log 2>&1
-          echo "$?" > ../backend-exit-code
-      - name: Upload backend verification log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-verification-log
-          path: backend-verify.log
-      - name: Enforce backend result
-        run: test "$(cat backend-exit-code)" -eq 0
+        run: mvn --batch-mode verify
 
   frontend:
     runs-on: ubuntu-latest
@@ -51,15 +40,4 @@ jobs:
         run: npm run typecheck
       - name: Build
         working-directory: frontend
-        run: |
-          set +e
-          npm run build > ../frontend-build.log 2>&1
-          echo "$?" > ../frontend-exit-code
-      - name: Upload frontend build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-build-log
-          path: frontend-build.log
-      - name: Enforce frontend result
-        run: test "$(cat frontend-exit-code)" -eq 0
+        run: npm run build
