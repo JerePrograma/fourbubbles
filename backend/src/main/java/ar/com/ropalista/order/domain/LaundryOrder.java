@@ -56,6 +56,8 @@ public class LaundryOrder extends AuditableEntity {
     private PaymentStatus paymentStatus = PaymentStatus.PENDING;
     @Column(name = "physical_pieces", nullable = false)
     private int physicalPieces;
+    @Column(name = "actual_physical_pieces")
+    private Integer actualPhysicalPieces;
     @Column(name = "equivalent_units", nullable = false, precision = 10, scale = 2)
     private BigDecimal equivalentUnits;
     @Column(name = "declared_weight_grams")
@@ -153,6 +155,14 @@ public class LaundryOrder extends AuditableEntity {
         this.pickupScheduledAt = pickupScheduledAt;
         this.promisedAt = promisedAt;
         this.notes = notes;
+    }
+
+    public void recordReception(int actualPhysicalPieces, int actualWeightGrams) {
+        if (this.actualPhysicalPieces != null || this.actualWeightGrams != null) {
+            throw new IllegalStateException("El pedido ya tiene datos reales de recepción");
+        }
+        this.actualPhysicalPieces = actualPhysicalPieces;
+        this.actualWeightGrams = actualWeightGrams;
     }
 
     public void confirmPrice() {
