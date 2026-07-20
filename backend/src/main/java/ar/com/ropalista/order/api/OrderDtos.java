@@ -48,7 +48,7 @@ public final class OrderDtos {
                                 boolean requiresQuote, String limitReached, BigDecimal quotedPrice,
                                 BigDecimal confirmedPrice, String currencyCode, String priceBreakdown,
                                 OffsetDateTime pickupScheduledAt, OffsetDateTime promisedAt,
-                                List<ItemResponse> items) {}
+                                List<String> allowedTransitions, List<ItemResponse> items) {}
 
     public record ItemResponse(String equivalenceCode, String name, int physicalPieces, int groups,
                                BigDecimal equivalentUnits, Integer estimatedWeightGrams, String observations) {}
