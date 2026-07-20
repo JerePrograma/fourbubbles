@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppShell } from './components/AppShell';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AgendaPage } from './pages/AgendaPage';
+import { AuditPage } from './pages/AuditPage';
 import { ClientsPage } from './pages/ClientsPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { EditClientPage } from './pages/EditClientPage';
@@ -25,6 +26,7 @@ export default function App(): JSX.Element {
           <Route path="/orders/new" element={<NewOrderPage />} />
           <Route path="/orders/:id" element={<OrderDetailPage />} />
           <Route path="/agenda" element={<AgendaPage />} />
+          <Route path="/audit" element={<AuditPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
