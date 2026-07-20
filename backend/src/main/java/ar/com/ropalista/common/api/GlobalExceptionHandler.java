@@ -7,12 +7,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -46,6 +47,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(new ApiErrorResponse(
                 false, "CONSTRAINT_VIOLATION", "La solicitud viola reglas de validación", 400,
                 request.getRequestURI(), OffsetDateTime.now(), violations));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    ResponseEntity<ApiErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex,
+                                                         HttpServletRequest request) {
+        var violation = new ApiErrorResponse.FieldViolation(ex.getName(), "valor inválido",
+                safeRejectedValue(ex.getName(), ex.getValue()));
+        return ResponseEntity.badRequest().body(new ApiErrorResponse(
+                false, "INVALID_PARAMETER", "Uno de los parámetros no tiene un valor válido", 400,
+                request.getRequestURI(), OffsetDateTime.now(), List.of(violation)));
     }
 
     @ExceptionHandler(AuthenticationException.class)
