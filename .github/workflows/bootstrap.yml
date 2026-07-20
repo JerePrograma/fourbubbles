@@ -38,7 +38,8 @@ jobs:
           cat bootstrap/part-* | base64 --decode > /tmp/fourbubbles-project.tar.gz
           gzip --test /tmp/fourbubbles-project.tar.gz
           tar --extract --gzip --file /tmp/fourbubbles-project.tar.gz
-          rm -rf bootstrap .github/workflows/bootstrap.yml
+          rm -f .github/workflows/ci.yml
+          rm -rf bootstrap
 
       - name: Publish project source
         shell: bash
