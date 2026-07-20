@@ -150,7 +150,8 @@ public class ClientService {
 
     private ClientDtos.ClientResponse toResponse(Client client) {
         var active = client.getAddresses().stream().filter(Address::isActive)
-                .sorted(Comparator.comparing(Address::isPrimaryAddress).reversed().thenComparing(Address::getValidFrom).reversed())
+                .sorted(Comparator.comparing(Address::isPrimaryAddress).reversed()
+                        .thenComparing(Address::getValidFrom, Comparator.reverseOrder()))
                 .map(this::toAddressResponse).toList();
         var history = client.getAddresses().stream().filter(address -> !address.isActive())
                 .sorted(Comparator.comparing(Address::getValidTo, Comparator.nullsLast(Comparator.reverseOrder())))

@@ -79,7 +79,7 @@ h2 { font-size: 1.1rem; }
   left: 0;
   right: 0;
   display: grid;
-  grid-template-columns: repeat(4,1fr);
+  grid-template-columns: repeat(auto-fit,minmax(0,1fr));
   background: white;
   border-top: 1px solid #dce2ec;
   z-index: 20;
