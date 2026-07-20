@@ -65,16 +65,11 @@ class PricingServiceTest {
 
     @Test
     void appliesAutomaticFirstTrialFixedPrice() {
-        Promotion promotion = mock(Promotion.class);
-        when(promotion.isAutomaticApplicable()).thenReturn(true);
-        when(promotion.getApplicableServiceCode()).thenReturn("ROPA_LISTA_12");
-        when(promotion.getValidFrom()).thenReturn(OffsetDateTime.now().minusDays(1));
-        when(promotion.getValidTo()).thenReturn(null);
+        Promotion promotion = automaticPromotion("ROPA_LISTA_12");
         when(promotion.isNewCustomersOnly()).thenReturn(true);
         when(promotion.isOnePerAddress()).thenReturn(true);
         when(promotion.getFixedPrice()).thenReturn(new BigDecimal("5500"));
         when(promotion.getName()).thenReturn("Primera prueba");
-        when(promotion.getId()).thenReturn(UUID.randomUUID());
         when(promotions.findActive(org.mockito.ArgumentMatchers.eq("FIRST_TRIAL"), any())).thenReturn(Optional.of(promotion));
 
         var quote = service.quote(offering, client, address, "FIRST_TRIAL", true, OffsetDateTime.now());
@@ -85,10 +80,7 @@ class PricingServiceTest {
 
     @Test
     void rejectsFirstPurchasePromotionForExistingClient() {
-        Promotion promotion = mock(Promotion.class);
-        when(promotion.isAutomaticApplicable()).thenReturn(true);
-        when(promotion.getApplicableServiceCode()).thenReturn("ROPA_LISTA_12");
-        when(promotion.getValidFrom()).thenReturn(OffsetDateTime.now().minusDays(1));
+        Promotion promotion = automaticPromotion("ROPA_LISTA_12");
         when(promotion.isNewCustomersOnly()).thenReturn(true);
         when(promotions.findActive(org.mockito.ArgumentMatchers.eq("FIRST_TRIAL"), any())).thenReturn(Optional.of(promotion));
 
@@ -106,5 +98,18 @@ class PricingServiceTest {
         assertThatThrownBy(() -> service.quote(offering, client, address, "FULL_ROUTE", true, OffsetDateTime.now()))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("validación manual");
+    }
+
+    private Promotion automaticPromotion(String serviceCode) {
+        Promotion promotion = mock(Promotion.class);
+        when(promotion.getId()).thenReturn(UUID.randomUUID());
+        when(promotion.isAutomaticApplicable()).thenReturn(true);
+        when(promotion.getApplicableServiceCode()).thenReturn(serviceCode);
+        when(promotion.getValidFrom()).thenReturn(OffsetDateTime.now().minusDays(1));
+        when(promotion.getValidTo()).thenReturn(null);
+        when(promotion.getTotalQuota()).thenReturn(null);
+        when(promotion.getDailyQuota()).thenReturn(null);
+        when(promotion.getMonthlyQuota()).thenReturn(null);
+        return promotion;
     }
 }
