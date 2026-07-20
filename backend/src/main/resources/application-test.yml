@@ -1,0 +1,12 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    clean-disabled: false
+
+app:
+  jwt:
+    secret-base64: dGVzdC1vbmx5LXNlY3JldC10aGF0LWlzLWxvbmcgZW5vdWdoLWZvci1ocy0yNTYtdGVzdHM=
+    access-ttl: PT5M
+    refresh-ttl: P1D
