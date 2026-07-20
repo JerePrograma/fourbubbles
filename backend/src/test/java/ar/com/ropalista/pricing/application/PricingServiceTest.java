@@ -92,6 +92,7 @@ class PricingServiceTest {
     @Test
     void rejectsPromotionThatRequiresManualConditions() {
         Promotion promotion = mock(Promotion.class);
+        when(promotion.getStatus()).thenReturn("ACTIVE");
         when(promotion.isAutomaticApplicable()).thenReturn(false);
         when(promotions.findActive(org.mockito.ArgumentMatchers.eq("FULL_ROUTE"), any())).thenReturn(Optional.of(promotion));
 
@@ -103,6 +104,7 @@ class PricingServiceTest {
     private Promotion automaticPromotion(String serviceCode) {
         Promotion promotion = mock(Promotion.class);
         when(promotion.getId()).thenReturn(UUID.randomUUID());
+        when(promotion.getStatus()).thenReturn("ACTIVE");
         when(promotion.isAutomaticApplicable()).thenReturn(true);
         when(promotion.getApplicableServiceCode()).thenReturn(serviceCode);
         when(promotion.getValidFrom()).thenReturn(OffsetDateTime.now().minusDays(1));
