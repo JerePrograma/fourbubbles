@@ -44,10 +44,25 @@ class AdministrativeAuthorizationIT extends PostgresIntegrationTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
+        String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 10);
         mockMvc.perform(post("/clients")
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
+                        .content("""
+                                {
+                                  "firstName": "Sin",
+                                  "lastName": "Permiso",
+                                  "phone": "1122%s",
+                                  "whatsapp": "1177%s",
+                                  "addresses": [{
+                                    "zoneCode": "MARCOS_PAZ",
+                                    "street": "Mitre",
+                                    "number": "100",
+                                    "locality": "Marcos Paz",
+                                    "primaryAddress": true
+                                  }]
+                                }
+                                """.formatted(suffix, suffix)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
     }
