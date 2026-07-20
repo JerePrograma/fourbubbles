@@ -11,13 +11,16 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Getter
 @NoArgsConstructor
 @Entity
 @Table(name = "promotion_usages")
 public class PromotionUsage extends AuditableEntity {
-    @Column(name = "order_id", nullable = false, unique = true)
+    @JdbcTypeCode(SqlTypes.UUID)
+    @Column(name = "order_id", nullable = false, unique = true, columnDefinition = "uuid")
     private java.util.UUID orderId;
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "promotion_id", nullable = false)
