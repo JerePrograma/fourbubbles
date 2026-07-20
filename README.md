@@ -20,6 +20,7 @@ Sistema de gestión integral para una lavandería doméstica con retiro y entreg
 - Docker Compose, Nginx y GitHub Actions.
 - Pruebas unitarias e integración con PostgreSQL mediante Testcontainers.
 - Dependencias frontend bloqueadas mediante `package-lock.json` y `npm ci`.
+- Scripts PowerShell para iniciar y verificar el entorno local.
 - Documentación de alcance, arquitectura, datos, seguridad, operación, uso, pruebas, decisiones y backlog.
 
 ## Requisitos recomendados
@@ -28,7 +29,8 @@ Para el camino simple:
 
 - Git;
 - Docker Desktop o Docker Engine;
-- Docker Compose v2.
+- Docker Compose v2;
+- PowerShell 7 en Windows.
 
 Para ejecución sin Docker:
 
@@ -37,7 +39,22 @@ Para ejecución sin Docker:
 - Node.js 22;
 - PostgreSQL 16.
 
-## Inicio rápido con Docker
+## Inicio rápido en Windows
+
+```powershell
+git clone https://github.com/JerePrograma/fourbubbles.git
+Set-Location '.\fourbubbles'
+git switch main
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\Start-Local.ps1 -Rebuild
+.\scripts\Verify-Local.ps1
+```
+
+`Start-Local.ps1` crea `.env` únicamente si no existe, genera secretos aleatorios, construye los contenedores y espera a que el backend esté saludable. La contraseña administrativa generada se muestra una sola vez en la consola.
+
+La guía manual completa y el diagnóstico están en [docs/WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md).
+
+## Inicio rápido manual con Docker
 
 Linux/macOS:
 
@@ -72,8 +89,6 @@ Accesos:
 - salud: `http://localhost:8081/api/actuator/health`.
 
 El usuario administrador de desarrollo se crea al iniciar con `APP_DEV_ADMIN_USERNAME` y `APP_DEV_ADMIN_PASSWORD`. No existe una contraseña real almacenada en el repositorio.
-
-La guía completa para Windows, incluida generación segura de secretos y diagnóstico, está en [docs/WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md).
 
 ## Flujo funcional actual
 
@@ -151,6 +166,7 @@ backend/
 frontend/
   src/api/ auth/ components/ models/ pages/
 infra/nginx/
+scripts/
 docs/
   adr/
 .github/workflows/
