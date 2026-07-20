@@ -1,0 +1,94 @@
+name: Runtime smoke
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: runtime-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compose-smoke:
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: smoke-postgres-password
+      APP_DEV_ADMIN_USERNAME: admin
+      APP_DEV_ADMIN_PASSWORD: smoke-admin-password
+      JWT_SECRET_BASE64: U21va2UtdGVzdC1zZWNyZXQtd2l0aC1tb3JlLXRoYW4tMzItYnl0ZXM=
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start complete stack and verify HTTP flow
+        shell: bash
+        run: |
+          set -euo pipefail
+          cleanup() {
+            code=$?
+            trap - EXIT
+            if [ "$code" -ne 0 ]; then
+              docker compose ps || true
+              docker compose logs --tail 250 || true
+            fi
+            docker compose down -v --remove-orphans || true
+            exit "$code"
+          }
+          trap cleanup EXIT
+
+          docker compose config --quiet
+          docker compose up --build -d
+
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://localhost:8081/api/actuator/health/readiness > /tmp/readiness.json; then
+              break
+            fi
+            if [ "$attempt" -eq 60 ]; then
+              echo "Backend readiness timeout" >&2
+              exit 1
+            fi
+            sleep 3
+          done
+
+          python3 - <<'PY'
+          import json
+          with open('/tmp/readiness.json', encoding='utf-8') as source:
+              payload = json.load(source)
+          assert payload.get('status') == 'UP', payload
+          PY
+
+          curl --fail --silent http://localhost:8080/ > /tmp/frontend.html
+          grep -q '<div id="root"></div>' /tmp/frontend.html
+
+          curl --fail --silent \
+            --header 'Content-Type: application/json' \
+            --data '{"username":"admin","password":"smoke-admin-password"}' \
+            http://localhost:8081/api/auth/login > /tmp/login.json
+
+          python3 - <<'PY' > /tmp/token.txt
+          import json
+          with open('/tmp/login.json', encoding='utf-8') as source:
+              payload = json.load(source)
+          assert payload.get('success') is True, payload
+          token = payload['data']['accessToken']
+          assert token
+          print(token)
+          PY
+
+          token=$(cat /tmp/token.txt)
+          curl --fail --silent \
+            --header "Authorization: Bearer $token" \
+            http://localhost:8081/api/catalog/services > /tmp/services.json
+
+          python3 - <<'PY'
+          import json
+          with open('/tmp/services.json', encoding='utf-8') as source:
+              payload = json.load(source)
+          assert payload.get('success') is True, payload
+          assert len(payload.get('data', [])) >= 1, payload
+          PY
+
+          docker compose ps
