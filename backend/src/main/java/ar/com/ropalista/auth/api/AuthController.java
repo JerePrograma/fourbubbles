@@ -34,8 +34,10 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    ApiResponse<AuthResponse> login(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
-        var result = authService.login(request.username(), request.password());
+    ApiResponse<AuthResponse> login(@Valid @RequestBody LoginRequest request,
+                                    HttpServletRequest httpRequest,
+                                    HttpServletResponse response) {
+        var result = authService.login(request.username(), request.password(), httpRequest.getRemoteAddr());
         writeRefreshCookie(response, result.refreshToken(), authService.refreshTtlSeconds());
         return ApiResponse.ok(toResponse(result));
     }
