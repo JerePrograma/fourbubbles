@@ -80,6 +80,7 @@ public class ClientService {
         }
         if (request.primaryAddress()) {
             activeAddresses.stream().filter(Address::isPrimaryAddress).forEach(Address::demotePrimary);
+            addresses.flush();
         }
         Address address = toAddress(request);
         client.addAddress(address);
@@ -95,6 +96,7 @@ public class ClientService {
         Object before = addressSummary(target);
         addresses.findByClientIdAndActiveTrueOrderByPrimaryAddressDescValidFromDesc(clientId)
                 .stream().filter(Address::isPrimaryAddress).forEach(Address::demotePrimary);
+        addresses.flush();
         target.makePrimary();
         audit.record("CLIENT_ADDRESS", target.getId(), "MAKE_PRIMARY", before, addressSummary(target),
                 "Cambio de domicilio principal");
