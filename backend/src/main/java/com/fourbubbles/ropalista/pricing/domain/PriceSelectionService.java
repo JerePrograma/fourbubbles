@@ -14,7 +14,7 @@ public class PriceSelectionService {
                 .filter(price -> price.getZone() == null || price.getZone().getId().equals(zoneId))
                 .sorted(Comparator
                         .comparing((PriceVersion price) -> price.getZone() != null).reversed()
-                        .thenComparing(PriceVersion::getValidFrom).reversed())
+                        .thenComparing(PriceVersion::getValidFrom, Comparator.reverseOrder()))
                 .findFirst()
                 .orElseThrow(() -> new BusinessRuleException("PRICE_NOT_FOUND",
                         "No existe un precio vigente para el servicio y la zona"));
