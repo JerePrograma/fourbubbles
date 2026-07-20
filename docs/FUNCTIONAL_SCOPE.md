@@ -1,87 +1,187 @@
 # Alcance funcional
 
-Este documento describe lo que existe realmente en `0.1.2` y separa implementación administrativa de operación física.
+Versión: `0.2.0`.
+
+Este documento describe funciones utilizables, no solamente tablas o estados.
 
 | Módulo | Estado | Alcance disponible | Pendiente principal |
 |---|---|---|---|
-| Autenticación | Implementado base | login, refresh, logout, JWT, cookie segura, bloqueo local | administración de usuarios, MFA, limitación distribuida |
-| RBAC | Implementado | jerarquía de cuatro roles y permisos por método | permisos finos por transición |
-| Clientes | Avanzado | alta, búsqueda, actualización, estado y preferencias | historial agregado y métricas |
-| Domicilios | Implementado administrativo | múltiples, principal único, vigencia, baja e historial | coordenadas, geocodificación y validación logística |
-| Zonas | Implementado inicial | Marcos Paz y Mariano Acosta | radios, restricciones y adicionales |
-| Catálogo | Implementado inicial | servicios y equivalencias versionados | interfaz administrativa completa |
-| Precios | Implementado | vigencia, zona, histórico, automático y manual | reglas compuestas y simulación |
-| Promociones | Implementado para reglas soportadas | vigencia, servicio, cupos, primera compra, domicilio y concurrencia | créditos, autorización y reglas compuestas |
-| Pedidos | Avanzado | alta, cotización, planificación temprana, estados y búsqueda | recepción y edición física controlada |
-| Recepción | Pendiente | solo existe transición de estado | peso/conteo real, daños, fotos, diferencias, aceptación |
-| Pagos | Implementado base robusto | parciales, totales, saldo, historial y concurrencia | caja, reembolso, comprobantes, webhooks |
-| Auditoría | Implementado administrativo | persistencia, filtros e interfaz | exportación, retención y comparación visual avanzada |
-| Compatibilidad | Pendiente | preferencias capturadas como insumo | matriz y motor de reglas |
-| Producción | Pendiente | estados preparatorios | ciclos, máquinas, lavado, secado y calidad |
-| Logística | Pendiente | retiro/promesa en pedido | rutas, paradas, agenda y entrega |
-| Finanzas | Parcial mínimo | cobros por pedido | caja, costos, margen y proyecciones |
-| Inventario | Pendiente | ninguno | stock, lotes, consumo y alertas |
-| Reclamos | Pendiente | estado `CLAIM` solamente | circuito, evidencias y compensación |
-| Crecimiento | Pendiente | semillas promocionales | abonos, comercios, SLA y tableros |
+| Autenticación | Implementado base | login, refresh, logout, JWT, cookie segura, bloqueo local | usuarios UI, MFA, limitación distribuida |
+| RBAC | Implementado | jerarquía y permisos por método | permisos finos por transición |
+| Clientes | Avanzado | alta, búsqueda, actualización, estado y preferencias | timeline agregado |
+| Domicilios | Implementado administrativo | múltiples, principal, vigencia, baja e historial | coordenadas y geocodificación |
+| Zonas | Inicial | Marcos Paz y Mariano Acosta | radios y restricciones avanzadas |
+| Catálogo | Inicial versionado | servicios y equivalencias | CRUD administrativo UI |
+| Precios | Implementado | automático/manual, vigencia, histórico y desglose | simulación y reglas compuestas |
+| Promociones | Implementado soportado | cupos, primera compra, domicilio y concurrencia | créditos y reglas compuestas |
+| Pedidos | Avanzado | alta, cotización, planificación, estados y búsqueda | edición física versionada posterior |
+| Recepción | Implementado base | idempotencia, peso/conteo real, inspección, diferencias y aprobación | almacenamiento binario y correcciones versionadas |
+| Evidencias | Parcial | metadata y SHA-256 | upload/download y object storage |
+| Pagos | Implementado base robusto | parciales, totales, saldo, historial y concurrencia | caja, reembolsos y webhooks |
+| Auditoría | Implementado administrativo | persistencia, filtros e interfaz | exportación y retención |
+| Compatibilidad | Pendiente | datos reales disponibles como insumo | matriz y motor explicable |
+| Producción | Pendiente | estados preparatorios | ciclos, máquinas, lavado/secado/calidad |
+| Logística | Pendiente | fechas en pedido | rutas, agenda, kilómetros y entrega |
+| Finanzas | Parcial mínimo | cobros | caja, costos, margen y rentabilidad |
+| Inventario | Pendiente | ninguno | stock, lotes y consumo |
+| Reclamos | Pendiente | estado `CLAIM` | circuito, evidencia y compensación |
+| Crecimiento | Pendiente | catálogo/promociones base | abonos, comercios, SLA y tableros |
 
-## Reglas funcionales finalizadas
+## Tres snapshots diferentes
 
-### Cliente y domicilio
+### Declaración
 
-- un WhatsApp activo no puede pertenecer a dos clientes;
-- cada cliente debe conservar al menos un domicilio activo;
-- existe exactamente un principal activo;
-- el principal no puede darse de baja hasta elegir otro;
-- la baja no elimina el domicilio;
-- pedidos anteriores conservan su referencia histórica;
-- el cambio de principal respeta el índice único incluso durante el flush de JPA.
+Se registra al crear el pedido:
 
-### Pedido
+- prendas declaradas;
+- cantidades físicas;
+- grupos;
+- unidades equivalentes;
+- peso declarado opcional;
+- precio inicial.
 
-- conserva piezas físicas y equivalencias calculadas;
-- aplica el primer límite operativo alcanzado;
-- guarda precio automático, desglose y definición de precio;
-- marca si necesita presupuesto o ciclo exclusivo;
-- una cotización manual no borra el cálculo automático;
-- retiro, promesa y notas solo pueden editarse en `INQUIRY` o `QUOTED`;
-- el precio confirmado no cambia retrospectivamente;
-- los cambios de estado deben respetar la política de transiciones.
+### Recepción real
 
-### Promoción
+Se registra una única vez de forma idempotente:
 
-- la cotización evalúa si la regla es potencialmente aplicable;
-- la confirmación bloquea la promoción;
-- vuelve a validar estado, vigencia, servicio, primera compra, domicilio y cupos;
-- registra el uso dentro de la misma transacción;
-- dos confirmaciones concurrentes no pueden consumir el mismo beneficio restringido.
+- peso real;
+- conteo real total;
+- conteo real por equivalencia;
+- diferencias;
+- daños/manchas;
+- observaciones;
+- etiqueta/bolsa;
+- evidencia metadata;
+- aprobación.
 
-### Pago
+No sobrescribe la declaración.
 
-- exige precio confirmado;
-- exige importe positivo;
-- no permite superar el saldo;
-- bloquea el pedido durante el cálculo y persistencia;
-- dos pagos concurrentes no pueden sobrecobrar;
-- conserva medio, fecha, actor, referencia, notas y estado.
+### Producción
+
+Todavía pendiente:
+
+- compatibilidad;
+- composición de ciclos;
+- máquina/programa;
+- consumos;
+- tiempos;
+- calidad y relavado.
+
+## Reglas de cliente/domicilio
+
+- WhatsApp activo único.
+- Al menos un domicilio activo.
+- Un único principal activo.
+- El principal no se desactiva directamente.
+- Baja lógica e historial.
+- Pedidos conservan el domicilio histórico.
+
+## Reglas de precio/promoción
+
+- precio automático original separado del cotizado vigente;
+- cotización manual requiere `ADMIN` y motivo;
+- confirmación congela el precio;
+- promoción se consume al confirmar;
+- la promoción se bloquea y revalida bajo transacción;
+- una carrera no consume dos veces el mismo beneficio restringido.
+
+## Reglas de recepción
+
+### Estado de origen
+
+Solo `PICKED_UP`.
+
+### Idempotencia
+
+- cabecera obligatoria `Idempotency-Key`;
+- 16–120 caracteres `[A-Za-z0-9._:-]`;
+- misma clave y pedido: mismo resultado;
+- misma clave en otro pedido: conflicto;
+- segunda clave en pedido ya recibido: conflicto;
+- constraint único por pedido y por clave.
+
+### Composición
+
+- todos los códigos declarados deben aparecer;
+- códigos duplicados se rechazan;
+- cantidades reales son enteros no negativos;
+- total real debe ser positivo;
+- prenda adicional exige equivalencia vigente;
+- diferencias se calculan por código y total.
+
+### Peso
+
+- peso real positivo;
+- fecha no puede superar cinco minutos en el futuro;
+- diferencia se conserva en gramos;
+- aprobación requerida cuando el desvío supera 250 g o 10 %.
+
+### Inspección
+
+- daño obliga a aprobación;
+- diferencia de piezas obliga a aprobación;
+- mancha se registra, pero no obliga por sí sola;
+- observaciones generales y por ítem;
+- etiqueta única `RCV-xxxxxx`;
+- bolsa opcional.
+
+### Evidencia
+
+Se registran solamente metadatos:
+
+- object key;
+- nombre;
+- MIME;
+- tamaño;
+- SHA-256;
+- descripción.
+
+El binario debe existir en un almacenamiento externo. El sistema no afirma que haya subido un archivo solo porque guardó metadata.
+
+### Estados resultantes
+
+Sin aprobación:
+
+```text
+PICKED_UP → RECEIVED → PENDING_INSPECTION → CLASSIFIED
+```
+
+Con aprobación:
+
+```text
+PICKED_UP → RECEIVED → PENDING_INSPECTION → WAITING_PRICE_APPROVAL
+```
+
+Decisión:
+
+```text
+APPROVED → CLASSIFIED
+REJECTED → CANCELLED
+```
+
+## Reglas de pago
+
+- precio confirmado obligatorio;
+- importe positivo;
+- no superar saldo;
+- pedido bloqueado durante el cobro;
+- pagos concurrentes no sobrecobran;
+- historial por fecha, medio, actor y referencia.
 
 ## Datos iniciales
 
 - 2 zonas;
 - 11 servicios;
 - 21 equivalencias;
-- 11 precios iniciales;
+- 11 precios;
 - 9 promociones;
 - 4 medios de pago.
 
-Los datos comerciales se cargan por Flyway, no mediante constantes de negocio Java.
+## Regla de honestidad
 
-## Regla de honestidad de alcance
+- `RECEIVED` ahora sí tiene agregado físico.
+- `WASHING` todavía no implica un ciclo real.
+- `DELIVERY_SCHEDULED` todavía no implica una ruta.
+- `CLAIM` todavía no implica un módulo de reclamos.
 
-Una tabla o estado no equivale a un módulo terminado. Por ejemplo:
-
-- `RECEIVED` no implica que exista recepción real;
-- `WASHING` no implica que existan ciclos o máquinas;
-- `DELIVERY_SCHEDULED` no implica que exista una ruta;
-- `CLAIM` no implica que exista gestión de reclamos.
-
-La funcionalidad se considera implementada únicamente cuando existen reglas, persistencia, API, permisos, interfaz cuando corresponde y pruebas representativas.
+Un módulo se considera finalizado cuando existen datos, reglas, transacción, API, permisos, UI cuando corresponde y pruebas de los riesgos críticos.

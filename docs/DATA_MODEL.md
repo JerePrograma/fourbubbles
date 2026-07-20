@@ -1,176 +1,198 @@
 # Modelo de datos
 
-Versión: `0.1.2`.
+Versión: `0.2.0`.
 
 ## Principios
 
-- PostgreSQL 16 es la base principal.
-- Flyway es la única autoridad del esquema.
-- Hibernate usa `ddl-auto=validate`.
-- UUID para entidades de negocio.
-- `NUMERIC(15,2)`/`BigDecimal` para dinero.
-- gramos enteros para peso.
-- `TIMESTAMPTZ`/`OffsetDateTime` para instantes.
-- JSONB únicamente para snapshots o estructuras flexibles controladas.
-- baja lógica cuando debe conservarse historial.
-- configuración comercial versionada por vigencia.
+- PostgreSQL 16.
+- Flyway como única autoridad.
+- Hibernate `ddl-auto=validate`.
+- UUID de negocio.
+- `NUMERIC`/`BigDecimal` para dinero.
+- gramos enteros.
+- `TIMESTAMPTZ`/`OffsetDateTime`.
+- JSONB para snapshots controlados.
+- baja lógica y vigencia para preservar historia.
+- archivos pesados fuera de PostgreSQL.
 
 ## Relaciones principales
 
 ```text
-app_users 1---N refresh_tokens
-app_users N---N roles
-
-audit_events
-
 clients 1---N addresses
-zones   1---N addresses
-
-clients   1---N laundry_orders
-addresses 1---N laundry_orders
-services  1---N laundry_orders
-prices    1---N laundry_orders
-promotions 1---N laundry_orders
-
+clients 1---N laundry_orders
 laundry_orders 1---N order_items
-laundry_orders 1---N order_state_history
 laundry_orders 1---N payments
-promotions     1---N promotion_usages
+laundry_orders 1---1 order_receptions
+order_receptions 1---N reception_items
+order_receptions 1---N reception_evidences
 ```
 
 ## Migraciones
 
-### V1 — Identidad y auditoría
+- V1: identidad, refresh y auditoría.
+- V2: zonas, clientes y domicilios.
+- V3: catálogo, precios y promociones.
+- V4: pedidos, estados y pagos.
+- V5: datos comerciales iniciales.
+- V6: vigencia de domicilios y cotización manual.
+- V7: recepción física.
 
-- `app_users`;
-- `app_user_roles`;
-- `refresh_tokens`;
-- `audit_events`.
+## V7 — Recepción
 
-### V2 — Zonas, clientes y domicilios
+### Secuencia
 
-- `zones`;
-- `clients`;
-- `addresses`;
-- índice único de WhatsApp activo;
-- índice único parcial de domicilio principal activo por cliente.
+`reception_label_seq` genera etiquetas legibles:
 
-### V3 — Catálogo y precios
+```text
+RCV-000001
+```
 
-- servicios;
-- equivalencias;
-- definiciones de precio;
-- promociones;
-- usos promocionales.
+### `laundry_orders`
 
-### V4 — Pedidos y pagos
+Agrega:
 
-- `laundry_orders`;
-- `order_items`;
-- `order_state_history`;
-- `payment_methods`;
-- `payments`;
-- secuencia de números legibles.
+- `actual_physical_pieces`.
 
-### V5 — Configuración inicial
+Ya existía `actual_weight_grams`; ambos se completan una sola vez al recibir.
 
-- zonas iniciales;
-- servicios;
-- equivalencias;
-- precios;
-- promociones;
-- medios de pago.
+### `order_receptions`
 
-### V6 — Cierre administrativo
+Campos principales:
 
-En `addresses`:
+- `order_id` único;
+- `idempotency_key` único;
+- `received_at`;
+- piezas declaradas/reales/diferencia;
+- peso declarado/real/diferencia;
+- condición, daño y mancha;
+- necesidad y estado de aprobación;
+- actor/fecha/notas de decisión;
+- etiqueta única;
+- bolsa;
+- auditoría estándar.
 
-- `valid_from TIMESTAMPTZ NOT NULL`;
-- `valid_to TIMESTAMPTZ`;
-- constraint de orden temporal;
-- constraint de coherencia entre `active` y `valid_to`;
-- índice por cliente y vigencia.
+Constraints:
 
-En `laundry_orders`:
+- una recepción por pedido;
+- una clave globalmente única;
+- etiqueta única;
+- conteos y peso válidos;
+- estados de aprobación restringidos;
+- actor/fecha obligatorios para decisión final;
+- `requires_customer_approval` coherente con `approval_status`.
 
-- `automatic_quoted_price`;
-- `manual_quote_reason`;
-- `manual_quote_at`;
-- `manual_quote_by`;
-- constraints de importe y completitud de cotización manual.
+### `reception_items`
 
-## Invariantes
+Snapshot real por equivalencia:
 
-### Cliente
+- FK opcional a equivalencia;
+- código/nombre copiados;
+- piezas declaradas;
+- piezas reales;
+- diferencia;
+- daño/mancha;
+- observaciones.
 
-- `whatsapp` es único mientras `deleted_at IS NULL`.
-- un cliente eliminado lógicamente no libera ni modifica registros históricos.
+El snapshot de código/nombre evita que una versión futura del catálogo cambie retrospectivamente la recepción.
+
+Unique:
+
+```text
+(reception_id, equivalence_code_snapshot)
+```
+
+### `reception_evidences`
+
+No almacena el archivo. Conserva:
+
+- `object_key` único;
+- nombre;
+- MIME;
+- tamaño;
+- SHA-256;
+- descripción;
+- auditoría.
+
+El `object_key` debe apuntar a un almacenamiento externo administrado por la operación.
+
+## Invariantes transaccionales
+
+### Idempotencia
+
+- el servicio consulta la clave;
+- bloquea el pedido;
+- vuelve a comprobar clave y pedido;
+- crea el agregado una sola vez;
+- constraints de DB actúan como última barrera.
+
+### Declarado versus real
+
+No se modifica `order_items` ni `physical_pieces`.
+
+Se conservan:
+
+```text
+order_items / physical_pieces   = declaración
+reception_items / actual_*      = recepción real
+```
+
+### Estado
+
+El agregado de recepción y las transiciones de pedido se guardan en la misma transacción.
+
+Sin diferencias:
+
+```text
+PICKED_UP → RECEIVED → PENDING_INSPECTION → CLASSIFIED
+```
+
+Con diferencias:
+
+```text
+... → WAITING_PRICE_APPROVAL
+```
+
+La decisión final actualiza recepción, pedido, historial y auditoría juntos.
+
+## Invariantes anteriores
 
 ### Domicilio
 
-- existe como máximo un principal activo por cliente;
-- un domicilio activo tiene `valid_to IS NULL`;
-- uno inactivo tiene `valid_to IS NOT NULL`;
-- `valid_to >= valid_from`;
-- el cambio de principal hace flush de la despromoción antes de promover el nuevo;
-- los pedidos conservan el `address_id` histórico.
+- principal activo único;
+- `valid_to` coherente con `active`;
+- pedidos conservan FK histórica.
 
-### Pedido
+### Precio
 
-El precio se divide en tres conceptos:
-
-- `automatic_quoted_price`: resultado automático original;
-- `quoted_price`: propuesta vigente, automática o manual;
-- `confirmed_price`: valor congelado aceptado.
-
-Una cotización manual exige que `manual_quote_reason`, `manual_quote_at` y `manual_quote_by` estén todos presentes o todos ausentes.
-
-El `price_breakdown` conserva las líneas automáticas y agrega la diferencia manual.
+- `automatic_quoted_price` original;
+- `quoted_price` vigente;
+- `confirmed_price` congelado.
 
 ### Promoción
 
-- la referencia seleccionada queda en el pedido;
-- el consumo efectivo se registra en `promotion_usages` al confirmar;
-- una promoción se bloquea antes de revalidar cupos;
-- las restricciones por domicilio y pedido se respaldan con consultas y constraints existentes.
+- uso al confirmar bajo bloqueo pesimista.
 
 ### Pago
 
-- cada pago referencia pedido, cliente y medio;
-- el total pagado se calcula sobre pagos `PAID`;
-- el pedido se bloquea antes de calcular saldo y guardar un pago;
-- `payment_status` del pedido consolida `PENDING`, `PARTIAL` o `PAID`.
+- saldo calculado bajo bloqueo del pedido.
 
-### Auditoría
+## Próximas migraciones
 
-`audit_events` conserva:
+Compatibilidad deberá agregarse en V8 o posterior. No debe editar V7.
 
-- tipo de entidad;
-- identificador textual;
-- acción;
-- valor anterior JSONB;
-- valor nuevo JSONB;
-- motivo;
-- actor y fecha heredados de auditoría JPA.
+Posibles entidades:
 
-## Evolución pendiente
-
-La recepción requerirá una migración nueva; no debe agregarse a V6 ni editar migraciones aplicadas. El diseño esperado debe contemplar:
-
-- registro de recepción único por pedido o versión controlada;
-- clave de idempotencia;
-- peso/conteo reales;
-- diferencias estructuradas;
-- inspecciones, daños y manchas;
-- evidencias externas con metadatos, no binarios grandes dentro de PostgreSQL;
-- decisión/aprobación del cliente;
-- etiquetas y bolsas.
+- atributos de tratamiento normalizados;
+- versiones de reglas;
+- evaluación por pedido;
+- explicación de conflictos;
+- excepción autorizada.
 
 ## Prohibiciones
 
-- no usar `ddl-auto=update`;
-- no editar V1–V6 después de desplegarlas;
-- no usar `double` para importes;
-- no reemplazar domicilios o precios históricos;
-- no guardar contraseñas, JWT ni refresh tokens en texto claro;
-- no almacenar archivos pesados directamente en tablas transaccionales sin una decisión explícita.
+- no editar V1–V7 aplicadas;
+- no `ddl-auto=update`;
+- no reemplazar declaración con recepción;
+- no almacenar binarios grandes en tablas transaccionales;
+- no guardar secretos/tokens en claro;
+- no usar `double` para dinero.

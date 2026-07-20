@@ -1,318 +1,224 @@
 # Guía de uso funcional
 
-Versión: `0.1.2`.
-
-Describe únicamente funciones disponibles. Los estados de recepción/producción no sustituyen los módulos físicos todavía pendientes.
+Versión: `0.2.0`.
 
 ## 1. Iniciar sesión
 
-Abrir:
-
-```text
-http://localhost:8080
-```
-
-En desarrollo, usar el usuario y la contraseña mostrados por `Start-Local.ps1`.
-
-El access token permanece en memoria. La renovación utiliza una cookie `HttpOnly`.
+Abrir `http://localhost:8080` y usar las credenciales generadas por `Start-Local.ps1`.
 
 ## 2. Roles
 
-| Rol | Uso |
+| Rol | Alcance |
 |---|---|
-| `ADMIN` | administración completa, cotización manual y auditoría |
-| `OPERATOR` | clientes, domicilios, pedidos, planificación, confirmación y pagos |
-| `DRIVER` | lectura y transiciones operativas habilitadas |
+| `ADMIN` | administración, cotización manual y auditoría |
+| `OPERATOR` | clientes, pedidos, recepción, decisiones y pagos |
+| `DRIVER` | lectura y transiciones operativas |
 | `REPORT_VIEWER` | consulta |
 
 ## 3. Crear cliente
 
-1. Entrar en **Clientes**.
-2. Seleccionar **Nuevo cliente**.
-3. Completar nombre, apellido, teléfono y WhatsApp.
-4. Agregar correo y origen cuando correspondan.
-5. Configurar preferencias.
-6. Cargar al menos un domicilio.
-7. Marcar exactamente uno como principal.
-8. Guardar.
+1. **Clientes → Nuevo cliente**.
+2. Completar datos y WhatsApp.
+3. Configurar preferencias.
+4. Cargar al menos un domicilio.
+5. Marcar exactamente uno principal.
+6. Guardar.
 
-Preferencias:
+## 4. Domicilios
 
-- fragancia;
-- suavizante permitido;
-- secadora permitida;
-- tratamiento hipoalergénico;
-- separación de colores;
-- instrucciones especiales.
+Desde **Editar cliente**:
 
-## 4. Buscar y editar cliente
+- agregar alternativo;
+- hacer principal;
+- desactivar no principal;
+- consultar historial.
 
-Desde **Clientes**:
+La baja no borra pedidos anteriores.
 
-- buscar por apellido;
-- abrir el perfil;
-- modificar datos;
-- cambiar estado;
-- actualizar preferencias;
-- administrar domicilios.
+## 5. Crear pedido
 
-WhatsApp no puede repetirse en otro cliente activo.
+1. **Pedidos → Nuevo pedido**.
+2. Elegir cliente/domicilio/servicio.
+3. Agregar prendas y cantidades declaradas.
+4. Informar promoción, peso declarado, retiro y notas cuando corresponda.
+5. Revisar piezas, grupos, unidades y peso estimado.
+6. Crear/cotizar.
 
-## 5. Administrar domicilios
-
-### Agregar
-
-1. Abrir **Editar cliente**.
-2. Ir a domicilios.
-3. Informar zona, calle, número, localidad y referencias.
-4. Elegir si será principal.
-5. Guardar.
-
-### Cambiar principal
-
-1. Seleccionar un domicilio activo alternativo.
-2. Elegir **Hacer principal**.
-3. El anterior continúa activo, pero deja de ser principal.
-
-### Desactivar
-
-1. Verificar que no sea el principal.
-2. Elegir **Desactivar**.
-3. El registro pasa al historial.
-
-Reglas:
-
-- siempre debe existir un domicilio activo;
-- el principal no se desactiva directamente;
-- solo existe un principal activo;
-- los pedidos anteriores mantienen su domicilio histórico.
-
-## 6. Crear pedido
-
-1. Entrar en **Pedidos**.
-2. Seleccionar **Nuevo pedido**.
-3. Elegir cliente.
-4. Elegir domicilio activo.
-5. Elegir servicio.
-6. Informar promoción cuando corresponda.
-7. Agregar prendas y cantidades físicas.
-8. Revisar la vista previa.
-9. Informar peso declarado opcional.
-10. Informar retiro, promesa y notas opcionales.
-11. Crear y cotizar.
-
-La vista previa muestra:
-
-- piezas físicas;
-- grupos comerciales;
-- unidades equivalentes;
-- peso estimado;
-- necesidad de presupuesto;
-- necesidad de ciclo exclusivo;
-- límite operativo alcanzado.
-
-## 7. Interpretar los precios
+## 6. Precio
 
 El detalle diferencia:
 
-- **precio automático**: cálculo original;
-- **precio cotizado**: propuesta vigente;
-- **precio confirmado**: valor congelado aceptado.
+- automático original;
+- cotizado vigente;
+- confirmado.
 
-El desglose muestra las líneas que explican el total.
+`ADMIN` puede aplicar cotización manual con motivo antes de confirmar.
 
-## 8. Cotización manual
+## 7. Confirmar y preparar retiro
 
-Solo `ADMIN`.
-
-Se utiliza cuando `requiresQuote` es verdadero o cuando el tratamiento exige revisión individual.
-
-1. Abrir el pedido.
-2. Ir a **Cotización manual**.
-3. Ingresar importe.
-4. Escribir un motivo concreto.
-5. Guardar.
-
-El sistema registra:
-
-- importe automático original;
-- importe manual;
-- diferencia;
-- motivo;
-- actor;
-- fecha.
-
-No se permite cotizar manualmente después de confirmar el precio ni fuera de `INQUIRY`/`QUOTED`.
-
-## 9. Editar planificación temprana
-
-`ADMIN` y `OPERATOR` pueden modificar:
-
-- retiro programado;
-- fecha prometida;
-- notas.
-
-Solo durante:
+1. Confirmar precio.
+2. Avanzar estados permitidos:
 
 ```text
-INQUIRY
-QUOTED
+WAITING_CONFIRMATION → RESERVED → PICKUP_SCHEDULED → PICKED_UP
 ```
 
-Después de confirmar o avanzar el estado, la edición se rechaza.
+La recepción solo se habilita desde `PICKED_UP`.
 
-## 10. Confirmar precio
+## 8. Registrar recepción
 
-1. Revisar precio y desglose.
-2. Verificar que no quede presupuesto pendiente.
-3. Seleccionar **Confirmar precio**.
+Desde **Pedidos**, elegir **Recibir** en la fila del pedido.
 
-Al confirmar:
+### Datos generales
 
-- el precio se congela;
-- la promoción se bloquea;
-- se revalidan vigencia y cupos;
-- se registra el consumo promocional;
-- se audita la operación.
+- peso real obligatorio;
+- fecha/hora opcional (por defecto ahora);
+- código de bolsa opcional;
+- condición general.
 
-Dos pedidos concurrentes no pueden consumir el mismo beneficio restringido.
+### Por prenda
 
-## 11. Cambiar estado
+Para cada código declarado:
 
-El detalle muestra únicamente `allowedTransitions`.
+- cantidad real;
+- daño;
+- mancha;
+- observaciones.
 
-Recorrido orientativo:
+Todos los códigos declarados deben permanecer en el formulario, incluso si la cantidad real es cero.
 
-```text
-QUOTED
-→ WAITING_CONFIRMATION
-→ RESERVED
-→ PICKUP_SCHEDULED
-→ PICKED_UP
-→ RECEIVED
-→ PENDING_INSPECTION
-→ CLASSIFIED
-→ WAITING_WASH
-→ WASHING
-→ DRYING
-→ QUALITY_CONTROL
-→ FOLDING
-→ PACKAGED
-→ READY_FOR_DELIVERY
-→ DELIVERY_SCHEDULED
-→ DELIVERED
-→ CLOSED
-```
+### Evidencia externa opcional
 
-También existen cancelación, reclamo y reembolso como estados, pero sus módulos completos todavía no están implementados.
+La sección acepta metadata:
 
-`RECEIVED`, `WASHING` o `DELIVERED` no crean por sí mismos peso real, ciclos o rutas.
+- clave de objeto;
+- nombre;
+- MIME;
+- tamaño;
+- SHA-256;
+- descripción.
 
-## 12. Registrar pago
+No carga el archivo. Dejar vacía si no existe un almacenamiento externo real.
 
-Requisitos:
+### Registrar
 
-- precio confirmado;
-- saldo disponible;
-- rol `ADMIN` u `OPERATOR`.
+Seleccionar **Registrar recepción**.
 
-Pasos:
+El navegador envía una clave idempotente. Si la operación se repite con la misma clave, el backend devuelve la misma recepción.
 
-1. Elegir medio.
-2. Ingresar importe.
-3. Agregar referencia opcional.
-4. Registrar.
+## 9. Resultado de recepción
 
-Medios iniciales:
+### Sin diferencia material
 
-- efectivo;
-- transferencia;
-- Mercado Pago;
-- otro.
+El pedido queda `CLASSIFIED`.
 
-El sistema impide:
+Se consideran tolerables:
 
-- cero o negativos;
-- cobrar sin precio confirmado;
-- superar el saldo;
-- sobrecobrar mediante pagos concurrentes.
+- mismo conteo;
+- sin daño;
+- diferencia de peso de hasta 250 g y 10 %.
 
-## 13. Consultar historial de pagos
+### Con diferencia material
 
-En el detalle se muestran:
+El pedido queda `WAITING_PRICE_APPROVAL` cuando:
 
-- fecha;
-- medio;
-- importe;
-- referencia;
-- notas;
+- faltan/sobran piezas;
+- existe daño;
+- el peso supera el umbral.
+
+Una mancha se registra, pero no obliga por sí sola a decisión.
+
+## 10. Aprobar o rechazar
+
+`ADMIN` u `OPERATOR`:
+
+1. revisar diferencias y evidencias;
+2. escribir notas;
+3. elegir **Aprobar diferencias** o **Rechazar**.
+
+Resultado:
+
+- aprobado → `CLASSIFIED`;
+- rechazado → `CANCELLED`.
+
+La decisión registra actor, fecha y notas. No equivale a firma electrónica del cliente.
+
+## 11. Consultar recepción
+
+La misma pantalla muestra:
+
+- etiqueta;
 - estado;
-- usuario que registró.
+- peso/conteo declarado y real;
+- diferencias;
+- daño/mancha;
+- bolsa;
+- composición real;
+- decisión;
+- evidencia metadata.
 
-No existen todavía reembolsos, comprobantes adjuntos ni caja diaria.
+Los roles de lectura pueden consultarla.
 
-## 14. Consultar auditoría
+## 12. Continuar estados
+
+Después de clasificar, el backend permite estados posteriores según la política. Sin embargo, compatibilidad y ciclos todavía no están implementados: no interpretar `WASHING` como un registro real de máquina/ciclo.
+
+## 13. Registrar pagos
+
+Con precio confirmado:
+
+1. elegir medio;
+2. ingresar importe;
+3. agregar referencia;
+4. registrar.
+
+El sistema impide sobrepago, incluso concurrente.
+
+## 14. Auditoría
 
 Solo `ADMIN`.
 
-1. Abrir **Auditoría**.
-2. Filtrar opcionalmente por entidad, ID o acción.
-3. Revisar actor, fecha, motivo y valores.
+Filtrar por entidad, ID o acción. Recepción genera eventos `ORDER_RECEPTION` con acciones `CREATE` y `DECIDE`.
 
-Entidades frecuentes:
-
-```text
-CLIENT
-CLIENT_ADDRESS
-ORDER
-PAYMENT
-```
-
-Acciones frecuentes:
-
-```text
-CREATE
-UPDATE
-MAKE_PRIMARY
-DEACTIVATE
-MANUAL_QUOTE
-UPDATE_PLANNING
-CONFIRM_PRICE
-STATUS_CHANGE
-REGISTER
-```
-
-## 15. Qué hacer ante un error
-
-- copiar el `X-Request-ID` de la respuesta;
-- no compartir tokens ni cookies;
-- revisar el mensaje funcional;
-- consultar logs del backend con ese request ID;
-- verificar que el rol sea correcto;
-- comprobar que el pedido esté en un estado editable.
-
-## 16. Flujo completo de demostración
+## 15. Demostración completa
 
 1. Crear cliente.
-2. Agregar segundo domicilio.
-3. Convertirlo en principal.
-4. Crear pedido.
-5. Revisar equivalencias.
-6. Ajustar planificación.
-7. Aplicar cotización manual si corresponde.
-8. Confirmar precio.
-9. Registrar pago parcial.
-10. Registrar pago final.
-11. Revisar historial.
-12. Cambiar estado por una transición permitida.
-13. Consultar auditoría.
-14. Desactivar el domicilio anterior y verificar historial.
+2. Administrar domicilios.
+3. Crear pedido con 2 remeras y 2.500 g declarados.
+4. Confirmar precio.
+5. Llevarlo a `PICKED_UP`.
+6. Registrar 2 remeras y 2.650 g: clasifica sin aprobación.
+7. En otro pedido, registrar 1 remera, 3.100 g y daño: queda pendiente.
+8. Aprobar la diferencia.
+9. Consultar etiqueta, composición real y auditoría.
+10. Registrar pago parcial y total.
 
-## 17. Límites que deben comunicarse al usuario operativo
+## 16. Errores frecuentes
 
-- no cargar todavía recepción física como si estuviera documentada;
-- no usar estados de lavado como sustituto de ciclos;
-- no prometer rutas optimizadas;
-- no considerar pagos equivalentes a caja contable;
-- no adjuntar evidencias porque aún no existe almacenamiento;
-- no inferir rentabilidad a partir del precio cobrado.
+### “La recepción solo puede registrarse desde PICKED_UP”
+
+Avanzar el pedido por las transiciones permitidas.
+
+### “Pedido ya recibido”
+
+Abrir **Ver recepción**. No generar una segunda recepción.
+
+### “Clave de idempotencia en conflicto”
+
+La clave fue usada en otro pedido. Crear una nueva operación desde la UI correcta; no reutilizar claves entre pedidos.
+
+### Faltan prendas declaradas
+
+No eliminar filas del formulario. Usar cantidad real cero.
+
+### Evidencia inválida
+
+Completar nombre, tamaño y SHA-256 hexadecimal de 64 caracteres, o dejar toda la evidencia vacía.
+
+## 17. Límites que deben comunicarse
+
+- metadata no significa archivo cargado;
+- aprobación no es firma digital;
+- no existen compatibilidad/ciclos/rutas/caja completos;
+- no inferir costos o rentabilidad desde cobros;
+- no usar estados como sustituto de producción real.

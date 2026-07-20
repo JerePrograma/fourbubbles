@@ -1,22 +1,22 @@
 # Operación y despliegue
 
-Versión: `0.1.2`.
+Versión: `0.2.0`.
 
 ## Perfiles
 
-- `dev`: crea administrador desde variables y habilita mayor detalle de logs.
-- `test`: Testcontainers, Flyway y validación JPA.
-- `prod`: cookies seguras, logs JSON correlacionados y SQL deshabilitado.
+- `dev`: administrador inicial y logs de desarrollo.
+- `test`: Testcontainers/Flyway/JPA.
+- `prod`: cookies seguras, logs JSON y SQL deshabilitado.
 
-El `docker-compose.yml` actual usa `dev`. Es para desarrollo, demostración y evaluación, no para producción comercial.
+Compose usa `dev`; no es una topología productiva.
 
-## Servicios locales
+## Servicios
 
 | Servicio | Puerto | Uso |
 |---|---:|---|
 | PostgreSQL | 5432 | base local |
-| Backend | 8081 | API, Swagger y Actuator |
-| Frontend/Nginx | 8080 | SPA y proxy `/api` |
+| Backend | 8081 | API/Swagger/Actuator |
+| Frontend | 8080 | SPA/proxy |
 
 ## Inicio recomendado
 
@@ -26,24 +26,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\Verify-Local.ps1
 ```
 
-`Start-Local.ps1`:
-
-- verifica Docker;
-- crea `.env` si falta;
-- genera contraseñas y JWT secret;
-- valida Compose;
-- inicia el stack;
-- espera health;
-- muestra la contraseña inicial solo cuando la genera.
-
-`Verify-Local.ps1`:
-
-- verifica servicios;
-- health;
-- seis migraciones o más;
-- HTML de la SPA;
-- login con `.env`;
-- consulta protegida del catálogo.
+La verificación exige siete migraciones Flyway o más, SPA, login y API protegida.
 
 ## Inicio manual
 
@@ -69,11 +52,9 @@ docker compose logs --tail 300 frontend
 docker compose logs -f backend
 ```
 
-No deben aparecer contraseñas, access tokens, refresh tokens ni cuerpos completos sensibles.
+Usar `X-Request-ID` para correlacionar incidentes. No compartir tokens, contraseñas ni cuerpos sensibles.
 
 ## Migraciones
-
-Consultar:
 
 ```bash
 docker compose exec -T postgres \
@@ -83,38 +64,50 @@ docker compose exec -T postgres \
 
 Reglas:
 
-- no editar V1–V6;
-- cada cambio usa una migración nueva;
-- validar sobre PostgreSQL real;
-- mantener JPA y SQL alineados;
+- no editar V1–V7;
+- cambios nuevos usan V8 o posterior;
+- validar con PostgreSQL real;
+- mantener JPA/SQL alineados;
 - no usar `ddl-auto=update`.
 
-## Backups
+## Recepción
 
-Crear backup:
+### Idempotency-Key
+
+Los clientes deben generar una clave estable por intento lógico. No generar una clave nueva al reintentar por timeout, porque otra clave sobre un pedido recibido responde conflicto.
+
+Ejemplo:
+
+```text
+web-reception-550e8400-e29b-41d4-a716-446655440000
+```
+
+### Evidencias
+
+0.2.0 solo registra metadata. Antes de usar evidencia en una operación real debe existir un procedimiento externo que:
+
+1. cargue el archivo a almacenamiento privado;
+2. calcule SHA-256;
+3. obtenga tamaño/MIME;
+4. entregue `objectKey` al formulario;
+5. controle retención y permisos.
+
+No se debe ingresar una clave ficticia y asumir que la foto quedó almacenada.
+
+### Etiquetas
+
+`RCV-xxxxxx` es único en la base. La impresión física todavía depende del procedimiento externo; el sistema genera el identificador, no maneja una impresora.
+
+## Backups
 
 ```bash
 docker compose exec -T postgres \
   pg_dump -U ropalista -d ropalista --format=custom > ropalista.dump
 ```
 
-Prueba de restauración orientativa:
+Una copia no se considera válida sin restauración de prueba.
 
-```bash
-createdb ropalista_restore_test
-pg_restore --clean --if-exists --dbname=ropalista_restore_test ropalista.dump
-```
-
-Un archivo no es un backup confiable hasta probar su restauración.
-
-Pendiente productivo:
-
-- programación;
-- cifrado;
-- retención;
-- almacenamiento externo;
-- alertas;
-- restauración periódica automatizada.
+Las evidencias externas deben tener backup/retención independientes de PostgreSQL.
 
 ## Actualización local
 
@@ -125,7 +118,7 @@ git pull --ff-only origin main
 .\scripts\Verify-Local.ps1
 ```
 
-Flyway aplica automáticamente V6 sobre una base existente en V5.
+Flyway aplica V7 automáticamente sobre V6.
 
 ## Detención
 
@@ -135,76 +128,47 @@ Conservar datos:
 docker compose down
 ```
 
-Borrar entorno y datos:
+Eliminar datos:
 
 ```bash
 docker compose down -v --remove-orphans
 ```
 
-El segundo comando elimina la base local completa.
-
-## Validación de release
+## Gate de release
 
 ```bash
-cd backend
-mvn clean verify
-
-cd ../frontend
-npm ci
-npm run lint
-npm test
-npm run build
-
-cd ..
-docker compose config --quiet
-docker compose build
+cd backend && mvn clean verify
+cd ../frontend && npm ci && npm run lint && npm test && npm run build
+cd .. && docker compose config --quiet && docker compose build
 ```
 
-Luego debe pasar el smoke runtime:
+Luego debe pasar runtime smoke.
 
-- stack completo;
-- readiness;
-- SPA;
-- login;
-- JWT;
-- API protegida.
-
-## Procedimiento de diagnóstico
+## Diagnóstico
 
 1. `docker compose ps`.
-2. `docker compose logs --tail 300 backend`.
-3. comprobar `.env` sin compartir su contenido.
-4. ejecutar `docker compose config --quiet`.
-5. ejecutar `Verify-Local.ps1`.
-6. revisar `flyway_schema_history`.
-7. si la contraseña del administrador cambió después de crear el volumen, restaurar la original o recrear conscientemente la base.
+2. logs de backend/postgres.
+3. `Verify-Local.ps1`.
+4. `flyway_schema_history`.
+5. revisar `X-Request-ID`.
+6. comprobar estado del pedido antes de recibir: `PICKED_UP`.
+7. ante retry, reutilizar la misma `Idempotency-Key`.
 
-## Requisitos mínimos de producción
+## Producción mínima
 
 - perfil `prod`;
 - TLS;
-- dominio y CORS explícitos;
-- secretos administrados;
+- secretos gestionados;
 - PostgreSQL persistente;
 - backups restaurables;
-- observabilidad central;
-- límites CPU/memoria/disco;
+- object storage privado;
+- carga firmada y escaneo de evidencias;
+- observabilidad y alertas;
+- límites de recursos;
 - rate limiting compartido;
-- almacenamiento externo para evidencias;
-- migración controlada;
 - rollback;
-- cuenta administrativa creada fuera del inicializador `dev`;
-- política de retención y datos personales;
-- escaneo de dependencias e imágenes.
+- política de datos personales.
 
 ## Rollback
 
-Las migraciones Flyway actuales son forward-only. Un rollback productivo debe combinar:
-
-1. restauración o migración correctiva explícita;
-2. imagen de aplicación compatible con el esquema resultante;
-3. backup validado previo;
-4. ventana de mantenimiento;
-5. verificación funcional posterior.
-
-No se debe intentar rollback editando una migración ya aplicada.
+V7 es forward-only. No editarla ni borrarla. Un rollback requiere backup, migración correctiva y aplicación compatible.

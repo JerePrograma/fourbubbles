@@ -1,144 +1,152 @@
 # Seguridad
 
-Versión: `0.1.2`.
+Versión: `0.2.0`.
 
-## Implementado
+## Credenciales y sesiones
 
-### Credenciales y sesiones
+- BCrypt costo 12.
+- JWT HS256 de corta duración.
+- HMAC mínima de 256 bits.
+- refresh opaco, aleatorio, hasheado, rotativo y revocable.
+- cookie `HttpOnly`, `SameSite=Strict`, `Secure` en producción.
+- access token solo en memoria del frontend.
 
-- contraseñas BCrypt con costo 12;
-- JWT HS256 de corta duración;
-- clave HMAC mínima de 256 bits;
-- refresh token opaco y aleatorio;
-- persistencia exclusiva del hash SHA-256 del refresh token;
-- rotación en cada renovación;
-- revocación en logout;
-- cookie `HttpOnly` y `SameSite=Strict`;
-- cookie `Secure` bajo perfil productivo;
-- access token conservado solo en memoria del frontend.
-
-### Roles
+## Roles
 
 ```text
 ADMIN > OPERATOR > DRIVER > REPORT_VIEWER
 ```
 
-La jerarquía evita duplicar permisos de lectura. Las escrituras siguen protegidas explícitamente:
+| Operación | ADMIN | OPERATOR | DRIVER | REPORT_VIEWER |
+|---|---:|---:|---:|---:|
+| consultar pedidos/recepción | sí | sí | sí | sí |
+| registrar recepción | sí | sí | no | no |
+| decidir diferencias | sí | sí | no | no |
+| cotización manual | sí | no | no | no |
+| cambiar estado | sí | sí | sí | no |
+| registrar pago | sí | sí | no | no |
+| consultar auditoría | sí | no | no | no |
 
-- `ADMIN`: cotización manual, auditoría y toda operación heredada;
-- `OPERATOR`: clientes, domicilios, pedidos, planificación, confirmación y pagos;
-- `DRIVER`: lectura operativa y transiciones permitidas;
-- `REPORT_VIEWER`: consulta.
+La UI no es una barrera de seguridad. Los endpoints están protegidos con `@PreAuthorize`.
 
-La seguridad efectiva está en Spring Security. Ocultar botones en React no concede ni revoca permisos.
+## Contratos y observabilidad
 
-### Respuestas y datos
+- 401/403 JSON uniformes.
+- Bean Validation y parámetros inválidos seguros.
+- stacktraces no expuestos.
+- `X-Request-ID` validado/generado.
+- MDC y logs correlacionados.
+- secretos fuera de Git.
+- administrador automático solo en `dev`.
 
-- contrato JSON uniforme para 401 y 403;
-- validaciones no exponen stacktrace;
-- rechazo seguro de parámetros enum inválidos;
-- contraseñas y tokens no aparecen como valores rechazados;
-- errores inesperados se registran en servidor y responden un mensaje genérico;
-- CORS parametrizado;
-- secretos únicamente por variables de entorno;
-- administrador automático solo bajo perfil `dev`.
+## Protección de login
 
-### Correlación
+- intentos por usuario/origen;
+- ventana configurable;
+- bloqueo temporal;
+- limpieza al autenticar.
 
-- cada solicitud tiene `X-Request-ID`;
-- el valor entrante se reutiliza solo si cumple el formato permitido;
-- el identificador se incorpora al MDC;
-- producción emite logs JSON correlacionados;
-- CORS expone el encabezado al frontend.
-
-### Protección de login
-
-- conteo de intentos por usuario normalizado y origen observado;
-- ventana de intentos configurable;
-- bloqueo temporal configurable;
-- limpieza al autenticar correctamente.
-
-Variables:
-
-- `LOGIN_MAX_ATTEMPTS`;
-- `LOGIN_ATTEMPT_WINDOW`;
-- `LOGIN_BLOCK_DURATION`.
+Es local a la instancia; producción distribuida requiere almacenamiento compartido o control perimetral.
 
 ## Integridad transaccional
 
-### Promociones
+### Promoción
 
-La confirmación toma un bloqueo `PESSIMISTIC_WRITE` sobre la promoción antes de revalidar:
+Bloqueo pesimista y revalidación al confirmar.
 
-- estado;
-- vigencia;
-- servicio;
-- primera compra;
-- domicilio;
-- cupo total;
-- cupo diario;
-- cupo mensual.
+### Pago
 
-Esto evita consumos concurrentes contradictorios.
-
-### Pagos
-
-El registro toma un bloqueo `PESSIMISTIC_WRITE` sobre el pedido antes de:
-
-1. consultar pagos anteriores;
-2. calcular el saldo;
-3. validar el nuevo importe;
-4. persistir el pago;
-5. actualizar `payment_status`.
-
-Dos pagos simultáneos no pueden superar el precio confirmado.
+Bloqueo pesimista del pedido antes de calcular saldo y persistir.
 
 ### Domicilio principal
 
-El reemplazo despromueve y hace flush antes de promover el nuevo domicilio. Esto respeta el índice único parcial sin depender del orden interno de SQL de Hibernate.
+Flush intermedio para respetar el índice único parcial.
 
-## Matriz resumida
+### Recepción
 
-| Operación | ADMIN | OPERATOR | DRIVER | REPORT_VIEWER |
-|---|---:|---:|---:|---:|
-| consultar clientes/pedidos | sí | sí | sí | sí |
-| crear/editar cliente | sí | sí | no | no |
-| administrar domicilios | sí | sí | no | no |
-| crear pedido | sí | sí | no | no |
-| editar planificación temprana | sí | sí | no | no |
-| cotización manual | sí | no | no | no |
-| confirmar precio | sí | sí | no | no |
-| cambiar estado | sí | sí | sí | no |
-| registrar pago | sí | sí | no | no |
-| consultar historial de pagos | sí | sí | sí | sí |
-| consultar auditoría | sí | no | no | no |
+La recepción usa defensa en profundidad:
+
+1. valida formato de `Idempotency-Key`;
+2. consulta uso previo de la clave;
+3. bloquea el pedido con `PESSIMISTIC_WRITE`;
+4. vuelve a comprobar pedido y clave;
+5. valida estado y payload;
+6. persiste recepción, snapshot real, estados y auditoría en una transacción;
+7. constraints únicos respaldan la garantía.
+
+Comportamiento:
+
+- misma clave/mismo pedido: respuesta existente;
+- misma clave/otro pedido: 409;
+- otra clave/pedido recibido: 409;
+- carrera con misma clave: un agregado, dos respuestas equivalentes.
+
+### Decisión
+
+Solo se acepta cuando:
+
+- pedido en `WAITING_PRICE_APPROVAL`;
+- recepción en `PENDING`;
+- decisión `APPROVED` o `REJECTED`;
+- actor autenticado disponible.
+
+La decisión, transición y auditoría son atómicas.
+
+## Evidencias
+
+La aplicación no acepta binarios en 0.2.0. Solo registra metadata validada:
+
+- clave de objeto;
+- nombre y MIME;
+- tamaño positivo;
+- SHA-256 hexadecimal de 64 caracteres;
+- descripción.
+
+Riesgos todavía abiertos:
+
+- no verifica que el objeto exista;
+- no valida contenido real contra MIME/hash;
+- no controla acceso al object storage;
+- no hay URL firmada ni antivirus.
+
+Un despliegue productivo deberá agregar un flujo de carga seguro y asociar metadata únicamente después de confirmar el objeto.
+
+## Datos personales
+
+Recepción puede contener observaciones y fotografías sensibles. Debe definirse:
+
+- finalidad;
+- consentimiento/base legal;
+- acceso por rol;
+- retención;
+- borrado/anonimización cuando corresponda;
+- auditoría de acceso;
+- cifrado en tránsito y reposo.
 
 ## Riesgos pendientes
 
-1. El limitador de login está en memoria y se pierde al reiniciar.
-2. Varias instancias requieren Redis u otro almacenamiento compartido.
-3. La IP observada solo es confiable con proxies explícitamente configurados.
-4. No hay MFA.
-5. No existe administración de usuarios desde UI.
-6. No hay idempotencia para webhooks o proveedores de pago externos.
-7. Falta almacenamiento externo seguro para futuras evidencias.
-8. Falta gestión centralizada de secretos.
-9. Falta SAST, análisis de dependencias y escaneo de imágenes como gates obligatorios.
-10. Falta política formal de retención de auditoría y datos personales.
-11. Falta TLS y cabeceras perimetrales de un despliegue real.
+1. limitador de login local;
+2. proxy/IP de confianza no configurado automáticamente;
+3. sin MFA;
+4. sin administración UI de usuarios;
+5. sin idempotencia de pagos externos/webhooks;
+6. sin object storage integrado;
+7. sin antivirus ni validación binaria;
+8. sin gestión central de secretos;
+9. sin SAST/escaneo de imágenes obligatorio;
+10. sin política formal de retención.
 
-## Requisitos antes de producción
+## Antes de producción
 
 - perfil `prod`;
 - TLS;
-- secretos administrados fuera del host de aplicación;
-- CORS limitado al dominio real;
-- base persistente con backups restaurables;
-- rate limiting compartido/perimetral;
-- proxy de confianza configurado;
-- observabilidad y alertas;
-- rotación de logs;
-- cuenta administrativa creada por un proceso productivo, no por `DevAdminInitializer`;
-- pruebas de restauración;
-- procedimiento de rollback;
-- política de datos personales y auditoría.
+- secretos gestionados;
+- CORS restringido;
+- PostgreSQL persistente y backups restaurables;
+- rate limiting compartido;
+- object storage privado;
+- URLs firmadas;
+- escaneo de archivos;
+- observabilidad/alertas;
+- rollback;
+- política de datos personales/evidencias.
