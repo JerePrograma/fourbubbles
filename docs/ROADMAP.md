@@ -1,198 +1,171 @@
 # Hoja de ruta
 
-Versión base: `0.1.2`.
+Versión base: `0.2.0`.
 
 ## Completado
 
-### 0.1.0 — Plataforma y núcleo inicial
+### 0.1.0 — Plataforma/núcleo
 
-- arquitectura;
-- seguridad base;
-- PostgreSQL/Flyway;
-- catálogo;
-- clientes;
-- pedidos;
-- estados;
-- pagos;
-- frontend inicial;
-- Docker y CI.
+Arquitectura, seguridad, PostgreSQL/Flyway, catálogo, clientes, pedidos, pagos, React, Docker y CI.
 
-### 0.1.1 — Hardening y flujo operativo
+### 0.1.1 — Hardening/operación
 
-- 401/403 uniformes;
-- correlación;
-- protección de login;
-- preferencias tipadas;
-- búsqueda y detalle de pedidos;
-- UI operativa;
-- pruebas de contrato e integración.
+Contratos de seguridad, correlación, protección de login, preferencias tipadas y UI operativa.
 
 ### 0.1.2 — Cierre administrativo
 
-- domicilios versionados;
-- cotización manual;
-- planificación temprana;
-- historial de pagos;
-- auditoría consultable;
-- jerarquía RBAC;
-- concurrencia promocional;
-- concurrencia financiera;
-- smoke runtime;
-- verificación local autenticada.
+Domicilios versionados, cotización manual, planificación, historial financiero, auditoría, RBAC y concurrencia.
 
-## Próximo corte: 0.2.0 — Recepción
+### 0.2.0 — Recepción física
 
-Objetivo: convertir la transición `RECEIVED` en una operación física trazable.
-
-### Datos
-
-- registro de recepción por pedido;
-- clave idempotente;
-- fecha y operador;
-- peso declarado y real;
-- conteo declarado y real;
+- Flyway V7;
+- recepción única e idempotente;
+- peso/conteo real;
+- composición real por prenda;
 - diferencias;
-- observaciones;
-- daños y manchas;
-- estado de aprobación;
-- etiqueta y bolsa;
-- metadatos de evidencias.
+- daño/mancha;
+- aprobación/rechazo;
+- etiqueta/bolsa;
+- evidencia metadata;
+- UI;
+- pruebas concurrentes.
+
+## Próximo corte: 0.3.0 — Compatibilidad
+
+Objetivo: decidir de forma explicable qué pedidos/prendas pueden compartir tratamiento usando datos reales de recepción.
+
+### Modelo
+
+- atributos normalizados de tratamiento;
+- versiones de reglas;
+- restricciones duras/blandas;
+- evaluación por pedido;
+- conflictos explicados;
+- excepciones autorizadas.
+
+### Variables
+
+- color y transferencia;
+- material;
+- temperatura;
+- secadora;
+- fragancia/suavizante;
+- hipoalergénico;
+- bebé;
+- mascotas;
+- suciedad/contaminación;
+- daño/mancha;
+- ciclo exclusivo.
 
 ### Reglas
 
-- una misma clave no duplica recepción;
-- la recepción exige un estado compatible;
-- diferencias relevantes requieren aprobación;
-- el precio puede recalcularse sin perder snapshots anteriores;
-- una recepción confirmada no se sobrescribe silenciosamente;
-- las evidencias se almacenan fuera de PostgreSQL y se referencian por metadatos.
+- incompatibles no se proponen juntos;
+- resultado explicable;
+- datos reales prevalecen sobre declaración;
+- excepción solo `ADMIN`, con motivo;
+- versiones históricas conservadas.
 
-### API/UI
+### UI/API
 
-- formulario de recepción;
-- comparación declarado/real;
-- carga de inspección;
-- decisión de aprobación;
-- historial de recepciones/correcciones;
-- timeline agregado del cliente.
+- perfil de tratamiento de recepción;
+- evaluación individual;
+- comparar pedidos;
+- propuestas compatibles;
+- conflictos;
+- excepción auditada.
 
 ### Pruebas
 
-- idempotencia;
-- concurrencia;
-- diferencias;
+- matrices críticas;
+- simetría/transitividad cuando aplique;
+- versionado;
 - autorización;
-- recalculo;
-- rollback transaccional;
-- smoke UI/API.
-
-## 0.3.0 — Compatibilidad
-
-- atributos de tratamiento normalizados;
-- matriz de compatibilidad;
-- motor explicable;
-- propuestas de combinación;
-- bloqueo de incompatibles;
-- excepción de administrador con motivo;
-- pruebas de combinaciones críticas.
+- combinaciones concurrentes;
+- explicación consistente.
 
 ## 0.4.0 — Producción
 
-- máquinas;
+- máquinas/capacidad;
 - programas;
-- ciclos;
-- capacidad real;
-- asignación de hasta dos pedidos cuando sea segura;
-- ciclos exclusivos;
+- ciclos compartidos/exclusivos;
+- asignación segura;
+- sobrepeso;
 - bolsas de red;
 - lavado/secado;
-- control de calidad;
-- relavado;
-- doblado y embolsado;
+- calidad/relavado;
+- doblado/embolsado;
 - mantenimiento.
 
 ## 0.5.0 — Logística
 
 - franjas;
-- rutas;
-- paradas;
+- rutas/paradas;
 - orden de visita;
-- retiro y entrega;
-- kilometraje;
-- combustible;
+- retiro/entrega;
+- kilometraje/combustible;
 - incidencias;
-- agenda real;
+- agenda;
 - WhatsApp.
 
 ## 0.6.0 — Finanzas
 
-- caja;
-- arqueo;
+- caja/arqueo;
 - ingresos/egresos;
 - reembolsos;
 - comprobantes;
-- cuentas por cobrar;
+- conciliación;
 - costos por pedido/ciclo;
-- mano de obra;
-- amortización;
-- margen y rentabilidad;
-- escenarios.
+- mano de obra/amortización;
+- margen/rentabilidad.
 
 ## 0.7.0 — Crecimiento
 
 - abonos;
-- comercios;
-- SLA;
+- comercios/SLA;
 - inventario;
-- lotes y consumo;
 - equipamiento;
-- reclamos;
-- compensaciones;
-- políticas y aceptación;
-- tableros y alertas.
+- reclamos/compensaciones;
+- políticas;
+- tableros/alertas.
 
-## Línea transversal productiva
-
-Debe avanzar en paralelo antes de operar comercialmente:
+## Línea productiva transversal
 
 - TLS;
-- secretos administrados;
+- secretos gestionados;
 - PostgreSQL gestionado;
-- backups y restauración;
-- almacenamiento de objetos;
+- backups/restauración;
+- object storage;
+- URLs firmadas y escaneo;
 - observabilidad;
-- alertas;
 - rate limiting compartido;
-- escaneo de dependencias e imágenes;
-- política de datos personales;
+- SAST/dependencias/imágenes;
+- privacidad/retención;
 - rollback;
-- versionado de API.
+- versionado API.
 
 ## Priorización
 
-Orden obligatorio recomendado:
-
 ```text
-recepción
+recepción ✓
 → compatibilidad
 → producción
 → logística
-→ costos/finanzas
+→ finanzas
 → crecimiento
 ```
 
-Razón: compatibilidad, ciclos y rutas necesitan composición y peso reales. Implementarlos antes de recepción produciría optimizaciones sobre datos declarados no confiables.
+Ahora existen peso/composición reales. Compatibilidad es el siguiente paso; crear ciclos antes repetiría el error de optimizar sin reglas de mezcla.
 
-## Definición de terminado por corte
+## Definición de terminado
 
-Un corte no está terminado por tener tablas. Requiere:
+Cada corte exige:
 
 1. migración aditiva;
-2. dominio y transacciones;
-3. API y permisos;
-4. interfaz cuando sea operativa;
-5. pruebas unitarias/integración/concurrencia según riesgo;
+2. dominio/transacciones;
+3. API/permisos;
+4. UI cuando corresponda;
+5. pruebas de riesgo y concurrencia;
 6. runtime smoke;
 7. documentación;
 8. CI verde;
-9. integración limpia en `main`.
+9. squash limpio en `main`.
