@@ -84,8 +84,8 @@ public class ClientService {
         }
         Address address = toAddress(request);
         client.addAddress(address);
-        clients.save(client);
-        audit.record("CLIENT_ADDRESS", address.getId(), "CREATE", null, addressSummary(address), "Alta de domicilio");
+        Address saved = addresses.saveAndFlush(address);
+        audit.record("CLIENT_ADDRESS", saved.getId(), "CREATE", null, addressSummary(saved), "Alta de domicilio");
         return toResponse(client);
     }
 
@@ -98,6 +98,7 @@ public class ClientService {
                 .stream().filter(Address::isPrimaryAddress).forEach(Address::demotePrimary);
         addresses.flush();
         target.makePrimary();
+        addresses.flush();
         audit.record("CLIENT_ADDRESS", target.getId(), "MAKE_PRIMARY", before, addressSummary(target),
                 "Cambio de domicilio principal");
         return toResponse(client);
