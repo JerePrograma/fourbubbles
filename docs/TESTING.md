@@ -2,7 +2,7 @@
 
 Última actualización: 2026-07-20.
 
-Versión: `0.1.2`.
+Versión: `0.2.0`.
 
 ## Gate de pull request
 
@@ -13,15 +13,7 @@ cd backend
 mvn clean verify
 ```
 
-Ejecuta:
-
-- compilación Java 21;
-- 16 pruebas unitarias;
-- 12 casos de integración;
-- PostgreSQL 16 mediante Testcontainers;
-- Flyway V1–V6;
-- validación Hibernate/JPA;
-- Maven Surefire y Failsafe.
+Ejecuta Java 21, JUnit/Mockito, MockMvc, Testcontainers PostgreSQL 16, Flyway V1–V7 y validación Hibernate/JPA.
 
 ### Frontend
 
@@ -33,13 +25,6 @@ npm test
 npm run build
 ```
 
-Valida:
-
-- lockfile reproducible;
-- TypeScript estricto;
-- lógica pura de borrador de pedido;
-- build Vite.
-
 ### Contenedores
 
 ```bash
@@ -49,93 +34,89 @@ docker compose build
 
 ### Runtime
 
-El workflow `runtime-smoke.yml`:
+`runtime-smoke.yml` inicia stack, espera readiness, carga SPA, inicia sesión y consulta una API protegida.
 
-1. construye e inicia PostgreSQL, backend y frontend;
-2. espera readiness;
-3. valida la SPA;
-4. inicia sesión con un administrador efímero;
-5. obtiene un JWT;
-6. consulta `/api/catalog/services` autenticado;
-7. elimina volúmenes y contenedores.
+## Suite backend
 
-## Cobertura backend
+### Unitarias existentes
 
-### Unitarias
+- precios y promociones;
+- equivalencias;
+- límites;
+- transiciones;
+- intentos de login.
 
-- `PricingServiceTest`: base, precio fijo, primera compra y promociones manuales.
-- `GarmentEquivalenceCalculatorTest`: agrupación y unidades.
-- `OrderLimitPolicyTest`: límites por unidades/peso/capacidad.
-- `OrderTransitionPolicyTest`: transiciones válidas e inválidas.
-- `LoginAttemptServiceTest`: intentos, bloqueo y limpieza.
+### `ReceptionDifferencePolicyTest`
 
-### Integración
+Comprueba:
 
-#### `ApplicationContextIT`
+- variación pequeña sin aprobación;
+- umbral absoluto/relativo de peso;
+- diferencia de piezas;
+- daño detectado.
 
-- aplicación completa;
-- PostgreSQL real;
-- Flyway V1–V6;
-- mapeos JPA válidos.
+### Integración administrativa
 
-#### `ApiContractIT`
+- contratos 401/403/400;
+- clientes y domicilios;
+- pedidos, precio y estados;
+- promociones concurrentes;
+- pagos concurrentes;
+- auditoría.
 
-- 401 uniforme;
-- 403 uniforme;
-- validaciones de campos;
-- enum/parámetro inválido;
-- propagación de `X-Request-ID`.
+### `ReceptionFlowIT`
 
-#### `OperationalFlowIT`
+Casos:
 
-- alta de cliente;
-- actualización de preferencias;
-- creación de pedido;
-- búsqueda;
-- confirmación;
-- pago parcial;
-- pago total.
+1. recepción normal clasifica el pedido;
+2. retry secuencial con la misma clave devuelve el mismo ID;
+3. otra clave sobre el mismo pedido responde conflicto;
+4. diferencia material queda pendiente;
+5. aprobación mueve a `CLASSIFIED`;
+6. evidencia metadata se conserva;
+7. dos solicitudes concurrentes con la misma clave reciben 200 y el mismo ID;
+8. `DRIVER` no registra recepción;
+9. `DRIVER` sí consulta recepción.
 
-#### `AdministrativeFlowIT`
+## Riesgos cubiertos
 
-- domicilio alternativo;
-- cambio de principal;
-- baja lógica;
-- historial de domicilios;
-- cotización manual;
-- edición de planificación;
-- bloqueo posterior a confirmación;
-- historial de pagos;
-- consulta de auditoría;
-- carrera de promoción restringida.
+### Idempotencia
 
-#### `AdministrativeAuthorizationIT`
+No se prueba solo la repetición secuencial. También se lanzan dos requests simultáneos contra el mismo pedido y clave.
 
-- `DRIVER` hereda lectura;
-- `DRIVER` no crea clientes;
-- `OPERATOR` no aplica cotización manual;
-- contratos 403 evaluados con payloads válidos.
+### Estado
 
-#### `ConcurrentPaymentIT`
+La prueba crea un pedido real, confirma precio y atraviesa:
 
-- dos pagos simultáneos compiten por el mismo saldo;
-- uno se confirma;
-- el segundo recibe 422;
-- solo un pago queda persistido;
-- no existe sobrecobro.
+```text
+WAITING_CONFIRMATION → RESERVED → PICKUP_SCHEDULED → PICKED_UP
+```
 
-## Defectos detectados por las pruebas
+La recepción valida las transiciones automáticas posteriores.
 
-Durante 0.1.2 se encontraron y corrigieron:
+### Persistencia
 
-1. promociones mock sin estado `ACTIVE`, que impedían probar la regla objetivo;
-2. test de autorización con cuerpo inválido que medía 400 en lugar de 403;
-3. auditoría de un domicilio antes de que JPA generara su UUID;
-4. orden de flush inseguro al cambiar el principal;
-5. planificación editable fuera de los estados de cotización;
-6. posible sobrecobro por pagos concurrentes.
+Testcontainers valida:
 
-No se relajaron reglas productivas para hacer pasar tests; se corrigieron fixtures o implementación según correspondía.
+- V7;
+- constraints de una recepción por pedido;
+- constraints de claves/etiquetas;
+- mapeos de tres nuevas entidades;
+- auditoría JPA.
+
+### Autorización
+
+Los payloads son válidos para que las pruebas midan realmente 403 y no fallen antes por 400.
+
+## Frontend
+
+- TypeScript estricto;
+- build de la pantalla de recepción;
+- tipos de recepción/decisión;
+- envío de cabecera `Idempotency-Key`;
+- renderizado de diferencias y evidencias.
+
+El cálculo decisivo de aprobación permanece en backend; React solo presenta el resultado.
 
 ## Verificación local
 
@@ -144,51 +125,54 @@ No se relajaron reglas productivas para hacer pasar tests; se corrigieron fixtur
 .\scripts\Verify-Local.ps1
 ```
 
-`Verify-Local.ps1` comprueba contenedores, health, Flyway, SPA, login y una API protegida. Utiliza `.env` sin imprimir credenciales.
+Requiere siete migraciones o más y comprueba autenticación/API protegida.
 
-## Matriz pendiente
+## Pendiente de pruebas futuras
 
-### Recepción
+### Evidencias binarias
 
-- idempotencia;
-- conteo y peso real;
-- diferencias;
-- daños/manchas;
-- aprobación;
-- recalculo;
-- evidencias.
+- carga incompleta;
+- hash incorrecto;
+- MIME falso;
+- archivo demasiado grande;
+- malware;
+- permisos de lectura;
+- borrado/retención.
+
+### Compatibilidad
+
+- matrices;
+- explicación;
+- excepciones;
+- combinaciones críticas.
 
 ### Producción
 
-- compatibilidad;
 - capacidad de ciclo;
-- asignación concurrente;
+- carreras de asignación;
 - fallas de máquina;
-- relavado;
-- trazabilidad física.
+- relavado.
 
 ### Logística
 
-- solapamiento de franjas;
+- solapamiento;
 - rutas;
-- orden de paradas;
-- retiro/entrega idempotentes;
-- kilómetros y costo.
+- retiro/entrega idempotentes.
 
-### Finanzas externas
+### Pagos externos
 
-- idempotencia de webhook;
-- reembolsos;
-- caja;
-- arqueo;
-- conciliación.
+- webhooks duplicados;
+- conciliación;
+- reembolsos.
 
 ## Criterio de release
 
-No se integra un corte cuando:
+No se fusiona cuando:
 
-- algún job obligatorio falla;
-- quedan workflows diagnósticos temporales;
-- las migraciones no validan sobre PostgreSQL real;
-- la documentación afirma funciones inexistentes;
-- el runtime no puede iniciar, autenticar y consultar una API protegida.
+- falla un job;
+- queda diagnóstico temporal;
+- V7 no aplica en PostgreSQL real;
+- frontend no compila;
+- runtime no inicia/autentica;
+- documentación afirma carga de archivos inexistente;
+- idempotencia concurrente no está probada.
