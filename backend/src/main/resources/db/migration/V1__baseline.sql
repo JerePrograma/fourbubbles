@@ -83,7 +83,7 @@ create table customer_address (
     street_number varchar(30) not null,
     neighborhood varchar(100),
     locality varchar(120) not null,
-    references text,
+    address_references text,
     latitude numeric(10,7),
     longitude numeric(10,7),
     is_primary boolean not null default false,
