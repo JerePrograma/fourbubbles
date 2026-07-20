@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +28,7 @@ public class AuthService {
     private final UserAccountRepository users;
     private final RefreshTokenRepository refreshTokens;
     private final JwtService jwtService;
+    private final LoginAttemptService loginAttempts;
     private final Duration refreshTtl;
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -34,17 +36,26 @@ public class AuthService {
                        UserAccountRepository users,
                        RefreshTokenRepository refreshTokens,
                        JwtService jwtService,
+                       LoginAttemptService loginAttempts,
                        @Value("${app.security.refresh-ttl}") Duration refreshTtl) {
         this.authenticationManager = authenticationManager;
         this.users = users;
         this.refreshTokens = refreshTokens;
         this.jwtService = jwtService;
+        this.loginAttempts = loginAttempts;
         this.refreshTtl = refreshTtl;
     }
 
     @Transactional
-    public AuthResult login(String username, String password) {
-        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(username, password));
+    public AuthResult login(String username, String password, String sourceAddress) {
+        loginAttempts.assertAllowed(username, sourceAddress);
+        try {
+            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(username, password));
+        } catch (AuthenticationException ex) {
+            loginAttempts.recordFailure(username, sourceAddress);
+            throw ex;
+        }
+        loginAttempts.recordSuccess(username, sourceAddress);
         UserAccount user = users.findByUsernameIgnoreCase(username).orElseThrow();
         return issueSession(user);
     }
