@@ -38,6 +38,11 @@ Fecha: 2026-07-20.
 - La página de pedidos reemplaza el placeholder inicial por funciones reales.
 - La documentación distingue el flujo ya disponible de recepción, producción, logística y finanzas todavía pendientes.
 
+### Corregido
+
+- La auditoría JPA ahora usa un `DateTimeProvider` de `OffsetDateTime` UTC, coherente con los campos persistidos. El proveedor implícito anterior generaba `LocalDateTime` y fallaba al persistir entidades auditadas durante pruebas de API.
+- El detalle de cotización frontend estrecha correctamente valores JSON desconocidos antes de renderizarlos bajo TypeScript estricto.
+
 ### Limitaciones conscientes
 
 - El bloqueo de login es local a cada instancia y se pierde al reiniciar; producción distribuida requiere Redis o almacenamiento compartido.
