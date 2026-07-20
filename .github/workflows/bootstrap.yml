@@ -1,0 +1,68 @@
+name: Bootstrap project
+
+on:
+  push:
+    branches:
+      - agent/phase-1-operational-core
+    paths:
+      - bootstrap/**
+      - .github/workflows/bootstrap.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bootstrap-phase-1
+  cancel-in-progress: false
+
+jobs:
+  publish-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/phase-1-operational-core
+          fetch-depth: 0
+
+      - name: Reconstruct project
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat bootstrap/part-* | base64 --decode > /tmp/fourbubbles-project.tar.gz
+          gzip --test /tmp/fourbubbles-project.tar.gz
+          tar --extract --gzip --file /tmp/fourbubbles-project.tar.gz
+          rm -rf bootstrap .github/workflows/bootstrap.yml
+
+      - name: Publish project source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --all
+          git commit -m "feat: establish operational core"
+          git push origin HEAD:agent/phase-1-operational-core
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+
+      - name: Verify backend
+        run: ./mvnw --file backend/pom.xml verify
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Verify frontend
+        working-directory: frontend
+        run: |
+          npm install
+          npm run typecheck
+          npm run build
