@@ -1,34 +1,62 @@
 # Seguridad
 
+Versión: `0.1.2`.
+
 ## Implementado
 
+### Credenciales y sesiones
+
 - contraseñas BCrypt con costo 12;
-- access token JWT HS256 firmado con clave HMAC de al menos 256 bits;
-- access token corto;
-- refresh token aleatorio opaco;
-- almacenamiento exclusivo del SHA-256 del refresh token;
-- rotación al renovar y revocación al cerrar sesión;
-- cookie `HttpOnly`, `SameSite=Strict` y `Secure` en producción;
-- sesiones stateless;
-- autorización por roles y métodos;
-- respuestas JSON uniformes para autenticación requerida y acceso denegado;
-- validación de entrada y parámetros;
-- consultas JPA parametrizadas;
-- mensajes de error sin stacktrace al cliente;
-- secretos por variables de entorno;
-- valores rechazados de contraseña y token ocultos en errores;
-- logs sin tokens ni contraseñas;
-- `X-Request-ID` validado, generado y expuesto;
-- correlación de solicitudes mediante MDC y logs JSON de producción;
-- limitación básica de intentos fallidos de login por usuario y origen.
+- JWT HS256 de corta duración;
+- clave HMAC mínima de 256 bits;
+- refresh token opaco y aleatorio;
+- persistencia exclusiva del hash SHA-256 del refresh token;
+- rotación en cada renovación;
+- revocación en logout;
+- cookie `HttpOnly` y `SameSite=Strict`;
+- cookie `Secure` bajo perfil productivo;
+- access token conservado solo en memoria del frontend.
 
-## Protección del login
+### Roles
 
-Valores predeterminados:
+```text
+ADMIN > OPERATOR > DRIVER > REPORT_VIEWER
+```
 
-- máximo 5 fallos;
-- ventana de 15 minutos;
-- bloqueo de 15 minutos.
+La jerarquía evita duplicar permisos de lectura. Las escrituras siguen protegidas explícitamente:
+
+- `ADMIN`: cotización manual, auditoría y toda operación heredada;
+- `OPERATOR`: clientes, domicilios, pedidos, planificación, confirmación y pagos;
+- `DRIVER`: lectura operativa y transiciones permitidas;
+- `REPORT_VIEWER`: consulta.
+
+La seguridad efectiva está en Spring Security. Ocultar botones en React no concede ni revoca permisos.
+
+### Respuestas y datos
+
+- contrato JSON uniforme para 401 y 403;
+- validaciones no exponen stacktrace;
+- rechazo seguro de parámetros enum inválidos;
+- contraseñas y tokens no aparecen como valores rechazados;
+- errores inesperados se registran en servidor y responden un mensaje genérico;
+- CORS parametrizado;
+- secretos únicamente por variables de entorno;
+- administrador automático solo bajo perfil `dev`.
+
+### Correlación
+
+- cada solicitud tiene `X-Request-ID`;
+- el valor entrante se reutiliza solo si cumple el formato permitido;
+- el identificador se incorpora al MDC;
+- producción emite logs JSON correlacionados;
+- CORS expone el encabezado al frontend.
+
+### Protección de login
+
+- conteo de intentos por usuario normalizado y origen observado;
+- ventana de intentos configurable;
+- bloqueo temporal configurable;
+- limpieza al autenticar correctamente.
 
 Variables:
 
@@ -36,59 +64,81 @@ Variables:
 - `LOGIN_ATTEMPT_WINDOW`;
 - `LOGIN_BLOCK_DURATION`.
 
-Las duraciones usan sintaxis ISO-8601, por ejemplo `PT15M`.
+## Integridad transaccional
 
-### Límite arquitectónico
+### Promociones
 
-El contador reside en memoria de proceso:
+La confirmación toma un bloqueo `PESSIMISTIC_WRITE` sobre la promoción antes de revalidar:
 
-- se pierde al reiniciar;
-- no se comparte entre réplicas;
-- no sustituye un rate limiter perimetral;
-- no es suficiente para producción horizontal.
+- estado;
+- vigencia;
+- servicio;
+- primera compra;
+- domicilio;
+- cupo total;
+- cupo diario;
+- cupo mensual.
 
-Antes de escalar a más de una instancia debe moverse a Redis o almacenamiento compartido con expiración atómica. También debe existir limitación en proxy o gateway.
+Esto evita consumos concurrentes contradictorios.
 
-## Dirección de origen y proxies
+### Pagos
 
-La protección usa la dirección que observa `HttpServletRequest.getRemoteAddr()`.
+El registro toma un bloqueo `PESSIMISTIC_WRITE` sobre el pedido antes de:
 
-En producción:
+1. consultar pagos anteriores;
+2. calcular el saldo;
+3. validar el nuevo importe;
+4. persistir el pago;
+5. actualizar `payment_status`.
 
-- debe configurarse el proxy inverso como confiable;
-- no debe confiarse ciegamente en un `X-Forwarded-For` enviado por Internet;
-- el proxy debe sobrescribir cabeceras reenviadas;
-- deben probarse las reglas con la topología real.
+Dos pagos simultáneos no pueden superar el precio confirmado.
 
-## Correlación
+### Domicilio principal
 
-El identificador entrante se acepta únicamente cuando cumple `[A-Za-z0-9._-]{8,128}`. Esto evita introducir saltos de línea o caracteres arbitrarios en logs. Los demás valores se sustituyen por UUID.
+El reemplazo despromueve y hace flush antes de promover el nuevo domicilio. Esto respeta el índice único parcial sin depender del orden interno de SQL de Hibernate.
 
-## CSRF
+## Matriz resumida
 
-CSRF está deshabilitado porque las operaciones de negocio requieren bearer token. La cookie de refresh no autoriza operaciones de negocio y está restringida por path y SameSite. Antes de permitir orígenes de terceros debe revisarse este supuesto.
+| Operación | ADMIN | OPERATOR | DRIVER | REPORT_VIEWER |
+|---|---:|---:|---:|---:|
+| consultar clientes/pedidos | sí | sí | sí | sí |
+| crear/editar cliente | sí | sí | no | no |
+| administrar domicilios | sí | sí | no | no |
+| crear pedido | sí | sí | no | no |
+| editar planificación temprana | sí | sí | no | no |
+| cotización manual | sí | no | no | no |
+| confirmar precio | sí | sí | no | no |
+| cambiar estado | sí | sí | sí | no |
+| registrar pago | sí | sí | no | no |
+| consultar historial de pagos | sí | sí | sí | sí |
+| consultar auditoría | sí | no | no | no |
 
-## Roles actuales
+## Riesgos pendientes
 
-- `ADMIN`: administración y operación completas del corte actual;
-- `OPERATOR`: clientes, pedidos, estados operativos y pagos;
-- `DRIVER`: consulta de pedidos y transiciones habilitadas;
-- `REPORT_VIEWER`: consulta sin escritura.
+1. El limitador de login está en memoria y se pierde al reiniciar.
+2. Varias instancias requieren Redis u otro almacenamiento compartido.
+3. La IP observada solo es confiable con proxies explícitamente configurados.
+4. No hay MFA.
+5. No existe administración de usuarios desde UI.
+6. No hay idempotencia para webhooks o proveedores de pago externos.
+7. Falta almacenamiento externo seguro para futuras evidencias.
+8. Falta gestión centralizada de secretos.
+9. Falta SAST, análisis de dependencias y escaneo de imágenes como gates obligatorios.
+10. Falta política formal de retención de auditoría y datos personales.
+11. Falta TLS y cabeceras perimetrales de un despliegue real.
 
-La UI oculta acciones según rol, pero la autoridad real permanece en `@PreAuthorize` del backend.
+## Requisitos antes de producción
 
-## Pendiente
-
-- limitación distribuida de login y refresh;
-- protección específica del endpoint de refresh;
-- revocación de todas las sesiones de un usuario;
-- recuperación y cambio de contraseña;
-- MFA para administración;
-- bloqueo y desbloqueo administrativo de cuentas;
-- CSP, HSTS y cabeceras adicionales en despliegue;
-- escaneo automático de dependencias, imágenes y secretos;
-- SBOM y política de vulnerabilidades;
-- respaldo cifrado y prueba periódica de restauración;
-- política de retención, anonimización y eliminación;
-- auditoría consultable de eventos de seguridad;
-- idempotencia antes de pagos externos o webhooks.
+- perfil `prod`;
+- TLS;
+- secretos administrados fuera del host de aplicación;
+- CORS limitado al dominio real;
+- base persistente con backups restaurables;
+- rate limiting compartido/perimetral;
+- proxy de confianza configurado;
+- observabilidad y alertas;
+- rotación de logs;
+- cuenta administrativa creada por un proceso productivo, no por `DevAdminInitializer`;
+- pruebas de restauración;
+- procedimiento de rollback;
+- política de datos personales y auditoría.
