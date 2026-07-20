@@ -70,12 +70,17 @@ export interface OrderDetail {
   exclusiveCycle: boolean;
   requiresQuote: boolean;
   limitReached: string;
+  automaticQuotedPrice: number;
   quotedPrice: number;
   confirmedPrice: number | null;
   currencyCode: string;
   priceBreakdown: string;
+  manualQuoteReason: string | null;
+  manualQuoteAt: string | null;
+  manualQuoteBy: string | null;
   pickupScheduledAt: string | null;
   promisedAt: string | null;
+  notes: string | null;
   allowedTransitions: OrderStatus[];
   items: OrderItem[];
 }
@@ -104,4 +109,18 @@ export interface PaymentResult {
   totalPaid: number;
   remainingBalance: number;
   orderPaymentStatus: string;
+}
+
+export interface PaymentHistoryItem {
+  id: string;
+  orderId: string;
+  methodCode: string;
+  methodName: string;
+  amount: number;
+  currencyCode: string;
+  paidAt: string;
+  reference: string | null;
+  notes: string | null;
+  status: string;
+  registeredBy: string;
 }
