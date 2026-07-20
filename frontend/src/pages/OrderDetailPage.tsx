@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { apiRequest } from '../api/httpClient';
 import { useAuth } from '../auth/AuthContext';
@@ -73,7 +74,7 @@ export function OrderDetailPage(): JSX.Element {
     'Precio confirmado y congelado correctamente.',
   );
 
-  const changeStatus = async (event: React.FormEvent<HTMLFormElement>) => {
+  const changeStatus = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!targetStatus) return;
     await perform(
@@ -91,7 +92,7 @@ export function OrderDetailPage(): JSX.Element {
     setStatusObservation('');
   };
 
-  const registerPayment = async (event: React.FormEvent<HTMLFormElement>) => {
+  const registerPayment = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!paymentAmount || Number(paymentAmount) <= 0) {
       setError('Ingresá un importe positivo.');
@@ -167,7 +168,7 @@ export function OrderDetailPage(): JSX.Element {
             <div><dt>Requiere presupuesto manual</dt><dd>{order.requiresQuote ? 'Sí' : 'No'}</dd></div>
             <div><dt>Último saldo informado</dt><dd>{remainingAfterLastPayment === null ? 'Sin pago en esta sesión' : formatMoney(remainingAfterLastPayment, order.currencyCode)}</dd></div>
           </dl>
-          {priceBreakdown && <pre className="json-preview">{JSON.stringify(priceBreakdown, null, 2)}</pre>}
+          {priceBreakdown !== null && <pre className="json-preview">{JSON.stringify(priceBreakdown, null, 2)}</pre>}
           {canWrite && order.confirmedPrice === null && !order.requiresQuote && (
             <button disabled={working} onClick={() => void confirmPrice()}>Confirmar precio</button>
           )}
