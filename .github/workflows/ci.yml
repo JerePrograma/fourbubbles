@@ -22,7 +22,17 @@ jobs:
           java-version: '21'
           cache: maven
       - name: Unit and integration tests
-        run: mvn -B clean verify
+        shell: bash
+        run: |
+          set +e
+          mvn -B -Dstyle.color=never clean verify > /tmp/backend.log 2>&1
+          code=$?
+          if [ "$code" -ne 0 ]; then
+            grep -E '^\[ERROR\]|COMPILATION ERROR|Tests run:|Caused by:|Flyway|Schema-validation' /tmp/backend.log | tail -n 100 || tail -n 100 /tmp/backend.log
+          else
+            grep -E 'Tests run:|BUILD SUCCESS' /tmp/backend.log | tail -n 20
+          fi
+          exit "$code"
 
   frontend:
     runs-on: ubuntu-latest
