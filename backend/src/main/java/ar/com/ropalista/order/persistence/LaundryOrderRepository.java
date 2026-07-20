@@ -14,6 +14,7 @@ import java.util.UUID;
 public interface LaundryOrderRepository extends JpaRepository<LaundryOrder, UUID>, JpaSpecificationExecutor<LaundryOrder> {
     Optional<LaundryOrder> findByIdAndDeletedAtIsNull(UUID id);
     boolean existsByClientIdAndDeletedAtIsNull(UUID clientId);
+    long countByClientIdAndDeletedAtIsNull(UUID clientId);
 
     @Override
     @EntityGraph(attributePaths = {"client", "service"})
