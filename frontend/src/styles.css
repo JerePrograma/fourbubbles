@@ -167,7 +167,7 @@ tbody tr:hover { background: #fafbfe; }
   .bottom-nav a { text-align: left; padding: .9rem 1rem; }
   .bottom-nav a.active { border-top: 0; border-left: 3px solid #17213a; }
   .form-grid { grid-template-columns: repeat(2,1fr); }
-  .metric-grid { grid-template-columns: repeat(4,1fr); }
+  .metric-grid { grid-template-columns: repeat(auto-fit,minmax(0,1fr)); }
 }
 
 @media (max-width: 639px) {

@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCallback, useEffect, useState } from 'react';
+import type { FormEvent } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { z } from 'zod';
@@ -120,7 +121,7 @@ export function EditClientPage(): JSX.Element {
     }
   };
 
-  const addAddress = async (event: React.FormEvent<HTMLFormElement>) => {
+  const addAddress = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!id || !addressForm.street.trim() || !addressForm.number.trim() || !addressForm.locality.trim()) {
       setError('Calle, número y localidad son obligatorios.');

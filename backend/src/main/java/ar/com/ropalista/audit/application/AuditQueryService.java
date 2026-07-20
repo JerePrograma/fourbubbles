@@ -24,7 +24,7 @@ public class AuditQueryService {
         Specification<AuditEvent> specification = Specification.where(null);
         if (entityType != null && !entityType.isBlank()) {
             specification = specification.and((root, query, builder) ->
-                    builder.equal(builder.upper(root.get("entityType")), entityType.trim().toUpperCase()));
+                    builder.equal(builder.upper(root.<String>get("entityType")), entityType.trim().toUpperCase()));
         }
         if (entityId != null && !entityId.isBlank()) {
             specification = specification.and((root, query, builder) ->
@@ -32,7 +32,7 @@ public class AuditQueryService {
         }
         if (action != null && !action.isBlank()) {
             specification = specification.and((root, query, builder) ->
-                    builder.equal(builder.upper(root.get("action")), action.trim().toUpperCase()));
+                    builder.equal(builder.upper(root.<String>get("action")), action.trim().toUpperCase()));
         }
         var pageable = PageRequest.of(Math.max(page, 0), Math.max(1, Math.min(size, 100)),
                 Sort.by(Sort.Direction.DESC, "createdAt"));
