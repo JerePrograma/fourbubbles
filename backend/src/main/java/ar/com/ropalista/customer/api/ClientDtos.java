@@ -8,6 +8,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -72,9 +73,11 @@ public final class ClientDtos {
     public record ClientResponse(UUID id, String firstName, String lastName, String phone,
                                  String whatsapp, String email, String status, String acquisitionSource,
                                  String preferencesJson, ClientPreferencesResponse preferences,
-                                 String notes, List<AddressResponse> addresses) {}
+                                 String notes, List<AddressResponse> addresses,
+                                 List<AddressResponse> addressHistory) {}
 
     public record AddressResponse(UUID id, String zoneCode, String zoneName, String street, String number,
                                   String extra, String locality, String neighborhood, String references,
-                                  boolean primaryAddress) {}
+                                  boolean primaryAddress, boolean active,
+                                  OffsetDateTime validFrom, OffsetDateTime validTo) {}
 }
