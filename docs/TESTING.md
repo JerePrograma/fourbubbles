@@ -2,220 +2,193 @@
 
 Última actualización: 2026-07-20.
 
-Versión: `0.1.1`.
+Versión: `0.1.2`.
 
-## Pipeline
-
-`.github/workflows/ci.yml` ejecuta tres jobs independientes.
+## Gate de pull request
 
 ### Backend
-
-- Java 21 Temurin;
-- `mvn clean verify`;
-- JUnit 5 y Mockito;
-- MockMvc;
-- pruebas `*IT` mediante Failsafe;
-- PostgreSQL 16 mediante Testcontainers;
-- Flyway V1–V5;
-- validación Hibernate/JPA.
-
-### Frontend
-
-- Node.js 22;
-- `npm ci`;
-- validación TypeScript con `npm run lint`;
-- Vitest con `npm test`;
-- build Vite.
-
-### Contenedores
-
-- `docker compose config --quiet`;
-- build de imágenes backend y frontend.
-
-## Comandos locales
 
 ```bash
 cd backend
 mvn clean verify
+```
 
-cd ../frontend
+Ejecuta:
+
+- compilación Java 21;
+- 16 pruebas unitarias;
+- 12 casos de integración;
+- PostgreSQL 16 mediante Testcontainers;
+- Flyway V1–V6;
+- validación Hibernate/JPA;
+- Maven Surefire y Failsafe.
+
+### Frontend
+
+```bash
+cd frontend
 npm ci
 npm run lint
 npm test
 npm run build
+```
 
-cd ..
+Valida:
+
+- lockfile reproducible;
+- TypeScript estricto;
+- lógica pura de borrador de pedido;
+- build Vite.
+
+### Contenedores
+
+```bash
 docker compose config --quiet
 docker compose build
 ```
 
-## Pruebas unitarias backend
+### Runtime
 
-### Equivalencias
+El workflow `runtime-smoke.yml`:
 
-- agrupación de medias;
-- agrupación incompleta;
-- redondeo hacia arriba;
-- preservación de piezas físicas;
-- unidades equivalentes;
-- peso estimado.
+1. construye e inicia PostgreSQL, backend y frontend;
+2. espera readiness;
+3. valida la SPA;
+4. inicia sesión con un administrador efímero;
+5. obtiene un JWT;
+6. consulta `/api/catalog/services` autenticado;
+7. elimina volúmenes y contenedores.
 
-### Límites
+## Cobertura backend
 
-- límite exacto de unidades;
-- límite exacto de peso;
-- exceso por unidades;
-- exceso por peso;
-- primer límite alcanzado;
-- capacidad segura.
+### Unitarias
 
-### Estados
+- `PricingServiceTest`: base, precio fijo, primera compra y promociones manuales.
+- `GarmentEquivalenceCalculatorTest`: agrupación y unidades.
+- `OrderLimitPolicyTest`: límites por unidades/peso/capacidad.
+- `OrderTransitionPolicyTest`: transiciones válidas e inválidas.
+- `LoginAttemptServiceTest`: intentos, bloqueo y limpieza.
 
-- transiciones permitidas;
-- saltos inválidos;
-- exposición de transiciones válidas.
+### Integración
 
-### Precios y promociones
+#### `ApplicationContextIT`
 
-- precio base;
-- precio fijo promocional;
-- primera compra;
-- bloqueo de promoción manual;
-- cupos simulados explícitamente.
+- aplicación completa;
+- PostgreSQL real;
+- Flyway V1–V6;
+- mapeos JPA válidos.
 
-### Login
+#### `ApiContractIT`
 
-- bloqueo al alcanzar la cantidad configurada;
-- limpieza de fallos tras autenticación correcta;
-- liberación al vencer el bloqueo.
+- 401 uniforme;
+- 403 uniforme;
+- validaciones de campos;
+- enum/parámetro inválido;
+- propagación de `X-Request-ID`.
 
-## Pruebas frontend
+#### `OperationalFlowIT`
 
-`orderDraft.test.ts` verifica:
+- alta de cliente;
+- actualización de preferencias;
+- creación de pedido;
+- búsqueda;
+- confirmación;
+- pago parcial;
+- pago total.
 
-- redondeo de grupos incompletos sin perder piezas físicas;
-- acumulación de equivalencias;
-- peso conocido y desconocido;
-- necesidad de cotización;
-- ciclo exclusivo;
-- conversión segura de fechas locales a instante ISO.
+#### `AdministrativeFlowIT`
 
-El cálculo mostrado por la UI es orientativo. La autoridad final sigue siendo el backend, que recalcula todas las reglas.
+- domicilio alternativo;
+- cambio de principal;
+- baja lógica;
+- historial de domicilios;
+- cotización manual;
+- edición de planificación;
+- bloqueo posterior a confirmación;
+- historial de pagos;
+- consulta de auditoría;
+- carrera de promoción restringida.
 
-## Integración PostgreSQL
+#### `AdministrativeAuthorizationIT`
 
-Las pruebas comparten un contenedor PostgreSQL 16 durante la suite.
+- `DRIVER` hereda lectura;
+- `DRIVER` no crea clientes;
+- `OPERATOR` no aplica cotización manual;
+- contratos 403 evaluados con payloads válidos.
 
-### ApplicationContextIT
+#### `ConcurrentPaymentIT`
 
-- inicia PostgreSQL;
-- aplica Flyway;
-- construye el contexto;
-- valida entidades contra el esquema.
+- dos pagos simultáneos compiten por el mismo saldo;
+- uno se confirma;
+- el segundo recibe 422;
+- solo un pago queda persistido;
+- no existe sobrecobro.
 
-### ApiContractIT
+## Defectos detectados por las pruebas
 
-- 401 uniforme para solicitud sin autenticación;
-- 403 uniforme para rol insuficiente;
-- `X-Request-ID` seguro conservado;
-- identificador inseguro reemplazado;
-- errores de validación con violaciones de campo;
-- parámetros enum inválidos como 400.
+Durante 0.1.2 se encontraron y corrigieron:
 
-### OperationalFlowIT
+1. promociones mock sin estado `ACTIVE`, que impedían probar la regla objetivo;
+2. test de autorización con cuerpo inválido que medía 400 en lugar de 403;
+3. auditoría de un domicilio antes de que JPA generara su UUID;
+4. orden de flush inseguro al cambiar el principal;
+5. planificación editable fuera de los estados de cotización;
+6. posible sobrecobro por pagos concurrentes.
 
-Recorrido real:
+No se relajaron reglas productivas para hacer pasar tests; se corrigieron fixtures o implementación según correspondía.
 
-1. crea usuario administrativo;
-2. inicia sesión;
-3. crea cliente con domicilio y preferencias tipadas;
-4. actualiza perfil y preferencias;
-5. crea un pedido con prendas reales del seed;
-6. busca el pedido por número;
-7. confirma el precio;
-8. registra un pago parcial;
-9. registra el pago final;
-10. comprueba saldo y estado `PAID`.
+## Verificación local
 
-## Defectos que las pruebas ya detectaron
+```powershell
+.\scripts\Start-Local.ps1 -Rebuild
+.\scripts\Verify-Local.ps1
+```
 
-- palabra reservada usada como columna SQL;
-- divergencia `CHAR(3)`/`VARCHAR(3)`;
-- mapeo UUID ambiguo;
-- algoritmo JWT no fijado;
-- configuración TypeScript incorrecta;
-- contratos 401/403 no uniformes;
-- lógica frontend sensible a zona horaria;
-- ausencia de prueba integrada del flujo de pago.
+`Verify-Local.ps1` comprueba contenedores, health, Flyway, SPA, login y una API protegida. Utiliza `.env` sin imprimir credenciales.
 
-## Cobertura funcional cualitativa
+## Matriz pendiente
 
-| Área | Estado de prueba |
-|---|---|
-| autenticación básica | integración |
-| refresh/logout | implementación, falta integración específica |
-| autorización por rol | integración parcial |
-| correlación | integración |
-| limitador de login | unitario |
-| cliente alta/actualización | integración |
-| preferencias tipadas | integración |
-| equivalencias | unitario + integración indirecta |
-| límites | unitario + flujo integrado |
-| precio | unitario + integración |
-| promociones | unitario, concurrencia pendiente |
-| búsqueda de pedidos | integración |
-| confirmación de precio | integración |
-| pagos parcial/total | integración |
-| exceso de pago | lógica implementada, falta API específica |
-| UI borrador de pedido | unitario puro + build |
-| UI completa | build, falta E2E de navegador |
-| Docker | construcción, falta smoke HTTP iniciado |
+### Recepción
 
-## Matriz de reglas de negocio
+- idempotencia;
+- conteo y peso real;
+- diferencias;
+- daños/manchas;
+- aprobación;
+- recalculo;
+- evidencias.
 
-| Regla | Estado |
-|---|---|
-| cálculo de equivalencias | cubierta |
-| grupos de medias/ropa interior | cubierta |
-| límites por unidad y peso | cubierta |
-| ciclo exclusivo en pedido | modelado y probado parcialmente |
-| precios y vigencia | cubierta parcialmente |
-| primera compra | cubierta |
-| una promoción por domicilio | implementada; concurrencia pendiente |
-| cupos | parcial; falta prueba concurrente |
-| pagos parciales y totales | cubierta en integración |
-| transiciones | cubierta |
-| auditoría | ejercitada indirectamente; falta consulta |
-| compatibilidad | pendiente Fase 2 |
-| ciclos y máquinas | pendiente Fase 2 |
-| costos y margen | pendiente Fase 4 |
-| reclamos | pendiente Fase 5 |
+### Producción
 
-## Próximas pruebas prioritarias
+- compatibilidad;
+- capacidad de ciclo;
+- asignación concurrente;
+- fallas de máquina;
+- relavado;
+- trazabilidad física.
 
-1. login bloqueado mediante endpoint real y reloj controlable;
-2. refresh, rotación y logout;
-3. pago superior al saldo;
-4. consumo promocional y carrera concurrente;
-5. actualización de WhatsApp duplicado;
-6. domicilios versionados;
-7. cotización manual y autorización;
-8. eliminación lógica;
-9. historial de pagos;
-10. pruebas React de formularios y permisos;
-11. E2E de navegador;
-12. smoke test HTTP sobre Compose iniciado;
-13. backup y restauración automatizados.
+### Logística
 
-## Criterio de terminado
+- solapamiento de franjas;
+- rutas;
+- orden de paradas;
+- retiro/entrega idempotentes;
+- kilómetros y costo.
 
-Una fase no se considera finalizada hasta que:
+### Finanzas externas
 
-- compila;
-- las migraciones aplican sobre PostgreSQL vacío;
-- Hibernate valida el esquema;
-- las reglas críticas poseen pruebas;
-- frontend ejecuta lint, tests y build con lockfile;
-- las imágenes se construyen;
-- documentación y backlog reflejan el estado real;
-- CI está verde antes de integrar.
+- idempotencia de webhook;
+- reembolsos;
+- caja;
+- arqueo;
+- conciliación.
+
+## Criterio de release
+
+No se integra un corte cuando:
+
+- algún job obligatorio falla;
+- quedan workflows diagnósticos temporales;
+- las migraciones no validan sobre PostgreSQL real;
+- la documentación afirma funciones inexistentes;
+- el runtime no puede iniciar, autenticar y consultar una API protegida.
