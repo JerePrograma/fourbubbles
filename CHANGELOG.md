@@ -1,100 +1,66 @@
 # Changelog
 
+## 0.2.0 - Recepción física idempotente
+
+Fecha: 2026-07-20.
+
+### Agregado
+
+- Migración Flyway V7.
+- Agregado `OrderReception`, ítems reales y metadatos de evidencias.
+- `Idempotency-Key` obligatorio y único.
+- Peso y conteo reales sin sobrescribir la declaración original.
+- Diferencias por pedido y por tipo de prenda.
+- Daños, manchas, observaciones, etiqueta y bolsa.
+- Política de aprobación por diferencia de piezas, daño o peso material.
+- Umbral de peso: mayor a 250 g o 10 % del declarado.
+- Decisión `APPROVED`/`REJECTED` con actor, fecha y notas.
+- Transiciones automáticas desde `PICKED_UP` hasta `CLASSIFIED` o `WAITING_PRICE_APPROVAL`.
+- Metadatos de archivo: clave, nombre, MIME, tamaño, SHA-256 y descripción.
+- UI de recepción, consulta y decisión.
+- Pruebas unitarias de umbral.
+- Integración de idempotencia secuencial y concurrente, aprobación y permisos.
+
+### Corregido o endurecido
+
+- Una recepción repetida con la misma clave devuelve el mismo agregado.
+- Otra clave no puede crear una segunda recepción del pedido.
+- La composición real se deriva de los ítems y exige todos los códigos declarados.
+- Códigos adicionales solo se admiten si su equivalencia está vigente.
+- Fecha futura, recepción vacía y duplicados se rechazan.
+- Las evidencias guardan metadatos; no se insertan binarios en PostgreSQL.
+
+### Pendiente
+
+- almacenamiento gestionado y carga binaria de fotos;
+- compatibilidad;
+- ciclos y máquinas;
+- logística;
+- caja, costos y rentabilidad;
+- inventario y reclamos completos.
+
 ## 0.1.2 - Cierre administrativo de Fase 1
 
 Fecha: 2026-07-20.
 
-### Agregado
+- Domicilios versionados e historial.
+- Cotización manual trazable.
+- Planificación temprana controlada.
+- Promociones y pagos con control de concurrencia.
+- Historial financiero y auditoría.
+- Jerarquía RBAC.
+- Verificación local autenticada.
 
-- Migración Flyway `V6__administrative_closure.sql`.
-- Vigencia de domicilios mediante `valid_from` y `valid_to`.
-- Historial de domicilios activos e inactivos.
-- Alta de domicilios alternativos desde API e interfaz.
-- Cambio controlado de domicilio principal.
-- Baja lógica de domicilios conservando referencias históricas.
-- Cotización manual exclusiva de `ADMIN` con importe, motivo, actor y fecha.
-- Conservación separada del precio automático original.
-- Edición de retiro, promesa y notas durante `INQUIRY` o `QUOTED`.
-- Historial de pagos por pedido.
-- Búsqueda administrativa de auditoría por entidad, identificador y acción.
-- Interfaz de auditoría.
-- Jerarquía de roles `ADMIN > OPERATOR > DRIVER > REPORT_VIEWER`.
-- Bloqueo pesimista de promociones durante la confirmación.
-- Revalidación de vigencia, servicio, primera compra, domicilio y cupos al confirmar.
-- Bloqueo pesimista del pedido durante el registro de pagos.
-- Prueba concurrente que impide consumir dos veces una promoción restringida.
-- Prueba concurrente que impide superar el saldo con pagos simultáneos.
-- Workflow permanente de smoke runtime con Compose, login y API protegida.
-- Verificación local PowerShell de frontend, autenticación y API protegida.
-
-### Modificado
-
-- El detalle de pedido permite registrar cotización manual y planificación temprana.
-- El detalle muestra historial de pagos.
-- La edición de cliente administra domicilios actuales e históricos.
-- El menú expone auditoría solo cuando corresponde al rol.
-- La promoción deja de considerarse consumida durante la cotización y se confirma bajo bloqueo transaccional.
-- Los pagos se serializan por pedido para calcular el saldo sobre una fuente consistente.
-- La documentación transversal pasa a describir 0.1.2.
-
-### Corregido
-
-- Persistencia explícita del domicilio antes de auditar su UUID generado.
-- `flush` intermedio al reemplazar el domicilio principal para respetar el índice único parcial.
-- Orden de domicilios: principal primero y luego vigencia descendente.
-- Bloqueo de planificación fuera de `INQUIRY` y `QUOTED`.
-- Fixtures de promociones unitarias con estado `ACTIVE` explícito.
-- Prueba de autorización con payload válido para comprobar realmente el 403.
-- Auditoría temporal coherente con `OffsetDateTime`.
-
-### Validación
-
-- 16 pruebas unitarias backend.
-- Integraciones sobre PostgreSQL 16 y Flyway V1–V6.
-- Contrato API, autorización, flujo operativo y flujo administrativo.
-- Concurrencia de promociones y pagos.
-- TypeScript estricto, Vitest y build Vite.
-- Validación y construcción de imágenes Docker.
-- Arranque completo, readiness, SPA, login y API autenticada.
-
-### Limitaciones conscientes
-
-- Recepción física, peso real, evidencias y aprobación de diferencias no están implementados.
-- No hay todavía caja, reembolsos ni comprobantes externos.
-- Falta idempotencia para proveedores de pago y webhooks.
-- El limitador de login es local a cada instancia.
-- El perfil `dev` y Compose no representan una topología productiva.
-
-## 0.1.1 - Hardening y flujo operativo completo de Fase 1 base
+## 0.1.1 - Hardening y flujo operativo
 
 Fecha: 2026-07-20.
 
-### Agregado
+- Contratos de seguridad, correlación y protección de login.
+- Preferencias tipadas.
+- UI operativa de clientes, pedidos, estados y pagos.
 
-- Respuestas JSON uniformes para autenticación requerida y acceso denegado.
-- `X-Request-ID`, MDC y correlación de logs.
-- Protección básica contra intentos repetidos de login.
-- Preferencias tipadas y actualización de clientes.
-- Catálogo de servicios vigente.
-- Búsqueda, resumen y detalle de pedidos.
-- Interfaz de alta, cotización, estados y pagos.
-- Pruebas MockMvc, PostgreSQL y Vitest.
-
-### Corregido
-
-- Proveedor temporal de auditoría con `OffsetDateTime` UTC.
-- Renderizado seguro de valores JSON desconocidos en TypeScript.
-
-## 0.1.0 - Plataforma base y primer corte de Fase 1
+## 0.1.0 - Plataforma y núcleo inicial
 
 Fecha: 2026-07-20.
 
-### Agregado
-
-- Monolito modular Java 21 y Spring Boot 3.
-- PostgreSQL 16, JPA/Hibernate y Flyway V1–V5.
-- Seguridad JWT y refresh token opaco.
-- Auditoría, clientes, catálogo, precios, promociones, pedidos y pagos.
-- React 18, TypeScript y Vite.
-- Docker Compose, Nginx y GitHub Actions.
-- Documentación técnica y funcional inicial.
+- Java/Spring, React, PostgreSQL, Flyway, seguridad, catálogo, pedidos, pagos, Docker y CI.
