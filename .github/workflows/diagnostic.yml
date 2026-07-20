@@ -16,6 +16,11 @@ jobs:
           set -o pipefail
           git clone -q --depth 1 --branch agent/phase-1-core https://github.com/JerePrograma/fourbubbles.git repo
           cd repo/backend
+          if [ -n "${JAVA_HOME_21_X64:-}" ]; then
+            export JAVA_HOME="$JAVA_HOME_21_X64"
+            export PATH="$JAVA_HOME/bin:$PATH"
+          fi
+          java -version
           set +e
           mvn -B -Dstyle.color=never clean verify > /tmp/backend.log 2>&1
           code=$?
