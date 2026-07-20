@@ -23,9 +23,9 @@ public class LoginAttemptService {
 
     @Autowired
     public LoginAttemptService(
-            @Value("${app.security.login-protection.max-attempts:5}") int maxAttempts,
-            @Value("${app.security.login-protection.window:PT15M}") Duration window,
-            @Value("${app.security.login-protection.block-duration:PT15M}") Duration blockDuration) {
+            @Value("${app.security.login-protection.max-attempts:${LOGIN_MAX_ATTEMPTS:5}}") int maxAttempts,
+            @Value("${app.security.login-protection.window:${LOGIN_ATTEMPT_WINDOW:PT15M}}") Duration window,
+            @Value("${app.security.login-protection.block-duration:${LOGIN_BLOCK_DURATION:PT15M}}") Duration blockDuration) {
         this(maxAttempts, window, blockDuration, Clock.systemUTC());
     }
 
