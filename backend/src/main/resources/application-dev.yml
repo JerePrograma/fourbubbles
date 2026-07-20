@@ -1,0 +1,17 @@
+spring:
+  config:
+    activate:
+      on-profile: dev
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    ar.com.ropalista: DEBUG
+    org.springframework.security: INFO
+
+app:
+  dev:
+    admin:
+      username: ${APP_DEV_ADMIN_USERNAME:admin}
+      password: ${APP_DEV_ADMIN_PASSWORD}
