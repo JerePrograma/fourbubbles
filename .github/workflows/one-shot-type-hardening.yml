@@ -1,0 +1,58 @@
+name: One-shot type hardening
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/0.1.2-administrative
+          fetch-depth: 0
+
+      - name: Apply idempotent source hardening
+        shell: python
+        run: |
+          from pathlib import Path
+
+          audit = Path('backend/src/main/java/ar/com/ropalista/audit/application/AuditQueryService.java')
+          content = audit.read_text(encoding='utf-8')
+          content = content.replace('builder.upper(root.get("entityType"))', 'builder.upper(root.<String>get("entityType"))')
+          content = content.replace('builder.upper(root.get("action"))', 'builder.upper(root.<String>get("action"))')
+          audit.write_text(content, encoding='utf-8')
+
+          editor = Path('frontend/src/pages/EditClientPage.tsx')
+          content = editor.read_text(encoding='utf-8')
+          marker = "import { useCallback, useEffect, useState } from 'react';"
+          if "import type { FormEvent } from 'react';" not in content:
+              content = content.replace(marker, marker + "\nimport type { FormEvent } from 'react';")
+          content = content.replace('React.FormEvent<HTMLFormElement>', 'FormEvent<HTMLFormElement>')
+          editor.write_text(content, encoding='utf-8')
+
+          service = Path('backend/src/main/java/ar/com/ropalista/customer/application/ClientService.java')
+          content = service.read_text(encoding='utf-8')
+          old = '.sorted(Comparator.comparing(Address::isPrimaryAddress).reversed().thenComparing(Address::getValidFrom).reversed())'
+          new = '.sorted(Comparator.comparing(Address::isPrimaryAddress).reversed()\n                        .thenComparing(Address::getValidFrom, Comparator.reverseOrder()))'
+          content = content.replace(old, new)
+          service.write_text(content, encoding='utf-8')
+
+          styles = Path('frontend/src/styles.css')
+          css = styles.read_text(encoding='utf-8')
+          css = css.replace('grid-template-columns: repeat(4,1fr);', 'grid-template-columns: repeat(auto-fit,minmax(0,1fr));', 1)
+          styles.write_text(css, encoding='utf-8')
+
+          Path('.github/workflows/one-shot-type-hardening.yml').unlink()
+
+      - name: Commit hardened source
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add backend/src/main/java/ar/com/ropalista/audit/application/AuditQueryService.java backend/src/main/java/ar/com/ropalista/customer/application/ClientService.java frontend/src/pages/EditClientPage.tsx frontend/src/styles.css .github/workflows/one-shot-type-hardening.yml
+          git commit -m "fix: harden administrative typing and ordering"
+          git push origin HEAD:agent/0.1.2-administrative
