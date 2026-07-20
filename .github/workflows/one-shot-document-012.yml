@@ -1,0 +1,978 @@
+name: One-shot document 0.1.2
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  document:
+    if: github.head_ref == 'agent/0.1.2-administrative'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/0.1.2-administrative
+          fetch-depth: 0
+
+      - name: Write consolidated documentation
+        shell: python
+        run: |
+          from pathlib import Path
+
+          files = {
+          'README.md': r'''# Four Bubbles / Ropa Lista
+
+Sistema de gestión integral para una lavandería doméstica con retiro y entrega en Marcos Paz y Mariano Acosta.
+
+> Versión: **0.1.2**. La plataforma base y el circuito administrativo de Fase 1 están implementados. Recepción, producción, logística y finanzas completas todavía no forman parte del MVP disponible.
+
+## Qué funciona hoy
+
+- Java 21, Spring Boot 3, PostgreSQL 16 y Flyway V1–V6.
+- React 18, TypeScript, Vite y diseño mobile first.
+- JWT corto, refresh token rotativo, RBAC y auditoría.
+- Jerarquía de roles: `ADMIN > OPERATOR > DRIVER > REPORT_VIEWER`.
+- Respuestas JSON uniformes, `X-Request-ID`, MDC y logs correlacionados.
+- Protección local contra intentos repetidos de login.
+- Clientes con preferencias tipadas.
+- Domicilios activos, principal, alternativos, vigencia e historial.
+- Servicios, equivalencias, precios y promociones versionados.
+- Pedidos con piezas físicas, grupos, unidades equivalentes, límites y precio histórico.
+- Cotización automática y cotización manual administrativa trazable.
+- Planificación editable antes de confirmar el precio.
+- Confirmación promocional protegida por bloqueo pesimista y revalidación.
+- Estados y transiciones permitidas.
+- Pagos parciales/totales e historial por pedido.
+- Auditoría consultable por administradores.
+- CI de backend, frontend y contenedores.
+- Smoke test que levanta el stack completo y prueba readiness, SPA, login y API autenticada.
+
+## Inicio rápido en Windows
+
+```powershell
+git clone https://github.com/JerePrograma/fourbubbles.git
+Set-Location '.\fourbubbles'
+git switch main
+git pull --ff-only origin main
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\Start-Local.ps1 -Rebuild
+.\scripts\Verify-Local.ps1
+```
+
+El script crea `.env` solo cuando no existe, genera secretos aleatorios, inicia PostgreSQL/backend/frontend y muestra la contraseña de desarrollo una sola vez.
+
+Accesos:
+
+- Aplicación: `http://localhost:8080`
+- API: `http://localhost:8081/api`
+- Swagger: `http://localhost:8081/api/swagger-ui.html`
+- Salud: `http://localhost:8081/api/actuator/health`
+
+Usuario inicial: valor de `APP_DEV_ADMIN_USERNAME`, por defecto `admin`.
+
+## Flujo operativo 0.1.2
+
+1. Iniciar sesión.
+2. Crear o buscar cliente.
+3. Registrar preferencias y domicilios.
+4. Cambiar domicilio principal o desactivar uno anterior sin borrar historia.
+5. Crear pedido seleccionando cliente, domicilio, servicio y prendas.
+6. Revisar piezas, grupos, unidades equivalentes, peso estimado y límites.
+7. Si el pedido requiere presupuesto, un `ADMIN` registra importe y motivo manual.
+8. Editar retiro, promesa y notas mientras el precio no esté confirmado.
+9. Confirmar el precio.
+10. Avanzar únicamente por transiciones habilitadas.
+11. Registrar pagos parciales o totales.
+12. Consultar historial de pagos.
+13. Un administrador puede revisar la auditoría completa.
+
+## Validación local
+
+```bash
+cd backend
+mvn clean verify
+
+cd ../frontend
+npm ci
+npm run lint
+npm test
+npm run build
+
+cd ..
+docker compose config --quiet
+docker compose build
+```
+
+## Endpoints principales
+
+| Método | Ruta | Uso |
+|---|---|---|
+| POST | `/api/auth/login` | iniciar sesión |
+| POST | `/api/auth/refresh` | rotar refresh token |
+| POST | `/api/auth/logout` | cerrar sesión |
+| GET | `/api/catalog/services` | servicios vigentes |
+| GET | `/api/catalog/equivalences` | equivalencias vigentes |
+| POST | `/api/clients` | crear cliente |
+| PUT | `/api/clients/{id}` | actualizar perfil y preferencias |
+| POST | `/api/clients/{id}/addresses` | agregar domicilio |
+| POST | `/api/clients/{id}/addresses/{addressId}/make-primary` | cambiar principal |
+| DELETE | `/api/clients/{id}/addresses/{addressId}` | baja lógica de domicilio |
+| POST | `/api/orders` | crear/cotizar pedido |
+| GET | `/api/orders` | buscar pedidos |
+| GET | `/api/orders/{id}` | detalle operativo |
+| PATCH | `/api/orders/{id}/planning` | editar planificación previa |
+| POST | `/api/orders/{id}/manual-quote` | cotización manual `ADMIN` |
+| POST | `/api/orders/{id}/confirm-price` | confirmar precio |
+| PATCH | `/api/orders/{id}/status` | cambiar estado |
+| POST | `/api/payments` | registrar pago |
+| GET | `/api/payments?orderId=...` | historial de pagos |
+| GET | `/api/audit` | auditoría administrativa |
+
+## Límites actuales
+
+- Sin peso real ni recepción guiada.
+- Sin fotografías, daños o manchas.
+- Sin edición de composición después de crear el pedido.
+- Sin compatibilidad, ciclos ni máquinas.
+- Sin rutas ni agenda logística real.
+- Sin caja diaria, costos o rentabilidad.
+- Sin abonos, inventario, mantenimiento o reclamos.
+- El rate limiter de login es local a una instancia.
+
+## Documentación
+
+- [Estado integral](docs/PROJECT_STATUS.md)
+- [Guía funcional](docs/USER_GUIDE.md)
+- [API](docs/API.md)
+- [Seguridad](docs/SECURITY.md)
+- [Pruebas](docs/TESTING.md)
+- [Operación](docs/OPERATIONS.md)
+- [Alcance funcional](docs/FUNCTIONAL_SCOPE.md)
+- [Roadmap](docs/ROADMAP.md)
+- [Arquitectura](docs/ARCHITECTURE.md)
+- [Modelo de datos](docs/DATA_MODEL.md)
+- [Supuestos](docs/ASSUMPTIONS.md)
+- [Changelog](CHANGELOG.md)
+''',
+          'docs/PROJECT_STATUS.md': r'''# Estado integral del proyecto
+
+Última actualización: 2026-07-20.
+
+Versión documentada: `0.1.2`.
+
+## Resumen ejecutivo
+
+La plataforma base y el circuito administrativo de Fase 1 están terminados. El sistema puede operar clientes, domicilios históricos, catálogo, pedidos, cotización automática/manual, estados, pagos y auditoría desde la interfaz.
+
+El MVP completo todavía no está terminado. Recepción, compatibilidad, producción, logística, costos y crecimiento contienen las reglas críticas pendientes.
+
+## Estado por fase
+
+| Fase | Estado | Entregado | Pendiente principal |
+|---|---|---|---|
+| Diagnóstico | Finalizado | arquitectura, dominio, riesgos y plan | mantenimiento documental |
+| Plataforma base | Finalizado | backend, frontend, BD, Flyway, seguridad, auditoría, Docker y CI | hardening productivo distribuido |
+| Fase 1 - Núcleo administrativo | Finalizado para 0.1.2 | clientes, domicilios, preferencias, catálogo, pedidos, cotización, estados, pagos y auditoría | recepción física |
+| Fase 2 - Producción | Pendiente | estados preparatorios | compatibilidad, ciclos, máquinas, lavado, secado y calidad |
+| Fase 3 - Logística | Pendiente | fechas de retiro/promesa | rutas, paradas, kilómetros, agenda y comunicaciones |
+| Fase 4 - Finanzas | Pendiente | pagos por pedido | caja, costos, gastos, margen e inversión |
+| Fase 5 - Crecimiento | Pendiente | promociones base | abonos, comercios, inventario, mantenimiento y reclamos |
+
+## Finalizado
+
+### Plataforma
+
+- [x] Java 21, Spring Boot 3 y Maven.
+- [x] React 18, TypeScript, Vite y Vitest.
+- [x] PostgreSQL 16.
+- [x] Flyway V1–V6.
+- [x] `ddl-auto=validate`.
+- [x] monolito modular por dominio.
+- [x] DTO, validación y errores uniformes.
+- [x] OpenAPI y Actuator.
+- [x] Docker Compose, Nginx y builds multi-stage.
+- [x] CI de backend, frontend y contenedores.
+- [x] runtime smoke del stack iniciado.
+
+### Seguridad y auditoría
+
+- [x] JWT HS256 y refresh opaco rotativo.
+- [x] cookie `HttpOnly`, `SameSite=Strict` y segura en producción.
+- [x] BCrypt.
+- [x] jerarquía RBAC explícita.
+- [x] 401/403 JSON uniformes.
+- [x] correlación `X-Request-ID` y MDC.
+- [x] protección local contra intentos repetidos.
+- [x] auditoría persistida.
+- [x] consulta administrativa de auditoría.
+
+### Clientes y domicilios
+
+- [x] alta, búsqueda y actualización de cliente.
+- [x] preferencias tipadas.
+- [x] WhatsApp único.
+- [x] domicilios múltiples.
+- [x] un principal activo.
+- [x] cambio de principal.
+- [x] baja lógica.
+- [x] vigencia e historial.
+- [x] protección de trazabilidad de pedidos anteriores.
+
+### Pedidos y precios
+
+- [x] piezas físicas, grupos y unidades equivalentes.
+- [x] peso declarado y estimado.
+- [x] límites por unidades, peso y capacidad.
+- [x] precio automático versionado.
+- [x] promoción automática segura.
+- [x] bloqueo y revalidación promocional al confirmar.
+- [x] cotización manual con actor/motivo/fecha.
+- [x] precio automático preservado frente al manual.
+- [x] planificación editable antes de confirmar.
+- [x] confirmación histórica.
+- [x] búsqueda, detalle y UI operativa.
+- [x] estados, transiciones e historial.
+
+### Pagos
+
+- [x] efectivo, transferencia, Mercado Pago y otro.
+- [x] pagos parciales/totales.
+- [x] saldo y estado.
+- [x] bloqueo de sobrepago.
+- [x] historial consultable.
+- [x] actor y referencia.
+
+### Pruebas
+
+- [x] reglas de equivalencias, límites, estados y precios.
+- [x] login y permisos.
+- [x] contratos 401/403/correlación.
+- [x] flujo cliente-pedido-confirmación-pagos.
+- [x] domicilios versionados.
+- [x] cotización manual.
+- [x] historial de pagos y auditoría.
+- [x] carrera concurrente de promoción por domicilio.
+- [x] frontend TypeScript/Vitest/build.
+- [x] runtime smoke con stack completo.
+
+## Parcial
+
+- [ ] Rate limiting: local; falta Redis/gateway.
+- [ ] Promociones: reglas simples y concurrencia cubiertas; faltan créditos y condiciones compuestas.
+- [ ] Pagos: historial disponible; faltan comprobantes, anulaciones, reembolsos y caja.
+- [ ] Auditoría: consulta disponible; faltan exportación, retención y alertas.
+- [ ] Dashboard/Agenda: estructura presente, sin datos operativos completos.
+- [ ] Historial de cliente: domicilios y pedidos accesibles por separado; falta vista agregada.
+
+## Pendiente inmediato - 0.2.0 Recepción
+
+1. Peso real.
+2. Recuento real contra declaración.
+3. Diferencias de piezas, peso y unidades.
+4. Edición controlada de composición antes de confirmar recepción.
+5. Fotografías y daños preexistentes.
+6. Manchas e instrucciones.
+7. Recalculo y aprobación de diferencia de precio.
+8. Etiquetas y bolsas.
+9. Historial operativo agregado del cliente.
+10. Administración de servicios, equivalencias, precios y promociones.
+
+## Pendiente por fases
+
+### Producción
+
+- matriz de compatibilidad;
+- ciclos compartidos/exclusivos;
+- límite de 5 kg;
+- máquinas y programas;
+- lavado, secado, calidad, relavado, doblado y embolsado;
+- trazabilidad física.
+
+### Logística
+
+- rutas, paradas y orden;
+- franjas y radios;
+- kilómetros, combustible, tiempo y costo;
+- retiros/entregas;
+- WhatsApp e historial de comunicaciones.
+
+### Finanzas
+
+- caja y arqueos;
+- ingresos/egresos;
+- costos por pedido/ciclo;
+- mano de obra;
+- margen, rentabilidad y escenarios.
+
+### Crecimiento
+
+- abonos y suscripciones;
+- comercios y SLA;
+- inventario;
+- equipamiento/mantenimiento;
+- reclamos/compensaciones;
+- tableros y alertas.
+
+## Criterios MVP
+
+| # | Criterio | Estado |
+|---:|---|---|
+| 1 | Crear cliente y domicilios | Cumple |
+| 2 | Registrar preferencias | Cumple |
+| 3 | Crear pedido | Cumple |
+| 4 | Registrar piezas físicas | Cumple |
+| 5 | Calcular equivalencias | Cumple |
+| 6 | Registrar peso real | Pendiente |
+| 7 | Aplicar límites | Cumple |
+| 8 | Calcular precio vigente | Cumple |
+| 9 | Aplicar promoción válida | Parcial |
+| 10 | Impedir promoción inválida | Cumple |
+| 11 | Confirmar precio automático/manual | Cumple |
+| 12 | Programar retiro | Parcial, sin ruta |
+| 13 | Recibir pedido | Parcial, solo transición |
+| 14 | Evaluar compatibilidad | Pendiente |
+| 15 | Asignar dos pedidos | Pendiente |
+| 16 | Impedir sobrepeso de ciclo | Pendiente |
+| 17 | Registrar lavado/secado | Pendiente |
+| 18 | Estados con trazabilidad | Cumple |
+| 19 | Registrar y consultar pagos | Cumple |
+| 20 | Programar entrega | Parcial, sin ruta |
+| 21 | Entregar/cerrar | Cumple en dominio |
+| 22 | Calcular costo/margen | Pendiente |
+| 23 | Agenda diaria | Pendiente real |
+| 24 | Tablero básico | Parcial |
+| 25 | Historial agregado de cliente | Parcial |
+
+Resultado: **12 cumplen, 6 son parciales y 7 están pendientes**.
+
+## Riesgos abiertos
+
+1. Login rate limiter no compartido.
+2. Promociones complejas todavía sin DSL/modelo de condiciones.
+3. API sin `/v1` ni política externa formal.
+4. Evidencias sin almacenamiento externo.
+5. Backups sin automatización/restauración periódica.
+6. Sin caja ni conciliación.
+7. Compose de desarrollo usa perfil `dev`.
+8. Dashboard y Agenda no son fuentes de verdad.
+
+## Definición de terminado
+
+Cada corte exige:
+
+- migraciones aditivas válidas;
+- PostgreSQL real y JPA validada;
+- pruebas de reglas críticas y concurrencia;
+- frontend con `npm ci`, lint, tests y build;
+- imágenes construibles;
+- runtime smoke;
+- documentación/changelog actualizados;
+- CI verde antes de squash a `main`.
+''',
+          'docs/API.md': r'''# Contrato API 0.1.2
+
+La API se sirve bajo `/api`. Swagger local: `/api/swagger-ui.html`.
+
+## Respuesta exitosa
+
+```json
+{"success":true,"data":{},"timestamp":"2026-07-20T12:00:00-03:00"}
+```
+
+## Error
+
+```json
+{
+  "success": false,
+  "code": "VALIDATION_ERROR",
+  "message": "La solicitud contiene datos inválidos",
+  "status": 400,
+  "path": "/api/clients",
+  "timestamp": "2026-07-20T12:00:00-03:00",
+  "violations": [{"field":"firstName","message":"no debe estar vacío"}]
+}
+```
+
+Códigos relevantes: `AUTHENTICATION_REQUIRED`, `AUTHENTICATION_FAILED`, `ACCESS_DENIED`, `LOGIN_RATE_LIMITED`, `ORDER_NOT_EDITABLE`, `MANUAL_QUOTE_REQUIRED`, `PAYMENT_EXCEEDS_BALANCE`.
+
+## Correlación
+
+Cada respuesta incluye `X-Request-ID`. Solo se conserva un valor entrante que cumpla `[A-Za-z0-9._-]{8,128}`; los demás se reemplazan por UUID.
+
+## Roles
+
+Jerarquía:
+
+```text
+ADMIN > OPERATOR > DRIVER > REPORT_VIEWER
+```
+
+- `ADMIN`: administración completa y cotización manual.
+- `OPERATOR`: clientes, pedidos, planificación y pagos.
+- `DRIVER`: lectura y transiciones operativas permitidas.
+- `REPORT_VIEWER`: consulta.
+
+## Endpoints
+
+### Autenticación
+
+- `POST /auth/login`
+- `POST /auth/refresh`
+- `POST /auth/logout`
+
+### Catálogo
+
+- `GET /catalog/services`
+- `GET /catalog/equivalences`
+
+### Clientes
+
+- `POST /clients`
+- `GET /clients`
+- `GET /clients/{id}`
+- `PUT /clients/{id}`
+- `POST /clients/{id}/addresses`
+- `POST /clients/{id}/addresses/{addressId}/make-primary`
+- `DELETE /clients/{id}/addresses/{addressId}`
+
+`ClientResponse` separa `addresses` activos y `addressHistory`. Cada dirección incluye `active`, `validFrom` y `validTo`.
+
+### Pedidos
+
+- `POST /orders`
+- `GET /orders`
+- `GET /orders/{id}`
+- `PATCH /orders/{id}/planning`
+- `POST /orders/{id}/manual-quote` (`ADMIN`)
+- `POST /orders/{id}/confirm-price`
+- `PATCH /orders/{id}/status`
+
+El detalle expone:
+
+- `automaticQuotedPrice`;
+- `quotedPrice`;
+- `confirmedPrice`;
+- `manualQuoteReason`, `manualQuoteAt`, `manualQuoteBy`;
+- `allowedTransitions`;
+- piezas y planificación.
+
+La planificación solo puede editarse en `INQUIRY` o `QUOTED` y antes de confirmar.
+
+La cotización manual requiere importe positivo y motivo. Conserva el precio automático y agrega una línea al desglose.
+
+### Pagos
+
+- `POST /payments`
+- `GET /payments?orderId=<UUID>`
+
+El historial devuelve método, importe, fecha, referencia, estado y actor.
+
+### Auditoría
+
+- `GET /audit?entityType=&entityId=&action=&page=&size=` (`ADMIN`)
+
+## Concurrencia promocional
+
+Al confirmar:
+
+1. se bloquea la fila de promoción con `PESSIMISTIC_WRITE`;
+2. se revalida estado, vigencia, servicio, primera compra, domicilio y cupos;
+3. se registra el uso;
+4. se confirma el precio.
+
+Esto serializa confirmaciones competidoras para la misma promoción.
+
+## Convenciones
+
+- dinero con decimal/`BigDecimal`;
+- peso en gramos;
+- fechas ISO 8601 con offset;
+- moneda de tres caracteres;
+- entidades JPA no expuestas;
+- `Page` de Spring usado internamente.
+
+## Pendiente antes de API externa
+
+- `/v1` o política de compatibilidad;
+- idempotencia;
+- contrato de paginación propio;
+- webhooks/pagos externos;
+- edición de recepción;
+- evidencias.
+''',
+          'docs/SECURITY.md': r'''# Seguridad 0.1.2
+
+## Implementado
+
+- BCrypt costo 12.
+- JWT HS256 corto.
+- Refresh opaco, hasheado, rotativo y revocable.
+- Cookie `HttpOnly`, `SameSite=Strict`, `Secure` en producción.
+- Sesiones stateless.
+- RBAC con jerarquía `ADMIN > OPERATOR > DRIVER > REPORT_VIEWER`.
+- Autoridad real en `@PreAuthorize`; la UI solo oculta acciones.
+- 401/403 JSON uniformes.
+- Validación de entradas y parámetros.
+- `X-Request-ID` seguro y MDC.
+- Logs sin secretos.
+- Limitador local de intentos de login.
+- Cotización manual exclusiva de `ADMIN` y auditada.
+- Confirmación promocional bajo bloqueo pesimista.
+- Auditoría consultable solo por `ADMIN`.
+
+## Jerarquía
+
+La herencia concede capacidades de lectura inferiores sin repetir combinaciones en cada método. No convierte una operación `hasRole('ADMIN')` en heredable por `OPERATOR`.
+
+## Login
+
+Variables:
+
+- `LOGIN_MAX_ATTEMPTS=5`
+- `LOGIN_ATTEMPT_WINDOW=PT15M`
+- `LOGIN_BLOCK_DURATION=PT15M`
+
+Límite: contador en memoria, no compartido entre réplicas y reiniciable. Producción distribuida requiere Redis/gateway.
+
+## Proxy
+
+La aplicación usa la dirección observada por el servlet. Un proxy productivo debe sobrescribir cabeceras reenviadas y estar configurado como confiable. No se debe confiar en `X-Forwarded-For` directo de Internet.
+
+## Promociones
+
+La revalidación al confirmar evita consumir un beneficio basado solo en una cotización antigua. El bloqueo de la fila promocional serializa las confirmaciones para aplicar cupos y restricción por domicilio de forma coherente.
+
+## Cotización manual
+
+- solo `ADMIN`;
+- importe positivo;
+- motivo obligatorio;
+- actor y fecha persistidos;
+- precio automático conservado;
+- auditoría del antes/después.
+
+## Pendiente
+
+- rate limiter compartido y perimetral;
+- MFA;
+- administración de usuarios/roles;
+- recuperación de contraseña;
+- revocación global de sesiones;
+- CSP/HSTS/cabeceras productivas;
+- escaneo de dependencias, imágenes y secretos;
+- SBOM;
+- almacenamiento cifrado de evidencias;
+- políticas de retención/anonimización;
+- alertas sobre auditoría.
+''',
+          'docs/TESTING.md': r'''# Estrategia de pruebas 0.1.2
+
+## CI principal
+
+### Backend
+
+- Java 21;
+- `mvn clean verify`;
+- unitarias JUnit/Mockito;
+- MockMvc;
+- Testcontainers PostgreSQL 16;
+- Flyway V1–V6;
+- validación Hibernate/JPA.
+
+### Frontend
+
+- Node 22;
+- `npm ci`;
+- TypeScript estricto;
+- Vitest;
+- build Vite.
+
+### Contenedores
+
+- `docker compose config --quiet`;
+- build backend/frontend.
+
+## Runtime smoke
+
+Workflow independiente:
+
+1. construye e inicia el stack completo;
+2. espera readiness;
+3. valida `status=UP`;
+4. verifica la SPA;
+5. inicia sesión con el administrador de smoke;
+6. consulta `/api/catalog/services` con bearer token;
+7. imprime logs si falla;
+8. elimina contenedores y volumen temporal.
+
+## Cobertura de reglas
+
+- equivalencias y redondeo de grupos;
+- límites de servicio/capacidad;
+- transiciones;
+- precio/promociones;
+- login rate limiting;
+- 401/403/correlación;
+- cliente y preferencias;
+- pedido, búsqueda y confirmación;
+- pago parcial/total;
+- domicilios activos/históricos;
+- cotización manual;
+- planificación bloqueada después de confirmar;
+- historial de pagos;
+- auditoría;
+- jerarquía RBAC;
+- carrera concurrente de promoción por domicilio;
+- cálculo frontend del borrador.
+
+## Escenario concurrente
+
+Dos pedidos del mismo domicilio intentan confirmar simultáneamente una promoción `one_per_address`. La prueba espera exactamente una respuesta 200 y una 422. Esto verifica el bloqueo y la revalidación dentro de transacción.
+
+## Pendiente
+
+- refresh/logout end-to-end;
+- recuperación de contraseña;
+- edición de recepción;
+- upload/evidencias;
+- E2E de navegador;
+- backup/restauración automatizados;
+- pruebas de carga;
+- compatibilidad/ciclos/logística/costos.
+
+## Comandos
+
+```bash
+cd backend && mvn clean verify
+cd ../frontend && npm ci && npm run lint && npm test && npm run build
+cd .. && docker compose config --quiet && docker compose build
+```
+''',
+          'docs/OPERATIONS.md': r'''# Operación y despliegue 0.1.2
+
+## Perfiles
+
+- `dev`: administrador inicial y logs de desarrollo.
+- `test`: PostgreSQL Testcontainers y validación.
+- `prod`: cookie segura y logs JSON correlacionados.
+
+El Compose actual usa `dev`: sirve para desarrollo/demostración, no producción.
+
+## Inicio
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\Start-Local.ps1 -Rebuild
+.\scripts\Verify-Local.ps1
+```
+
+Manual:
+
+```bash
+cp .env.example .env
+docker compose config --quiet
+docker compose up --build -d
+docker compose ps
+```
+
+## Migraciones
+
+V6 agrega:
+
+- vigencia de domicilios;
+- precio automático preservado;
+- metadatos de cotización manual.
+
+Reglas:
+
+- no editar migraciones desplegadas;
+- crear una nueva Vn;
+- probar PostgreSQL vacío y upgrade;
+- mantener JPA con `validate`.
+
+## Salud y logs
+
+```bash
+curl --fail http://localhost:8081/api/actuator/health/readiness
+docker compose logs -f backend
+```
+
+Cada respuesta expone `X-Request-ID` para correlación.
+
+## Runtime smoke
+
+`.github/workflows/runtime-smoke.yml` levanta el stack y prueba HTTP real. Complementa el build de imágenes; no lo reemplaza.
+
+## Backup
+
+```bash
+docker compose exec -T postgres pg_dump -U ropalista -d ropalista --format=custom > ropalista.dump
+```
+
+No es válido hasta restaurarlo en una base de prueba.
+
+## Actualización
+
+```powershell
+git switch main
+git pull --ff-only origin main
+.\scripts\Start-Local.ps1 -Rebuild
+.\scripts\Verify-Local.ps1
+```
+
+## Detener
+
+```bash
+docker compose down
+```
+
+Destructivo:
+
+```bash
+docker compose down -v --remove-orphans
+```
+
+## Producción requiere
+
+- perfil `prod`;
+- TLS/dominio/CORS;
+- gestor de secretos;
+- PostgreSQL persistente;
+- backups restaurables;
+- rate limiting compartido/perimetral;
+- proxy confiable;
+- almacenamiento externo de evidencias;
+- observabilidad y alertas;
+- límites de recursos;
+- CSP/HSTS;
+- escaneo de dependencias/imágenes/secretos;
+- rollback y migración controlada;
+- cuenta administrativa fuera del inicializador `dev`.
+''',
+          'docs/USER_GUIDE.md': r'''# Guía de uso funcional 0.1.2
+
+## 1. Iniciar sesión
+
+Abrir `http://localhost:8080` e ingresar el usuario/contraseña definidos en `.env` o generados por `Start-Local.ps1`.
+
+## 2. Clientes
+
+### Crear
+
+1. Clientes → Nuevo.
+2. Completar datos.
+3. Registrar preferencias.
+4. Crear domicilio principal.
+5. Guardar.
+
+### Editar perfil
+
+Editar permite cambiar datos, estado y preferencias.
+
+### Domicilios
+
+En la misma pantalla:
+
+- agregar domicilio alternativo;
+- marcar un domicilio como principal;
+- desactivar uno no principal;
+- consultar historial y vigencia.
+
+No se puede desactivar el principal ni dejar al cliente sin domicilio activo. Para reemplazar el principal, crear/seleccionar otro y marcarlo principal antes de desactivar el anterior.
+
+## 3. Crear pedido
+
+1. Pedidos → Nuevo pedido.
+2. Seleccionar cliente y domicilio activo.
+3. Elegir servicio.
+4. Agregar prendas y piezas físicas.
+5. Revisar grupos/unidades/peso estimado.
+6. Informar peso declarado, promoción, retiro, promesa y notas.
+7. Crear y cotizar.
+
+## 4. Cotización
+
+El detalle muestra:
+
+- precio automático;
+- precio vigente;
+- precio confirmado;
+- desglose;
+- límite y necesidad de presupuesto.
+
+Si `requiresQuote=true`, solo un `ADMIN` puede registrar importe manual y motivo. El sistema conserva el precio automático para comparación y auditoría.
+
+## 5. Planificación
+
+Mientras el pedido está en `INQUIRY` o `QUOTED` y el precio no fue confirmado, `ADMIN`/`OPERATOR` pueden editar retiro, promesa y notas.
+
+Después de confirmar, la edición se bloquea.
+
+## 6. Confirmar precio
+
+Al confirmar:
+
+- se vuelve histórico;
+- se revalida la promoción bajo bloqueo;
+- se registra uso promocional;
+- se audita;
+- `QUOTED` pasa a `WAITING_CONFIRMATION`.
+
+## 7. Estados
+
+El selector muestra solo transiciones legales. No usar estados como sustituto de procesos físicos inexistentes: `RECEIVED` todavía no registra peso real ni evidencias.
+
+## 8. Pagos
+
+Con precio confirmado:
+
+1. elegir medio;
+2. ingresar importe;
+3. referencia opcional;
+4. registrar.
+
+El historial muestra fecha, método, importe, referencia, estado y actor. El sistema bloquea importes no positivos y sobrepagos.
+
+## 9. Auditoría
+
+Solo `ADMIN` ve Auditoría. Puede filtrar por tipo de entidad, identificador y acción, y revisar valores anterior/nuevo.
+
+## 10. Roles
+
+- `ADMIN`: todo el circuito, cotización manual y auditoría.
+- `OPERATOR`: clientes, pedidos, planificación, estados y pagos.
+- `DRIVER`: consulta y transiciones operativas.
+- `REPORT_VIEWER`: consulta.
+
+## 11. Qué no hacer todavía
+
+- No usar `RECEIVED` como recepción completa.
+- No planificar ciclos o compatibilidad.
+- No usar Agenda/Dashboard como fuente operativa completa.
+- No usar pagos como caja formal.
+- No ejecutar `docker compose down -v` si hay datos a conservar.
+- No desplegar el perfil `dev` en producción.
+''',
+          'docs/FUNCTIONAL_SCOPE.md': r'''# Alcance funcional 0.1.2
+
+| Módulo | Estado |
+|---|---|
+| Autenticación/RBAC | Implementado base con jerarquía; administración de usuarios pendiente |
+| Clientes/preferencias | Implementado |
+| Domicilios/vigencia/historial | Implementado |
+| Zonas | Implementado inicial |
+| Catálogo/equivalencias | Implementado inicial; administración UI pendiente |
+| Precios | Automático y manual trazable implementados |
+| Promociones | Reglas soportadas y concurrencia implementadas; complejas pendientes |
+| Pedidos | Circuito administrativo implementado; recepción pendiente |
+| Estados/auditoría | Implementados y consultables |
+| Pagos | Registro e historial implementados; caja pendiente |
+| Recepción/evidencias | Pendiente |
+| Compatibilidad/ciclos | Pendiente |
+| Logística | Pendiente |
+| Costos/caja/rentabilidad | Pendiente |
+| Abonos/comercios | Pendiente |
+| Inventario/equipamiento | Pendiente |
+| Reclamos | Pendiente |
+| Dashboard/agenda | Estructura, datos completos pendientes |
+
+## Recorrido implementado
+
+Autenticación → cliente → preferencias/domicilios → pedido → cotización automática/manual → planificación → confirmación → estados → pagos → auditoría.
+
+## Regla de alcance
+
+Un estado o una tabla no equivalen a un módulo. `RECEIVED` sin peso/evidencias no completa recepción; pagos sin arqueo no completan caja; preferencias sin matriz no completan compatibilidad.
+''',
+          'docs/ROADMAP.md': r'''# Roadmap
+
+## Finalizado
+
+### 0.1.0
+
+Plataforma base, dominio inicial, seguridad, catálogo, pedidos, pagos, Docker y documentación.
+
+### 0.1.1
+
+Hardening, contratos uniformes, correlación, preferencias tipadas y flujo operativo completo desde UI.
+
+### 0.1.2
+
+Cierre administrativo:
+
+- domicilios versionados;
+- cotización manual;
+- planificación controlada;
+- historial de pagos;
+- auditoría consultable;
+- promoción concurrente segura;
+- jerarquía RBAC;
+- runtime smoke.
+
+## Próximo: 0.2.0 Recepción
+
+1. peso y conteo reales;
+2. diferencias contra declaración;
+3. edición controlada de composición;
+4. daños, manchas y observaciones;
+5. evidencias fotográficas;
+6. recalculo y aprobación;
+7. etiqueta/bolsa;
+8. historial agregado;
+9. administración comercial.
+
+## 0.3.0 Producción
+
+- compatibilidad;
+- ciclos;
+- máquinas/programas;
+- capacidad;
+- lavado/secado;
+- calidad/relavado;
+- trazabilidad física.
+
+## 0.4.0 Logística
+
+- rutas/paradas;
+- retiro/entrega;
+- kilómetros/costos;
+- agenda y comunicaciones.
+
+## 0.5.0 Finanzas
+
+- caja;
+- costos;
+- mano de obra;
+- margen;
+- inversión/escenarios.
+
+## 0.6.0 Crecimiento
+
+- abonos;
+- comercios;
+- inventario;
+- mantenimiento;
+- reclamos;
+- tableros.
+'''
+          }
+
+          for name, content in files.items():
+              path = Path(name)
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_text(content, encoding='utf-8')
+
+          Path('.github/workflows/one-shot-document-012.yml').unlink()
+
+      - name: Commit documentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "docs: consolidate release 0.1.2"
+          git pull --rebase origin agent/0.1.2-administrative
+          git push origin HEAD:agent/0.1.2-administrative
