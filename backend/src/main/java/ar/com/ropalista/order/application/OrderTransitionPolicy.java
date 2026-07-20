@@ -43,6 +43,11 @@ public class OrderTransitionPolicy {
     }
 
     public boolean canTransition(OrderStatus from, OrderStatus to) {
-        return allowed.getOrDefault(from, Set.of()).contains(to);
+        return allowedTransitions(from).contains(to);
+    }
+
+    public Set<OrderStatus> allowedTransitions(OrderStatus from) {
+        Set<OrderStatus> transitions = allowed.get(from);
+        return transitions == null ? Set.of() : Set.copyOf(transitions);
     }
 }
