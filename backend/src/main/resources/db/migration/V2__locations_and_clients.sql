@@ -44,7 +44,7 @@ CREATE TABLE addresses (
     extra VARCHAR(120),
     locality VARCHAR(120) NOT NULL,
     neighborhood VARCHAR(120),
-    references VARCHAR(500),
+    delivery_references VARCHAR(500),
     is_primary BOOLEAN NOT NULL DEFAULT FALSE,
     active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL,
