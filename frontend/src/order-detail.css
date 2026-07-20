@@ -1,0 +1,18 @@
+.detail-grid {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.operations-grid { margin-top: 1rem; }
+.metric-text { font-size: .95rem !important; overflow-wrap: anywhere; }
+.detail-list { display: grid; gap: .55rem; margin: 0; }
+.detail-list > div { display: flex; justify-content: space-between; gap: 1rem; border-bottom: 1px solid #edf0f5; padding-bottom: .45rem; }
+.detail-list dt { color: #69738a; }
+.detail-list dd { margin: 0; text-align: right; font-weight: 650; }
+.form-stack { display: grid; gap: .8rem; }
+.json-preview { max-height: 220px; overflow: auto; padding: .75rem; background: #f5f7fb; border-radius: 8px; font-size: .75rem; white-space: pre-wrap; }
+
+@media (min-width: 760px) {
+  .detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
