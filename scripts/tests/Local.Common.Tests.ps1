@@ -5,6 +5,7 @@ $ErrorActionPreference = 'Stop'
 
 $ScriptsRoot = Split-Path -Parent $PSScriptRoot
 . (Join-Path $ScriptsRoot 'Local.Common.ps1')
+. (Join-Path $ScriptsRoot 'Local.ContainerIdentity.ps1')
 
 function Assert-Equal {
     param(
@@ -72,6 +73,10 @@ try {
     Assert-Equal -Expected 2 -Actual @(ConvertFrom-ComposeJson -Json '[{"Service":"postgres"},{"Service":"backend"}]').Count -Message 'Un array JSON no conservó sus elementos.'
     $JsonLines = "{`"Service`":`"postgres`"}`n{`"Service`":`"backend`"}"
     Assert-Equal -Expected 2 -Actual @(ConvertFrom-ComposeJson -Json $JsonLines).Count -Message 'JSON por líneas no fue aceptado.'
+
+    Write-Host 'Probando normalización de IDs Docker...'
+    Assert-Equal -Expected '0123456789ab' -Actual (ConvertTo-DockerDisplayContainerId -ContainerId '0123456789abcdef0123456789abcdef') -Message 'No normalizó un ID completo al formato de docker ps.'
+    Assert-Equal -Expected '0123456789ab' -Actual (ConvertTo-DockerDisplayContainerId -ContainerId '0123456789ab') -Message 'Alteró un ID ya abreviado.'
 
     Write-Host 'Probando validación de puertos...'
     Assert-Equal -Expected 8080 -Actual (Get-ValidatedPort -Name 'TEST_PORT' -Value '8080') -Message 'Un puerto válido fue rechazado.'
