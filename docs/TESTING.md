@@ -2,7 +2,7 @@
 
 Última actualización: 2026-07-20.
 
-Versión: `0.2.0`.
+Versión: `0.3.0`.
 
 ## Gate de pull request
 
@@ -13,17 +13,54 @@ cd backend
 mvn clean verify
 ```
 
-Ejecuta Java 21, JUnit/Mockito, MockMvc, Testcontainers PostgreSQL 16, Flyway V1–V7 y validación Hibernate/JPA.
+El gate usa Java 21, PostgreSQL 16 mediante Testcontainers, Flyway V1-V8 y validación JPA.
+
+Resultado verificado para 0.3.0:
+
+- **24 pruebas unitarias**;
+- **18 pruebas de integración**;
+- **42 casos backend totales**;
+- 0 fallos en el gate aceptado.
+
+Clases unitarias principales:
+
+- `PricingServiceTest`;
+- `GarmentEquivalenceCalculatorTest`;
+- `OrderTransitionPolicyTest`;
+- `OrderLimitPolicyTest`;
+- `LoginAttemptServiceTest`;
+- `ReceptionDifferencePolicyTest`;
+- `CompatibilityEngineTest`;
+- `CompatibilityServiceTest`.
+
+Clases de integración principales:
+
+- `ApplicationContextIT`;
+- `ApiContractIT`;
+- `OperationalFlowIT`;
+- `AdministrativeFlowIT`;
+- `AdministrativeAuthorizationIT`;
+- `ConcurrentPaymentIT`;
+- `ReceptionFlowIT`;
+- `CompatibilityFlowIT`.
 
 ### Frontend
 
 ```bash
 cd frontend
-npm ci
+npm ci --no-audit --no-fund
 npm run lint
 npm test
 npm run build
 ```
+
+El gate comprueba:
+
+- TypeScript estricto;
+- pruebas Vitest;
+- build Vite;
+- importación de rutas/páginas nuevas;
+- contrato de modelos de recepción y compatibilidad.
 
 ### Contenedores
 
@@ -32,147 +69,92 @@ docker compose config --quiet
 docker compose build
 ```
 
-### Runtime
+Valida el modelo Compose y construye backend/frontend.
 
-`runtime-smoke.yml` inicia stack, espera readiness, carga SPA, inicia sesión y consulta una API protegida.
+### Runtime smoke
 
-## Suite backend
+El workflow permanente levanta el stack completo y verifica:
 
-### Unitarias existentes
+1. PostgreSQL saludable;
+2. backend listo;
+3. Flyway aplicado;
+4. SPA accesible;
+5. login con credenciales del entorno;
+6. consulta autenticada de catálogo.
 
-- precios y promociones;
-- equivalencias;
-- límites;
-- transiciones;
-- intentos de login.
+## Cobertura funcional de compatibilidad
 
-### `ReceptionDifferencePolicyTest`
+### Motor
 
-Comprueba:
+- carga compatible sin razones duras;
+- exclusividad bloqueante;
+- color desconocido/distinto;
+- materiales compatibles e incompatibles;
+- aislamiento hipoalergénico;
+- cruce bebé/mascotas;
+- suciedad pesada contra carga sensible;
+- fragancia incompatible;
+- reducción de temperatura;
+- deshabilitación de secadora y suavizante.
 
-- variación pequeña sin aprobación;
-- umbral absoluto/relativo de peso;
-- diferencia de piezas;
-- daño detectado.
+### Servicio
 
-### Integración administrativa
+- restricciones del cliente no relajables;
+- exclusividad del pedido no relajable;
+- fragancia `NONE` para perfil hipoalergénico;
+- persistencia del perfil efectivo.
 
-- contratos 401/403/400;
-- clientes y domicilios;
-- pedidos, precio y estados;
-- promociones concurrentes;
-- pagos concurrentes;
-- auditoría.
+### Integración
 
-### `ReceptionFlowIT`
+- flujo pedido → recepción → `CLASSIFIED` → perfil;
+- evaluación compatible/incompatible;
+- reuso del snapshot con mismas versiones;
+- creación de evaluación nueva al cambiar perfil;
+- autorización de excepción por `ADMIN`;
+- rechazo de excepción para roles inferiores;
+- precondiciones de estado y perfil.
 
-Casos:
+## Concurrencia
 
-1. recepción normal clasifica el pedido;
-2. retry secuencial con la misma clave devuelve el mismo ID;
-3. otra clave sobre el mismo pedido responde conflicto;
-4. diferencia material queda pendiente;
-5. aprobación mueve a `CLASSIFIED`;
-6. evidencia metadata se conserva;
-7. dos solicitudes concurrentes con la misma clave reciben 200 y el mismo ID;
-8. `DRIVER` no registra recepción;
-9. `DRIVER` sí consulta recepción.
+Ya cubierto:
 
-## Riesgos cubiertos
+- consumo concurrente de promoción;
+- pagos concurrentes sin sobrecobro;
+- recepción concurrente con misma clave idempotente.
 
-### Idempotencia
+La implementación de compatibilidad añade bloqueo ordenado de ambos pedidos y constraint único del snapshot. Debe mantenerse una prueba concurrente explícita al ampliar el módulo o antes de crear ciclos.
 
-No se prueba solo la repetición secuencial. También se lanzan dos requests simultáneos contra el mismo pedido y clave.
+## Contratos de seguridad
 
-### Estado
+Se prueban:
 
-La prueba crea un pedido real, confirma precio y atraviesa:
+- 401 sin autenticación;
+- 403 por rol insuficiente;
+- cotización manual `ADMIN`;
+- auditoría `ADMIN`;
+- recepción permitida a `DRIVER`;
+- decisión de recepción no permitida a `DRIVER`;
+- excepción de compatibilidad exclusiva de `ADMIN`.
 
-```text
-WAITING_CONFIRMATION → RESERVED → PICKUP_SCHEDULED → PICKED_UP
-```
+## Diagnóstico de fallos
 
-La recepción valida las transiciones automáticas posteriores.
+Los workflows de diagnóstico son temporales. Se crean solo para aislar una falla y deben eliminarse antes del merge.
 
-### Persistencia
+El gate válido es el de workflows permanentes:
 
-Testcontainers valida:
+- `CI`;
+- `Runtime smoke`.
 
-- V7;
-- constraints de una recepción por pedido;
-- constraints de claves/etiquetas;
-- mapeos de tres nuevas entidades;
-- auditoría JPA.
+No se considera estable un PR por el solo hecho de que un diagnóstico pase.
 
-### Autorización
+## Casos aún faltantes
 
-Los payloads son válidos para que las pruebas midan realmente 403 y no fallen antes por 400.
-
-## Frontend
-
-- TypeScript estricto;
-- build de la pantalla de recepción;
-- tipos de recepción/decisión;
-- envío de cabecera `Idempotency-Key`;
-- renderizado de diferencias y evidencias.
-
-El cálculo decisivo de aprobación permanece en backend; React solo presenta el resultado.
-
-## Verificación local
-
-```powershell
-.\scripts\Start-Local.ps1 -Rebuild
-.\scripts\Verify-Local.ps1
-```
-
-Requiere siete migraciones o más y comprueba autenticación/API protegida.
-
-## Pendiente de pruebas futuras
-
-### Evidencias binarias
-
-- carga incompleta;
-- hash incorrecto;
-- MIME falso;
-- archivo demasiado grande;
-- malware;
-- permisos de lectura;
-- borrado/retención.
-
-### Compatibilidad
-
-- matrices;
-- explicación;
-- excepciones;
-- combinaciones críticas.
-
-### Producción
-
-- capacidad de ciclo;
-- carreras de asignación;
-- fallas de máquina;
-- relavado.
-
-### Logística
-
-- solapamiento;
-- rutas;
-- retiro/entrega idempotentes.
-
-### Pagos externos
-
-- webhooks duplicados;
-- conciliación;
-- reembolsos.
-
-## Criterio de release
-
-No se fusiona cuando:
-
-- falla un job;
-- queda diagnóstico temporal;
-- V7 no aplica en PostgreSQL real;
-- frontend no compila;
-- runtime no inicia/autentica;
-- documentación afirma carga de archivos inexistente;
-- idempotencia concurrente no está probada.
+- evaluación concurrente duplicada explícita;
+- property-based testing de combinaciones del motor;
+- pruebas E2E de navegador;
+- accesibilidad automatizada;
+- pruebas de carga;
+- restauración desde backup;
+- seguridad dinámica;
+- ciclos/máquinas y capacidad;
+- logística y costos.
