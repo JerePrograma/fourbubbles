@@ -1,6 +1,6 @@
 # Puesta en marcha en Windows con PowerShell
 
-Versión: `0.3.0`.
+Última actualización: 2026-07-21.
 
 ## 1. Requisitos
 
@@ -16,19 +16,18 @@ docker info
 $PSVersionTable.PSVersion
 ```
 
-Docker Desktop debe estar iniciado antes de continuar.
+## 2. Clonar o actualizar
 
-## 2. Clonar
+Clonar:
 
 ```powershell
 Set-Location "$HOME\Documents"
 git clone https://github.com/JerePrograma/fourbubbles.git
 Set-Location '.\fourbubbles'
 git switch main
-git pull --ff-only origin main
 ```
 
-## 3. Actualizar un clon existente
+Actualizar un clon existente:
 
 ```powershell
 Set-Location 'RUTA\A\fourbubbles'
@@ -39,13 +38,35 @@ git pull --ff-only origin main
 
 No uses `reset --hard` si existen cambios locales que necesitás conservar.
 
-## 4. Habilitar scripts en la terminal actual
+## 3. Habilitar scripts
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
 ```
 
 La configuración se pierde al cerrar la terminal.
+
+## 4. Configurar puertos
+
+La primera ejecución crea `.env`. También podés copiar `.env.example` y editar solo los puertos antes de iniciar:
+
+```dotenv
+POSTGRES_HOST_PORT=5432
+BACKEND_HOST_PORT=8081
+FRONTEND_HOST_PORT=8080
+```
+
+Los tres valores deben ser enteros entre 1 y 65535 y deben ser distintos.
+
+Cuando `5432`, `8080` o `8081` ya estén usados, elegí otros puertos, por ejemplo:
+
+```dotenv
+POSTGRES_HOST_PORT=15432
+BACKEND_HOST_PORT=18081
+FRONTEND_HOST_PORT=18080
+```
+
+No cambies `DB_HOST=postgres`, `DB_PORT=5432` ni la resolución `backend:8080`: son direcciones internas de la red Compose.
 
 ## 5. Construir e iniciar
 
@@ -55,106 +76,117 @@ La configuración se pierde al cerrar la terminal.
 
 En la primera ejecución el script:
 
-- crea `.env`;
-- genera contraseña PostgreSQL;
-- genera secreto JWT;
-- genera contraseña de administrador;
-- construye imágenes;
-- inicia PostgreSQL, backend y frontend;
-- espera readiness.
+1. crea `.env` desde `.env.example`;
+2. genera contraseña PostgreSQL, secreto JWT y contraseña administrativa;
+3. valida `.env` y Compose;
+4. detecta conflictos de puertos antes de construir;
+5. muestra contenedor, imagen, ID, PID y proceso cuando existe un conflicto;
+6. inicia el stack;
+7. espera health real de PostgreSQL, backend y frontend;
+8. abre la aplicación.
 
-Guardá las credenciales mostradas. `.env` no debe subirse al repositorio.
+Para no abrir el navegador:
 
-## 6. Verificar
+```powershell
+.\scripts\Start-Local.ps1 -Rebuild -SkipOpen
+```
+
+Ejecuciones posteriores conservan secretos y valores existentes. Solo se agregan variables faltantes.
+
+## 6. Detección de conflictos
+
+El script distingue:
+
+- contenedores del mismo proyecto, permitiendo reinicios idempotentes;
+- contenedores ajenos, mostrando nombre, imagen, ID y publicación;
+- procesos Windows, mostrando PID, nombre y ruta cuando está disponible.
+
+No detiene automáticamente recursos ajenos. La salida indica dos opciones seguras:
+
+1. cambiar `POSTGRES_HOST_PORT`, `BACKEND_HOST_PORT` o `FRONTEND_HOST_PORT` en `.env`;
+2. detener manualmente el proceso o proyecto identificado.
+
+Comprobación manual adicional:
+
+```powershell
+Get-NetTCPConnection -State Listen -LocalPort 5432,8080,8081 -ErrorAction SilentlyContinue |
+    Select-Object LocalAddress,LocalPort,OwningProcess
+
+docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Ports}}'
+```
+
+## 7. Verificar
 
 ```powershell
 .\scripts\Verify-Local.ps1
 ```
 
-Para 0.3.0 se espera:
+La verificación exige:
 
-```text
-Verificación local exitosa.
-Salud: UP
-Migraciones exitosas: 8
-Frontend, autenticación y API protegida: OK
-```
+- un contenedor para cada servicio esperado;
+- `running` y `healthy` en PostgreSQL, backend y frontend;
+- readiness `UP`;
+- ocho migraciones Flyway exitosas o más;
+- SPA servida por Nginx;
+- proxy `/api` operativo;
+- rechazo 401/403 sin token;
+- login administrativo;
+- catálogo protegido con al menos un servicio.
 
-El script admite más de ocho migraciones para versiones futuras.
+Los puertos se obtienen con `docker compose port`; no se asumen valores fijos.
 
-## 7. Abrir
+## 8. URLs
 
-```powershell
-Start-Process 'http://localhost:8080'
-Start-Process 'http://localhost:8081/api/swagger-ui.html'
-```
+`Start-Local.ps1` imprime las URLs efectivas. Con los valores predeterminados:
 
 | Componente | Dirección |
 |---|---|
 | Aplicación | `http://localhost:8080` |
 | API | `http://localhost:8081/api` |
 | Swagger | `http://localhost:8081/api/swagger-ui.html` |
-| Health | `http://localhost:8081/api/actuator/health` |
+| Readiness | `http://localhost:8081/api/actuator/health/readiness` |
+| PostgreSQL | `localhost:5432` |
 
-## 8. Comprobar contenedores
+## 9. Reiniciar
 
-```powershell
-docker compose ps
-```
-
-Deben aparecer `postgres`, `backend` y `frontend` saludables o iniciados.
-
-## 9. Logs
+Reconciliar la configuración existente:
 
 ```powershell
-docker compose logs --tail 300 postgres
-docker compose logs --tail 300 backend
-docker compose logs --tail 300 frontend
-```
-
-Seguimiento:
-
-```powershell
-docker compose logs -f backend
-```
-
-Salir con `Ctrl+C` no detiene los servicios.
-
-## 10. Detener y reiniciar
-
-Detener conservando datos:
-
-```powershell
-docker compose down
-```
-
-Reiniciar:
-
-```powershell
-docker compose up -d
+.\scripts\Start-Local.ps1
 .\scripts\Verify-Local.ps1
 ```
 
-## 11. Actualizar aplicación
+Reconstruir después de actualizar código:
 
 ```powershell
-git switch main
 git pull --ff-only origin main
 .\scripts\Start-Local.ps1 -Rebuild
 .\scripts\Verify-Local.ps1
 ```
 
-Flyway aplica las migraciones pendientes automáticamente.
+## 10. Detener y limpiar
 
-## 12. Eliminar todo el entorno local
+Detener preservando datos:
+
+```powershell
+docker compose down --remove-orphans
+```
+
+Eliminar también todos los datos locales:
 
 ```powershell
 docker compose down -v --remove-orphans
 ```
 
-Esto elimina toda la base local: usuarios, clientes, pedidos, recepciones, perfiles, evaluaciones, pagos y auditoría.
+Recrear todo desde el script:
 
-Para regenerar también credenciales:
+```powershell
+.\scripts\Start-Local.ps1 -Reset -Rebuild
+```
+
+`-Reset` es destructivo: elimina usuarios, clientes, pedidos, recepciones, perfiles, evaluaciones, pagos y auditoría locales.
+
+Para regenerar además todas las credenciales:
 
 ```powershell
 docker compose down -v --remove-orphans
@@ -162,59 +194,47 @@ Remove-Item -LiteralPath '.env' -Force
 .\scripts\Start-Local.ps1 -Rebuild
 ```
 
-## 13. Validación manual de compatibilidad
+## 11. Recuperación ante inicio parcial
 
-Se necesitan dos pedidos `CLASSIFIED` con recepción.
+Cuando `docker compose up` o una validación posterior falla, `Start-Local.ps1`:
 
-1. Abrir **Pedidos**.
-2. Entrar en **Compatibilidad** del primer pedido.
-3. Guardar su perfil.
-4. Repetir para el segundo pedido.
-5. Volver al primero.
-6. Seleccionar el segundo como candidato.
-7. Ejecutar **Evaluar compatibilidad**.
-8. Revisar razones y recomendación.
-9. Como `ADMIN`, probar una excepción solo si el resultado original es incompatible.
+1. imprime `docker compose ps --all`;
+2. imprime logs recientes de PostgreSQL, backend y frontend;
+3. ejecuta `docker compose down --remove-orphans`;
+4. conserva el volumen PostgreSQL;
+5. termina con error y nunca imprime éxito.
 
-## 14. Problemas frecuentes
-
-### Docker no disponible
+Para reintentar:
 
 ```powershell
-docker info
+.\scripts\Start-Local.ps1 -Rebuild -SkipOpen
 ```
 
-Iniciar Docker Desktop y confirmar modo Linux.
-
-### Puerto ocupado
+Si el volumen quedó incompatible con credenciales cambiadas, la salida correcta es recrearlo conscientemente:
 
 ```powershell
-Get-NetTCPConnection -LocalPort 8080,8081 -ErrorAction SilentlyContinue
+.\scripts\Start-Local.ps1 -Reset -Rebuild
 ```
 
-Detener el proceso conflictivo o ajustar la configuración local.
-
-### Contraseña administrativa no funciona
-
-Si cambiaste `.env` después de crear el volumen, el usuario existente conserva la contraseña anterior. Restaurá la anterior o recreá el volumen.
-
-### Menos de ocho migraciones
+## 12. Logs
 
 ```powershell
-docker compose logs --tail 500 backend
+docker compose logs --tail 300 postgres
+docker compose logs --tail 300 backend
+docker compose logs --tail 300 frontend
+docker compose logs -f backend
 ```
 
-No edites una migración aplicada. Corregí mediante una migración nueva.
+Salir con `Ctrl+C` no detiene los servicios.
 
-### Pantalla de compatibilidad rechazada
+## 13. Convivencia con otros proyectos Docker
 
-Confirmá:
+- `COMPOSE_PROJECT_NAME=fourbubbles` separa nombres, red y volumen.
+- Los puertos se publican solo en `127.0.0.1`.
+- Cambiar puertos host no altera la red interna.
+- `down` afecta únicamente este proyecto Compose.
+- El script nunca ejecuta `docker stop`, `docker rm` ni `Stop-Process` contra recursos ajenos.
 
-- pedido en `CLASSIFIED`;
-- recepción existente;
-- usuario `ADMIN` u `OPERATOR` para guardar/evaluar;
-- ambos pedidos con perfil.
-
-## 15. Alcance local
+## 14. Alcance
 
 Este procedimiento es para desarrollo y evaluación funcional. No constituye un despliegue productivo.
