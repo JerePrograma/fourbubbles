@@ -1,152 +1,124 @@
 # Seguridad
 
-Versión: `0.2.0`.
+Versión: `0.3.0`.
 
 ## Credenciales y sesiones
 
 - BCrypt costo 12.
 - JWT HS256 de corta duración.
-- HMAC mínima de 256 bits.
-- refresh opaco, aleatorio, hasheado, rotativo y revocable.
+- clave HMAC mínima de 256 bits.
+- refresh token opaco, aleatorio, hasheado, rotativo y revocable.
 - cookie `HttpOnly`, `SameSite=Strict`, `Secure` en producción.
 - access token solo en memoria del frontend.
+- bloqueo local ante intentos repetidos de login.
 
 ## Roles
+
+Jerarquía:
 
 ```text
 ADMIN > OPERATOR > DRIVER > REPORT_VIEWER
 ```
 
-| Operación | ADMIN | OPERATOR | DRIVER | REPORT_VIEWER |
-|---|---:|---:|---:|---:|
-| consultar pedidos/recepción | sí | sí | sí | sí |
-| registrar recepción | sí | sí | no | no |
-| decidir diferencias | sí | sí | no | no |
-| cotización manual | sí | no | no | no |
-| cambiar estado | sí | sí | sí | no |
-| registrar pago | sí | sí | no | no |
-| consultar auditoría | sí | no | no | no |
+| Operación sensible | Rol mínimo |
+|---|---|
+| cotización manual | ADMIN |
+| consulta de auditoría | ADMIN |
+| excepción de compatibilidad | ADMIN |
+| decidir diferencias de recepción | OPERATOR |
+| guardar perfil/evaluar compatibilidad | OPERATOR |
+| registrar recepción | DRIVER |
+| consultar perfiles/evaluaciones | REPORT_VIEWER |
 
-La UI no es una barrera de seguridad. Los endpoints están protegidos con `@PreAuthorize`.
+La jerarquía no sustituye las precondiciones de dominio. Un `ADMIN` tampoco puede crear un perfil fuera de `CLASSIFIED` ni exceptuar una evaluación originalmente compatible.
 
-## Contratos y observabilidad
+## Datos y validación
 
-- 401/403 JSON uniformes.
-- Bean Validation y parámetros inválidos seguros.
-- stacktraces no expuestos.
-- `X-Request-ID` validado/generado.
-- MDC y logs correlacionados.
-- secretos fuera de Git.
-- administrador automático solo en `dev`.
+- Bean Validation en DTO.
+- errores uniformes sin stack trace al cliente.
+- valores rechazados de contraseña/token no se reflejan.
+- JSON de preferencias normalizado al persistir.
+- restricciones del cliente y pedido se aplican en backend.
+- el frontend no es autoridad para permisos ni compatibilidad.
 
-## Protección de login
+### Restricciones efectivas de compatibilidad
 
-- intentos por usuario/origen;
-- ventana configurable;
-- bloqueo temporal;
-- limpieza al autenticar.
+El formulario puede solicitar un tratamiento, pero el backend conserva las restricciones más estrictas:
 
-Es local a la instancia; producción distribuida requiere almacenamiento compartido o control perimetral.
+- `dryerAllowed=false` del cliente prevalece;
+- `softenerAllowed=false` del cliente prevalece;
+- `hypoallergenic=true` prevalece y fuerza fragancia `NONE`;
+- `exclusiveCycle=true` del pedido o cliente prevalece.
 
-## Integridad transaccional
+Esto evita que una edición accidental convierta una carga restringida en una carga estándar.
 
-### Promoción
+## Concurrencia e idempotencia
 
-Bloqueo pesimista y revalidación al confirmar.
+- promociones bloqueadas al confirmar;
+- pedido bloqueado al registrar pagos;
+- pedido bloqueado al registrar recepción;
+- recepción única por pedido y clave idempotente;
+- perfil creado/actualizado bajo bloqueo del pedido;
+- evaluación bloquea ambos pedidos en orden UUID;
+- excepción bloquea la evaluación.
 
-### Pago
+El orden UUID evita interbloqueos entre dos evaluaciones que consultan el mismo par en orden inverso.
 
-Bloqueo pesimista del pedido antes de calcular saldo y persistir.
+## Compatibilidad y excepciones
 
-### Domicilio principal
+El resultado original se conserva en `compatible`. Una excepción:
 
-Flush intermedio para respetar el índice único parcial.
+- requiere `ADMIN`;
+- requiere motivo concreto;
+- registra actor y fecha;
+- no puede duplicarse;
+- no cambia las razones ni la recomendación originales;
+- solo cambia `effectivelyCompatible`.
 
-### Recepción
+La excepción es una decisión operativa excepcional, no una modificación encubierta de reglas.
 
-La recepción usa defensa en profundidad:
+## Auditoría
 
-1. valida formato de `Idempotency-Key`;
-2. consulta uso previo de la clave;
-3. bloquea el pedido con `PESSIMISTIC_WRITE`;
-4. vuelve a comprobar pedido y clave;
-5. valida estado y payload;
-6. persiste recepción, snapshot real, estados y auditoría en una transacción;
-7. constraints únicos respaldan la garantía.
+Se auditan, entre otros:
 
-Comportamiento:
+- cliente y domicilio;
+- pedido, precio y estado;
+- pago;
+- recepción y decisión;
+- perfil de tratamiento;
+- evaluación de compatibilidad;
+- excepción administrativa.
 
-- misma clave/mismo pedido: respuesta existente;
-- misma clave/otro pedido: 409;
-- otra clave/pedido recibido: 409;
-- carrera con misma clave: un agregado, dos respuestas equivalentes.
+Los eventos incluyen tipo de entidad, identificador, acción, actor, cambios relevantes, motivo y fecha.
 
-### Decisión
+## Correlación y logs
 
-Solo se acepta cuando:
+- `X-Request-ID` se acepta o genera.
+- el identificador se propaga mediante MDC.
+- producción usa logs JSON.
+- errores inesperados se registran en servidor con stack trace.
+- el cliente recibe un mensaje seguro.
 
-- pedido en `WAITING_PRICE_APPROVAL`;
-- recepción en `PENDING`;
-- decisión `APPROVED` o `REJECTED`;
-- actor autenticado disponible.
+## Riesgos abiertos
 
-La decisión, transición y auditoría son atómicas.
+1. Rate limiting local, no distribuido.
+2. Sin MFA.
+3. Sin administración completa de usuarios/roles.
+4. Sin WAF ni reverse proxy productivo definido.
+5. Sin política formal de retención/borrado de evidencias.
+6. Evidencias solo metadata; la seguridad del objeto externo depende del proveedor futuro.
+7. Sin secretos administrados ni rotación automatizada.
+8. Sin backups/restore automatizados.
+9. Sin idempotencia de webhooks de pago externos.
+10. Las reglas `COMPAT-1` están en código; cambios requieren release y nueva versión de reglas.
 
-## Evidencias
+## Requisitos antes de producción
 
-La aplicación no acepta binarios en 0.2.0. Solo registra metadata validada:
-
-- clave de objeto;
-- nombre y MIME;
-- tamaño positivo;
-- SHA-256 hexadecimal de 64 caracteres;
-- descripción.
-
-Riesgos todavía abiertos:
-
-- no verifica que el objeto exista;
-- no valida contenido real contra MIME/hash;
-- no controla acceso al object storage;
-- no hay URL firmada ni antivirus.
-
-Un despliegue productivo deberá agregar un flujo de carga seguro y asociar metadata únicamente después de confirmar el objeto.
-
-## Datos personales
-
-Recepción puede contener observaciones y fotografías sensibles. Debe definirse:
-
-- finalidad;
-- consentimiento/base legal;
-- acceso por rol;
-- retención;
-- borrado/anonimización cuando corresponda;
-- auditoría de acceso;
-- cifrado en tránsito y reposo.
-
-## Riesgos pendientes
-
-1. limitador de login local;
-2. proxy/IP de confianza no configurado automáticamente;
-3. sin MFA;
-4. sin administración UI de usuarios;
-5. sin idempotencia de pagos externos/webhooks;
-6. sin object storage integrado;
-7. sin antivirus ni validación binaria;
-8. sin gestión central de secretos;
-9. sin SAST/escaneo de imágenes obligatorio;
-10. sin política formal de retención.
-
-## Antes de producción
-
-- perfil `prod`;
-- TLS;
-- secretos gestionados;
-- CORS restringido;
-- PostgreSQL persistente y backups restaurables;
-- rate limiting compartido;
-- object storage privado;
-- URLs firmadas;
-- escaneo de archivos;
-- observabilidad/alertas;
-- rollback;
-- política de datos personales/evidencias.
+- TLS extremo a extremo.
+- secretos administrados.
+- cookies y CORS revisados para el dominio final.
+- backups cifrados y restauración ensayada.
+- object storage privado con URLs temporales.
+- rate limit distribuido.
+- monitoreo, alertas y retención de auditoría.
+- política de privacidad y tratamiento de imágenes/datos personales.
