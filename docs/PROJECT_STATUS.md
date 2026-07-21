@@ -1,8 +1,8 @@
 # Estado integral del proyecto
 
-Última actualización: 2026-07-20.
+Última actualización: 2026-07-21.
 
-Versión documentada: `0.3.0`.
+Versión funcional documentada: `0.3.0`.
 
 ## Resumen ejecutivo
 
@@ -12,7 +12,7 @@ Four Bubbles / Ropa Lista dispone de tres verticales utilizables:
 2. recepción física idempotente con composición/peso reales, inspección, diferencias y decisión;
 3. compatibilidad explicable entre pedidos clasificados mediante perfiles versionados y reglas auditables.
 
-Compatibilidad ya no es un booleano libre. Cada evaluación conserva el par ordenado, las versiones de ambos perfiles, la versión del motor, razones y recomendación. Una excepción administrativa no reescribe el resultado original.
+La puesta en marcha local quedó endurecida contra conflictos de puertos, salidas JSON variables de Compose, arranques parciales y resolución transitoria del backend desde Nginx.
 
 El sistema todavía no crea ciclos, asigna máquinas, ejecuta lavado/secado, arma rutas ni calcula caja/costos. Los estados posteriores a `CLASSIFIED` siguen siendo administrativos hasta que existan esos agregados físicos.
 
@@ -21,7 +21,7 @@ El sistema todavía no crea ciclos, asigna máquinas, ejecuta lavado/secado, arm
 | Fase | Estado | Entregado | Pendiente principal |
 |---|---|---|---|
 | Diagnóstico | Finalizado | arquitectura, riesgos, supuestos y roadmap | actualización continua |
-| Plataforma | Finalizado para desarrollo | seguridad, PostgreSQL, Flyway, React, Docker, CI y smoke | endurecimiento productivo |
+| Plataforma | Finalizado para desarrollo | seguridad, PostgreSQL, Flyway, React, Docker, CI, smoke y scripts locales resistentes | endurecimiento productivo |
 | Administración | Finalizado base | clientes, domicilios, catálogo, pedidos, precios, promociones, pagos y auditoría | timeline y CRUD comercial completo |
 | Recepción 0.2.0 | Finalizado base | idempotencia, peso/conteo real, inspección, diferencias, aprobación y evidencia metadata | binarios y correcciones versionadas |
 | Compatibilidad 0.3.0 | Finalizado base | perfiles, motor explicable, recomendaciones, historial y excepción | matriz configurable y comparación múltiple |
@@ -30,9 +30,7 @@ El sistema todavía no crea ciclos, asigna máquinas, ejecuta lavado/secado, arm
 | Finanzas | Parcial mínimo | cobros e historial | caja, costos, margen y conciliación |
 | Crecimiento | Pendiente | catálogo/promociones base | abonos, inventario, mantenimiento y reclamos |
 
-## Finalizado
-
-### Plataforma
+## Plataforma finalizada
 
 - [x] Java 21, Spring Boot 3, Maven.
 - [x] React 18, TypeScript, Vite y Vitest.
@@ -40,11 +38,33 @@ El sistema todavía no crea ciclos, asigna máquinas, ejecuta lavado/secado, arm
 - [x] Flyway V1-V8 y `ddl-auto=validate`.
 - [x] monolito modular, API uniforme, Bean Validation y OpenAPI.
 - [x] Actuator, Dockerfiles, Compose y Nginx.
-- [x] CI backend/frontend/contenedores.
-- [x] runtime smoke con SPA, login y API protegida.
+- [x] CI backend/frontend/PowerShell/contenedores.
+- [x] runtime smoke con SPA, login, API protegida y Flyway.
 - [x] verificación PowerShell autenticada.
 
-### Seguridad y consistencia
+## Hardening local completado — 2026-07-21
+
+- [x] puertos host configurables mediante `.env`;
+- [x] puertos internos estables y separados de los publicados;
+- [x] publicación limitada a `127.0.0.1`;
+- [x] `COMPOSE_PROJECT_NAME` explícito;
+- [x] detección previa de contenedores y procesos que ocupan puertos;
+- [x] información accionable con nombre, imagen, ID, PID y proceso;
+- [x] protección contra detener proyectos ajenos;
+- [x] creación/completado idempotente de `.env` sin reemplazar secretos;
+- [x] validación de placeholders, JWT Base64 y rango/unicidad de puertos;
+- [x] limpieza de inicio parcial preservando datos;
+- [x] healthchecks de PostgreSQL, backend y frontend;
+- [x] reinicio acotado `on-failure:3`;
+- [x] Nginx con resolución DNS diferida de `backend`;
+- [x] parsing robusto de Compose para cero, uno, array o JSON por líneas;
+- [x] resolución de puertos efectivos mediante `docker compose port`;
+- [x] verificación de rechazo anónimo, login y API protegida por el proxy;
+- [x] pruebas PowerShell sin dependencias adicionales;
+- [x] smoke con frontend iniciado antes del backend;
+- [x] documentación de inicio, detención, reinicio, preservación y destrucción de datos.
+
+## Seguridad y consistencia finalizada
 
 - [x] JWT HS256, refresh opaco hasheado/rotativo y BCrypt.
 - [x] cookie segura y access token solo en memoria.
@@ -55,7 +75,7 @@ El sistema todavía no crea ciclos, asigna máquinas, ejecuta lavado/secado, arm
 - [x] idempotencia de recepción.
 - [x] excepción de compatibilidad exclusiva de `ADMIN`.
 
-### Administración
+## Administración finalizada base
 
 - [x] clientes, estado, preferencias y WhatsApp único activo.
 - [x] múltiples domicilios, principal único, vigencia, baja e historial.
@@ -67,7 +87,7 @@ El sistema todavía no crea ciclos, asigna máquinas, ejecuta lavado/secado, arm
 - [x] pagos parciales/totales, saldo e historial sin sobrecobro concurrente.
 - [x] auditoría consultable.
 
-### Recepción
+## Recepción finalizada base
 
 - [x] una recepción por pedido y clave idempotente global.
 - [x] recepción solo desde `PICKED_UP` y fecha no futura.
@@ -80,7 +100,7 @@ El sistema todavía no crea ciclos, asigna máquinas, ejecuta lavado/secado, arm
 - [x] clasificación automática sin diferencias y cancelación por rechazo.
 - [x] UI y pruebas de idempotencia secuencial/concurrente.
 
-### Compatibilidad
+## Compatibilidad finalizada base
 
 - [x] perfil único por pedido y recepción.
 - [x] color, material, temperatura, secadora, fragancia y suavizante.
@@ -141,28 +161,6 @@ El sistema todavía no crea ciclos, asigna máquinas, ejecuta lavado/secado, arm
 - mantenimiento, reclamos, compensaciones y políticas;
 - tableros y alertas.
 
-## Criterios MVP
-
-| # | Criterio | Estado 0.3.0 |
-|---:|---|---|
-| 1-5 | cliente, preferencias, pedido, piezas y equivalencias | Cumple |
-| 6-11 | peso real, límites, precio, promoción y confirmación | Cumple |
-| 12 | programar retiro | Parcial, sin ruta |
-| 13 | recibir pedido | Cumple |
-| 14 | evaluar compatibilidad | Cumple por pares |
-| 15 | asignar dos pedidos a ciclo | Pendiente |
-| 16 | impedir sobrepeso de ciclo | Pendiente |
-| 17 | registrar lavado y secado | Pendiente |
-| 18-19 | estados trazables y pago | Cumple |
-| 20 | programar entrega | Parcial, sin ruta |
-| 21 | entregar y cerrar | Cumple administrativamente |
-| 22 | costo y margen | Pendiente |
-| 23 | agenda diaria | Pendiente real |
-| 24 | tablero básico | Parcial |
-| 25 | historial del cliente | Parcial |
-
-Resultado: **16 cumplen, 4 son parciales y 5 están pendientes**.
-
 ## Riesgos abiertos
 
 1. Evidencias solo metadata; el objeto debe existir externamente.
@@ -175,6 +173,7 @@ Resultado: **16 cumplen, 4 son parciales y 5 están pendientes**.
 8. Backups, restauración y rollback no automatizados.
 9. Compose usa `dev` y falta observabilidad central.
 10. Los estados de producción aún no equivalen a ejecución física.
+11. Las pruebas E2E siguen siendo HTTP/API; no hay navegador automatizado.
 
 ## Próximo orden recomendado
 
