@@ -76,9 +76,20 @@ jobs:
           tail -n 120 /tmp/frontend-build.log
           exit "$code"
 
+  powershell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test local environment helpers
+        shell: pwsh
+        run: ./scripts/tests/Local.Common.Tests.ps1
+
   containers:
     runs-on: ubuntu-latest
     env:
+      POSTGRES_HOST_PORT: '15432'
+      BACKEND_HOST_PORT: '18081'
+      FRONTEND_HOST_PORT: '18080'
       POSTGRES_PASSWORD: ci-postgres-password
       APP_DEV_ADMIN_PASSWORD: ci-admin-password
       JWT_SECRET_BASE64: VGVzdC1zZWNyZXQtd2l0aC1hdC1sZWFzdC0zMi1ieXRlcy1mb3ItY2k=
