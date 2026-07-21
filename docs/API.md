@@ -1,6 +1,6 @@
 # Contrato API
 
-Versión documentada: `0.2.0`.
+Versión documentada: `0.3.0`.
 
 La API se sirve bajo `/api`. Swagger local: `/api/swagger-ui.html`.
 
@@ -20,206 +20,208 @@ Error:
   "code": "BUSINESS_CODE",
   "message": "Descripción segura",
   "status": 422,
-  "path": "/api/resource",
+  "path": "/api/...",
   "timestamp": "2026-07-20T20:00:00-03:00",
   "violations": []
 }
 ```
 
-Cada respuesta incorpora `X-Request-ID`.
+Las rutas protegidas requieren `Authorization: Bearer <access-token>`. El refresh token viaja en cookie `HttpOnly`.
 
 ## Autenticación
 
-| Método | Ruta | Descripción |
+| Método | Ruta | Uso |
 |---|---|---|
-| POST | `/auth/login` | access token y cookie refresh |
-| POST | `/auth/refresh` | rotación del refresh |
-| POST | `/auth/logout` | revocación y limpieza |
+| POST | `/auth/login` | autenticar y emitir sesión |
+| POST | `/auth/refresh` | rotar refresh y emitir access token |
+| POST | `/auth/logout` | revocar sesión actual |
 
-```http
-Authorization: Bearer <token>
-```
+## Clientes y domicilios
 
-Jerarquía:
-
-```text
-ADMIN > OPERATOR > DRIVER > REPORT_VIEWER
-```
-
-## Catálogo
-
-- `GET /catalog/services`
-- `GET /catalog/equivalences`
-
-## Clientes/domicilios
-
-- `POST /clients`
-- `GET /clients`
-- `GET /clients/{id}`
-- `PUT /clients/{id}`
-- `POST /clients/{id}/addresses`
-- `POST /clients/{id}/addresses/{addressId}/make-primary`
-- `DELETE /clients/{id}/addresses/{addressId}`
-
-Escrituras: `ADMIN`, `OPERATOR`. Lectura: roles heredados.
+| Método | Ruta | Uso |
+|---|---|---|
+| POST | `/clients` | crear cliente con domicilio principal |
+| GET | `/clients` | búsqueda paginada |
+| GET | `/clients/{id}` | detalle |
+| PUT | `/clients/{id}` | actualizar perfil/preferencias |
+| POST | `/clients/{id}/addresses` | agregar domicilio |
+| PUT | `/clients/{id}/addresses/{addressId}/primary` | cambiar principal |
+| DELETE | `/clients/{id}/addresses/{addressId}` | baja lógica |
 
 ## Pedidos
 
-- `POST /orders`
-- `GET /orders`
-- `GET /orders/{id}`
-- `PATCH /orders/{id}/planning`
-- `POST /orders/{id}/manual-quote`
-- `POST /orders/{id}/confirm-price`
-- `PATCH /orders/{id}/status`
+| Método | Ruta | Uso |
+|---|---|---|
+| POST | `/orders` | crear pedido declarado |
+| GET | `/orders` | buscar por número, cliente o estado |
+| GET | `/orders/{id}` | detalle |
+| PATCH | `/orders/{id}/planning` | retiro, promesa y notas tempranas |
+| POST | `/orders/{id}/manual-quote` | cotización manual `ADMIN` |
+| POST | `/orders/{id}/confirm-price` | confirmar precio y promoción |
+| PATCH | `/orders/{id}/status` | transición permitida |
 
 ## Recepción
 
 ### Registrar
 
+`POST /orders/{id}/reception`
+
+Header obligatorio:
+
 ```http
-POST /orders/{orderId}/reception
-Authorization: Bearer <token>
-Idempotency-Key: web-reception-5c2cc70d-7bb1-40d6-a338-667721b72d74
-Content-Type: application/json
+Idempotency-Key: web-reception-550e8400-e29b-41d4-a716-446655440000
 ```
 
-Roles: `ADMIN`, `OPERATOR`.
+Ejemplo:
 
 ```json
 {
-  "receivedAt": "2026-07-20T17:30:00-03:00",
-  "actualWeightGrams": 2680,
-  "conditionNotes": "Mancha leve en una remera",
-  "bagCode": "BAG-0012",
+  "receivedAt": "2026-07-20T18:00:00-03:00",
+  "actualWeightGrams": 2350,
+  "bagCode": "BAG-001",
+  "notes": "Recepción sin novedades",
   "items": [
     {
       "equivalenceCode": "TSHIRT",
-      "actualPhysicalPieces": 2,
-      "damageDetected": false,
-      "stainDetected": true,
-      "observations": "Mancha frontal"
+      "physicalPieces": 4,
+      "damaged": false,
+      "stained": false,
+      "observations": null
     }
   ],
-  "evidences": [
-    {
-      "objectKey": "receptions/RL-000012/front.jpg",
-      "fileName": "front.jpg",
-      "contentType": "image/jpeg",
-      "sizeBytes": 245331,
-      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "caption": "Vista frontal"
-    }
-  ]
-}
-```
-
-Reglas:
-
-- clave obligatoria y segura;
-- pedido en `PICKED_UP`;
-- una recepción por pedido;
-- todos los códigos declarados presentes;
-- total real positivo;
-- peso real positivo;
-- fecha no futura;
-- la misma clave devuelve el mismo agregado.
-
-Respuesta relevante:
-
-```json
-{
-  "id": "uuid",
-  "orderId": "uuid",
-  "receivedAt": "2026-07-20T17:30:00-03:00",
-  "declaredPhysicalPieces": 2,
-  "actualPhysicalPieces": 2,
-  "declaredWeightGrams": 2500,
-  "actualWeightGrams": 2680,
-  "pieceDifference": 0,
-  "weightDifferenceGrams": 180,
-  "damageDetected": false,
-  "stainDetected": true,
-  "requiresCustomerApproval": false,
-  "approvalStatus": "NOT_REQUIRED",
-  "labelCode": "RCV-000001",
-  "bagCode": "BAG-0012",
-  "orderStatus": "CLASSIFIED",
-  "items": [],
   "evidences": []
 }
 ```
 
-### Consultar
+La misma clave devuelve el mismo agregado. Una clave diferente no puede crear una segunda recepción para el pedido.
 
-```http
-GET /orders/{orderId}/reception
-```
+### Consultar y decidir
 
-Roles de lectura. Si el pedido existe pero no tiene recepción, `data` es `null`.
+| Método | Ruta | Uso |
+|---|---|---|
+| GET | `/orders/{id}/reception` | consultar snapshot real |
+| POST | `/orders/{id}/reception/decision` | `APPROVED` o `REJECTED` |
 
-### Decidir diferencias
+## Compatibilidad
 
-```http
-POST /orders/{orderId}/reception/decision
-```
+### Guardar perfil
 
-Roles: `ADMIN`, `OPERATOR`.
+`PUT /orders/{orderId}/compatibility-profile`
+
+Permisos: `ADMIN` u `OPERATOR`.
+
+Precondiciones:
+
+- pedido `CLASSIFIED`;
+- recepción existente.
 
 ```json
 {
-  "decision": "APPROVED",
-  "notes": "Cliente acepta diferencia documentada"
+  "colorGroup": "LIGHT",
+  "materialGroup": "COTTON",
+  "maxTemperatureC": 40,
+  "dryerAllowed": true,
+  "fragrancePolicy": "STANDARD",
+  "softenerAllowed": true,
+  "hypoallergenic": false,
+  "babyClothes": false,
+  "petContact": false,
+  "heavySoil": false,
+  "exclusiveCycle": false,
+  "notes": null
 }
 ```
 
-Valores admitidos:
+El backend devuelve el perfil efectivo. Puede endurecer el request según cliente/pedido.
 
-- `APPROVED` → pedido `CLASSIFIED`;
-- `REJECTED` → pedido `CANCELLED`.
+`GET /orders/{orderId}/compatibility-profile` permite consulta a los cuatro roles y devuelve `null` cuando aún no existe perfil.
 
-Solo se acepta si recepción y pedido están pendientes de decisión.
+### Evaluar dos pedidos
 
-## Pagos
+`POST /compatibility/evaluate`
 
-- `POST /payments`
-- `GET /payments?orderId={uuid}`
-
-El pedido se bloquea durante el cálculo de saldo.
-
-## Auditoría
-
-```http
-GET /audit?entityType=ORDER_RECEPTION&entityId=<uuid>&action=CREATE
+```json
+{
+  "orderAId": "11111111-1111-1111-1111-111111111111",
+  "orderBId": "22222222-2222-2222-2222-222222222222"
+}
 ```
+
+Permisos: `ADMIN` u `OPERATOR`.
+
+Respuesta principal:
+
+```json
+{
+  "id": "33333333-3333-3333-3333-333333333333",
+  "orderAId": "11111111-1111-1111-1111-111111111111",
+  "orderBId": "22222222-2222-2222-2222-222222222222",
+  "profileAVersion": 0,
+  "profileBVersion": 0,
+  "ruleVersion": "COMPAT-1",
+  "compatible": false,
+  "overridden": false,
+  "effectivelyCompatible": false,
+  "reasons": [
+    {
+      "code": "COLOR_GROUP_MISMATCH",
+      "severity": "HARD",
+      "message": "Los grupos de color no coinciden"
+    }
+  ],
+  "recommendation": {
+    "maxTemperatureC": 30,
+    "dryerAllowed": false,
+    "softenerAllowed": false,
+    "fragrancePolicy": "NONE",
+    "programMode": "NORMAL",
+    "cycleMode": "BLOCKED"
+  },
+  "exception": null
+}
+```
+
+El orden de entrada no altera la identidad de la evaluación: el par se normaliza por UUID.
+
+### Consultar evaluación
+
+`GET /compatibility/evaluations/{evaluationId}`
+
+Permisos de lectura: todos los roles.
+
+### Autorizar excepción
+
+`POST /compatibility/evaluations/{evaluationId}/exception`
 
 Solo `ADMIN`.
 
-## Códigos nuevos de recepción
+```json
+{"reason":"Separación mediante bolsas y supervisión reforzada"}
+```
 
-- `IDEMPOTENCY_KEY_REQUIRED`;
-- `INVALID_IDEMPOTENCY_KEY`;
-- `IDEMPOTENCY_KEY_CONFLICT`;
-- `ORDER_ALREADY_RECEIVED`;
-- `ORDER_NOT_READY_FOR_RECEPTION`;
-- `INVALID_RECEPTION_TIME`;
-- `DUPLICATE_RECEPTION_ITEM`;
-- `MISSING_DECLARED_RECEPTION_ITEMS`;
-- `EMPTY_RECEPTION`;
-- `RECEPTION_NOT_FOUND`;
-- `RECEPTION_DECISION_NOT_ALLOWED`;
-- `INVALID_RECEPTION_DECISION`.
+No se permite si la evaluación original ya era compatible o si ya existe una excepción.
 
-Constraints únicos o carreras no previstas pueden responder `DATA_CONFLICT` sin exponer detalles de base.
+## Pagos y auditoría
 
-## Errores generales
+| Método | Ruta | Uso |
+|---|---|---|
+| POST | `/payments` | registrar pago |
+| GET | `/payments/order/{orderId}` | historial por pedido |
+| GET | `/audit` | consulta administrativa paginada |
 
-- `VALIDATION_ERROR`;
-- `INVALID_PARAMETER`;
-- `AUTHENTICATION_REQUIRED`;
-- `ACCESS_DENIED`;
-- `ORDER_NOT_FOUND`;
-- `INVALID_STATUS_TRANSITION`;
-- `INTERNAL_ERROR`.
+## Códigos de error relevantes de compatibilidad
 
-Los errores internos se registran con correlación y no exponen stacktrace al cliente.
+| Código | Estado | Significado |
+|---|---:|---|
+| `ORDER_NOT_FOUND` | 404 | pedido inexistente |
+| `ORDER_NOT_READY_FOR_COMPATIBILITY` | 422 | pedido fuera de `CLASSIFIED` |
+| `RECEPTION_NOT_FOUND` | 422 | no existe recepción |
+| `TREATMENT_PROFILE_NOT_FOUND` | 422 | falta perfil de uno de los pedidos |
+| `SAME_ORDER_COMPATIBILITY` | 400 | se seleccionó el mismo pedido |
+| `COMPATIBILITY_EVALUATION_NOT_FOUND` | 404 | evaluación inexistente |
+| `COMPATIBILITY_EXCEPTION_NOT_REQUIRED` | 422 | resultado original compatible |
+| `COMPATIBILITY_EXCEPTION_ALREADY_EXISTS` | 409 | excepción duplicada |
+
+## Fuera del contrato actual
+
+No existen endpoints productivos para ciclos, máquinas, rutas, caja, costos, inventario ni carga binaria de evidencias.
