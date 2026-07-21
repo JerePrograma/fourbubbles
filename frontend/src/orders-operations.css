@@ -1,0 +1,5 @@
+.operation-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .65rem;
+}

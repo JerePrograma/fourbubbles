@@ -1,0 +1,50 @@
+.compatibility-evaluator {
+  margin-top: 1rem;
+}
+
+.compatibility-results {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.compatible-card {
+  border-left: 4px solid #237b4b;
+}
+
+.blocked-card {
+  border-left: 4px solid #a13b3b;
+}
+
+.reason-list {
+  display: grid;
+  gap: .75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reason-list li {
+  display: grid;
+  grid-template-columns: auto minmax(10rem, auto) 1fr;
+  gap: .65rem;
+  align-items: start;
+  border-bottom: 1px solid #edf0f5;
+  padding-bottom: .65rem;
+}
+
+.hard-reason {
+  background: #f8d7da;
+  color: #842029;
+}
+
+.warning-reason {
+  background: #fff3cd;
+  color: #664d03;
+}
+
+@media (min-width: 900px) {
+  .compatibility-results {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

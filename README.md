@@ -2,58 +2,50 @@
 
 Sistema de gestión para una lavandería doméstica con retiro y entrega, inicialmente orientado a Marcos Paz y Mariano Acosta.
 
-> Versión: **0.2.0**. El circuito administrativo y la recepción física base están implementados. Compatibilidad, producción, logística, caja/costos y crecimiento continúan en fases posteriores.
+> Versión: **0.3.0**. El circuito administrativo, la recepción física y la evaluación explicable de compatibilidad están implementados. Ciclos, máquinas, logística, caja/costos y crecimiento siguen pendientes.
 
-## Alcance disponible
+## Implementado
 
 ### Plataforma
 
-- Java 21, Spring Boot 3 y Maven.
-- React 18, TypeScript, Vite, React Router, React Hook Form, Zod y Vitest.
-- PostgreSQL 16.
-- Flyway V1–V7 como única autoridad del esquema.
+- Java 21, Spring Boot 3, Maven, React 18, TypeScript, Vite y Vitest.
+- PostgreSQL 16 y Flyway V1-V8 como autoridad del esquema.
 - Hibernate con `ddl-auto=validate`.
-- Monolito modular por dominio.
-- OpenAPI/Swagger y Actuator.
-- Docker Compose, Nginx e imágenes multi-stage.
-- CI de backend, frontend y contenedores.
-- smoke test con stack real, login y API protegida.
+- Monolito modular, OpenAPI, Actuator, Docker Compose y Nginx.
+- CI de backend, frontend, contenedores y smoke test del stack real.
 
 ### Seguridad y consistencia
 
-- JWT HS256 y refresh token opaco rotativo.
-- BCrypt, cookies seguras y access token solo en memoria.
+- JWT HS256, refresh token opaco rotativo, BCrypt y cookie segura.
 - jerarquía `ADMIN > OPERATOR > DRIVER > REPORT_VIEWER`.
-- autorización por método.
-- respuestas JSON uniformes, `X-Request-ID` y logs correlacionados.
-- limitador básico de login.
-- bloqueo pesimista para promociones, pagos y recepción.
-- idempotencia de recepción mediante `Idempotency-Key`.
+- autorización por método, errores JSON, `X-Request-ID` y logs correlacionados.
+- bloqueo pesimista en promociones, pagos, recepción y compatibilidad.
+- recepción idempotente mediante `Idempotency-Key`.
+- excepciones de compatibilidad exclusivas de `ADMIN` y auditadas.
 
 ### Operación
 
 - clientes, preferencias y domicilios versionados;
 - servicios, equivalencias, precios y promociones versionados;
 - pedidos, planificación, cotización automática/manual y estados;
-- promociones revalidadas al confirmar;
 - pagos parciales/totales e historial;
-- auditoría consultable;
-- recepción física con peso y conteo reales;
-- diferencias contra lo declarado;
-- inspección por prenda, daños y manchas;
+- recepción física con peso, conteo, daños, manchas, etiqueta y bolsa;
 - aprobación o rechazo de diferencias;
-- etiqueta y bolsa;
-- metadatos de evidencias externas;
-- UI completa para clientes, pedidos, recepción, pagos y auditoría.
+- perfil de tratamiento por pedido clasificado;
+- comparación de dos pedidos con razones `HARD` y `WARNING`;
+- recomendación de temperatura, secadora, suavizante, fragancia y programa;
+- evaluaciones históricas por versión de perfil y versión de reglas;
+- excepción administrativa separada del resultado original;
+- UI para clientes, pedidos, recepción, compatibilidad, pagos y auditoría.
 
-## Lo que todavía no está terminado
+## Pendiente
 
-- motor de compatibilidad;
-- ciclos, máquinas, lavado, secado, calidad y relavado;
-- carga binaria/almacenamiento gestionado de fotografías;
-- rutas, paradas, kilómetros y WhatsApp;
+- ciclos reales, máquinas, capacidad, lavado, secado, calidad y relavado;
+- asignación de pedidos compatibles a ciclos;
+- almacenamiento binario gestionado de fotografías;
+- rutas, kilómetros, paradas y WhatsApp;
 - caja, costos, margen y rentabilidad;
-- abonos, comercios, inventario, mantenimiento y reclamos.
+- abonos, inventario, mantenimiento y reclamos.
 
 El detalle está en [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) y [docs/ROADMAP.md](docs/ROADMAP.md).
 
@@ -71,7 +63,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\Verify-Local.ps1
 ```
 
-La verificación comprueba contenedores, health, siete migraciones Flyway o más, SPA, login y una API protegida.
+La verificación comprueba contenedores, health, ocho migraciones Flyway o más, SPA, login y una API protegida.
 
 | Componente | URL |
 |---|---|
@@ -80,61 +72,32 @@ La verificación comprueba contenedores, health, siete migraciones Flyway o más
 | Swagger | `http://localhost:8081/api/swagger-ui.html` |
 | Health | `http://localhost:8081/api/actuator/health` |
 
-Guía completa: [docs/WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md).
-
-## Flujo funcional disponible
+## Flujo funcional
 
 1. Iniciar sesión.
-2. Crear cliente y domicilio principal.
-3. Agregar/cambiar/desactivar domicilios conservando historial.
-4. Crear pedido y registrar composición declarada.
-5. Revisar precio automático o aplicar cotización manual como `ADMIN`.
-6. Confirmar precio y programar retiro.
-7. Avanzar hasta `PICKED_UP`.
-8. Abrir **Recepción** desde el pedido.
-9. Registrar peso real, conteo por prenda, daños, manchas, bolsa y evidencia metadata.
-10. Si no hay diferencias materiales, el pedido queda `CLASSIFIED`.
-11. Si hay diferencias, queda `WAITING_PRICE_APPROVAL` hasta aprobar o rechazar.
-12. Continuar por las transiciones habilitadas.
-13. Registrar pagos y consultar historial.
-14. Consultar auditoría como `ADMIN`.
+2. Crear cliente y domicilio.
+3. Crear pedido con composición declarada.
+4. Revisar o ajustar precio y confirmar.
+5. Programar retiro y avanzar hasta `PICKED_UP`.
+6. Registrar recepción real.
+7. Resolver diferencias hasta `CLASSIFIED`.
+8. Abrir **Compatibilidad** y guardar el perfil.
+9. Seleccionar otro pedido `CLASSIFIED` con perfil.
+10. Evaluar compatibilidad y revisar razones/recomendación.
+11. Como `ADMIN`, autorizar una excepción cuando corresponda.
+12. Registrar pagos y consultar auditoría.
 
-Guía completa: [docs/USER_GUIDE.md](docs/USER_GUIDE.md).
+La compatibilidad no crea ni ejecuta ciclos: solo determina si dos pedidos podrían compartir tratamiento con las reglas vigentes.
 
-## Recepción e idempotencia
+## Perfil efectivo
 
-`POST /api/orders/{id}/reception` exige:
+El perfil solicitado nunca puede relajar restricciones persistidas:
 
-```http
-Idempotency-Key: web-reception-<uuid>
-```
+- una prohibición de secadora o suavizante del cliente se conserva;
+- la exigencia hipoalergénica se conserva y fuerza fragancia `NONE`;
+- la exclusividad del pedido o cliente conserva `exclusiveCycle=true`.
 
-La misma clave para el mismo pedido devuelve la recepción existente. Otra clave no crea una segunda recepción. La operación bloquea el pedido y conserva separados los datos declarados y reales.
-
-Se exige aprobación cuando existe:
-
-- diferencia de piezas;
-- daño detectado;
-- diferencia de peso superior a 250 g o al 10 % declarado.
-
-Una mancha se registra, pero no obliga por sí sola a aprobación.
-
-## Validación técnica
-
-```bash
-cd backend
-mvn clean verify
-
-cd ../frontend
-npm ci
-npm run lint
-npm test
-npm run build
-
-cd ..
-docker compose config --quiet
-docker compose build
-```
+Las evaluaciones se identifican por par ordenado, versiones de perfiles y versión del motor `COMPAT-1`. Actualizar un perfil produce una evaluación histórica nueva. Una excepción no altera el resultado original: solo cambia `effectivelyCompatible` y registra motivo, actor y fecha.
 
 ## Endpoints principales
 
@@ -143,9 +106,11 @@ docker compose build
 | POST | `/api/auth/login` | iniciar sesión |
 | GET/POST/PUT | `/api/clients...` | clientes y domicilios |
 | GET/POST/PATCH | `/api/orders...` | pedidos, precio y estados |
-| POST | `/api/orders/{id}/reception` | recepción idempotente |
-| GET | `/api/orders/{id}/reception` | consultar recepción |
-| POST | `/api/orders/{id}/reception/decision` | aprobar/rechazar diferencias |
+| POST/GET | `/api/orders/{id}/reception...` | recepción y decisión |
+| PUT/GET | `/api/orders/{id}/compatibility-profile` | perfil de tratamiento |
+| POST | `/api/compatibility/evaluate` | evaluar dos pedidos |
+| GET | `/api/compatibility/evaluations/{id}` | consultar evaluación |
+| POST | `/api/compatibility/evaluations/{id}/exception` | excepción administrativa |
 | POST/GET | `/api/payments` | pagos e historial |
 | GET | `/api/audit` | auditoría administrativa |
 
@@ -167,4 +132,4 @@ docker compose build
 
 ## Advertencia productiva
 
-Compose usa perfil `dev`. No es una topología productiva. Faltan TLS, secretos administrados, backups restaurables, almacenamiento de objetos, observabilidad central, límites de recursos y procedimiento de rollback probado.
+Compose usa perfil `dev`. No es una topología productiva. Faltan TLS, secretos administrados, backups restaurables, almacenamiento de objetos, observabilidad central, límites de recursos y rollback probado.

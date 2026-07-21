@@ -4,6 +4,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { AgendaPage } from './pages/AgendaPage';
 import { AuditPage } from './pages/AuditPage';
 import { ClientsPage } from './pages/ClientsPage';
+import { CompatibilityPage } from './pages/CompatibilityPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { EditClientPage } from './pages/EditClientPage';
 import { LoginPage } from './pages/LoginPage';
@@ -27,6 +28,7 @@ export default function App(): JSX.Element {
           <Route path="/orders/new" element={<NewOrderPage />} />
           <Route path="/orders/:id" element={<OrderDetailPage />} />
           <Route path="/orders/:id/reception" element={<ReceptionPage />} />
+          <Route path="/orders/:id/compatibility" element={<CompatibilityPage />} />
           <Route path="/agenda" element={<AgendaPage />} />
           <Route path="/audit" element={<AuditPage />} />
         </Route>
