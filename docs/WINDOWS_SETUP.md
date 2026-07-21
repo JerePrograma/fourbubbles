@@ -1,6 +1,6 @@
 # Puesta en marcha en Windows con PowerShell
 
-Versión: `0.2.0`.
+Versión: `0.3.0`.
 
 ## 1. Requisitos
 
@@ -16,6 +16,8 @@ docker info
 $PSVersionTable.PSVersion
 ```
 
+Docker Desktop debe estar iniciado antes de continuar.
+
 ## 2. Clonar
 
 ```powershell
@@ -26,7 +28,7 @@ git switch main
 git pull --ff-only origin main
 ```
 
-## 3. Actualizar un clon
+## 3. Actualizar un clon existente
 
 ```powershell
 Set-Location 'RUTA\A\fourbubbles'
@@ -35,30 +37,33 @@ git status
 git pull --ff-only origin main
 ```
 
-No destruyas cambios locales sin respaldarlos.
+No uses `reset --hard` si existen cambios locales que necesitás conservar.
 
-## 4. Habilitar scripts
+## 4. Habilitar scripts en la terminal actual
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
 ```
 
-## 5. Iniciar
+La configuración se pierde al cerrar la terminal.
+
+## 5. Construir e iniciar
 
 ```powershell
 .\scripts\Start-Local.ps1 -Rebuild
 ```
 
-Primera ejecución:
+En la primera ejecución el script:
 
 - crea `.env`;
 - genera contraseña PostgreSQL;
-- genera JWT secret;
-- genera contraseña administrativa;
+- genera secreto JWT;
+- genera contraseña de administrador;
 - construye imágenes;
-- inicia servicios;
-- espera health;
-- muestra la contraseña inicial una vez.
+- inicia PostgreSQL, backend y frontend;
+- espera readiness.
+
+Guardá las credenciales mostradas. `.env` no debe subirse al repositorio.
 
 ## 6. Verificar
 
@@ -66,15 +71,16 @@ Primera ejecución:
 .\scripts\Verify-Local.ps1
 ```
 
-Resultado esperado:
+Para 0.3.0 se espera:
 
 ```text
 Verificación local exitosa.
 Salud: UP
-Migraciones exitosas: 7
-Servicios disponibles: <cantidad>
+Migraciones exitosas: 8
 Frontend, autenticación y API protegida: OK
 ```
+
+El script admite más de ocho migraciones para versiones futuras.
 
 ## 7. Abrir
 
@@ -83,36 +89,53 @@ Start-Process 'http://localhost:8080'
 Start-Process 'http://localhost:8081/api/swagger-ui.html'
 ```
 
-| Componente | URL |
+| Componente | Dirección |
 |---|---|
-| App | `http://localhost:8080` |
+| Aplicación | `http://localhost:8080` |
 | API | `http://localhost:8081/api` |
 | Swagger | `http://localhost:8081/api/swagger-ui.html` |
 | Health | `http://localhost:8081/api/actuator/health` |
 
-## 8. Contenedores y logs
+## 8. Comprobar contenedores
 
 ```powershell
 docker compose ps
+```
+
+Deben aparecer `postgres`, `backend` y `frontend` saludables o iniciados.
+
+## 9. Logs
+
+```powershell
 docker compose logs --tail 300 postgres
 docker compose logs --tail 300 backend
 docker compose logs --tail 300 frontend
 ```
 
-En vivo:
+Seguimiento:
 
 ```powershell
 docker compose logs -f backend
 ```
 
-## 9. Detener/reiniciar
+Salir con `Ctrl+C` no detiene los servicios.
+
+## 10. Detener y reiniciar
+
+Detener conservando datos:
 
 ```powershell
 docker compose down
-docker compose up -d
 ```
 
-## 10. Actualizar versión
+Reiniciar:
+
+```powershell
+docker compose up -d
+.\scripts\Verify-Local.ps1
+```
+
+## 11. Actualizar aplicación
 
 ```powershell
 git switch main
@@ -121,16 +144,17 @@ git pull --ff-only origin main
 .\scripts\Verify-Local.ps1
 ```
 
-V7 se aplica automáticamente.
+Flyway aplica las migraciones pendientes automáticamente.
 
-## 11. Reinicio destructivo
+## 12. Eliminar todo el entorno local
 
 ```powershell
 docker compose down -v --remove-orphans
-.\scripts\Start-Local.ps1 -Rebuild
 ```
 
-Para regenerar `.env`:
+Esto elimina toda la base local: usuarios, clientes, pedidos, recepciones, perfiles, evaluaciones, pagos y auditoría.
+
+Para regenerar también credenciales:
 
 ```powershell
 docker compose down -v --remove-orphans
@@ -138,77 +162,59 @@ Remove-Item -LiteralPath '.env' -Force
 .\scripts\Start-Local.ps1 -Rebuild
 ```
 
-Borra todos los datos locales.
+## 13. Validación manual de compatibilidad
 
-## 12. Contraseña administrativa
+Se necesitan dos pedidos `CLASSIFIED` con recepción.
 
-Cambiar `APP_DEV_ADMIN_PASSWORD` después de crear la base no actualiza el usuario persistido.
+1. Abrir **Pedidos**.
+2. Entrar en **Compatibilidad** del primer pedido.
+3. Guardar su perfil.
+4. Repetir para el segundo pedido.
+5. Volver al primero.
+6. Seleccionar el segundo como candidato.
+7. Ejecutar **Evaluar compatibilidad**.
+8. Revisar razones y recomendación.
+9. Como `ADMIN`, probar una excepción solo si el resultado original es incompatible.
 
-Opciones:
+## 14. Problemas frecuentes
 
-- restaurar contraseña original;
-- recrear el volumen en desarrollo descartable;
-- esperar/implementar administración de usuarios.
-
-## 13. Probar recepción
-
-1. Iniciar sesión.
-2. Crear cliente/pedido.
-3. Confirmar precio.
-4. Cambiar estados hasta `PICKED_UP`.
-5. En **Pedidos**, abrir **Recibir**.
-6. Informar peso/conteo real.
-7. Registrar daños/manchas.
-8. Opcionalmente informar metadata de un archivo externo.
-9. Registrar.
-10. Aprobar/rechazar si queda pendiente.
-
-El navegador genera una `Idempotency-Key` estable para el formulario. No recargues deliberadamente durante una operación sin comprobar el resultado; si hubo timeout, la misma instancia de formulario reutiliza la clave.
-
-## 14. Evidencia externa
-
-Los campos de evidencia no suben archivos. Requieren previamente:
-
-- `objectKey` real;
-- nombre;
-- MIME;
-- tamaño;
-- SHA-256.
-
-Para una demo sin almacenamiento externo, dejarlos vacíos. No inventar datos y presentarlos como fotografía almacenada.
-
-## 15. Backend no saludable
+### Docker no disponible
 
 ```powershell
-docker compose ps
-docker compose logs --tail 300 backend
-docker compose logs --tail 300 postgres
-docker compose config --quiet
+docker info
 ```
 
-Verificar puertos 5432/8080/8081, contraseñas DB coherentes, JWT válido, memoria y Flyway.
+Iniciar Docker Desktop y confirmar modo Linux.
 
-## 16. Validación fuera de Docker
+### Puerto ocupado
 
 ```powershell
-Set-Location '.\backend'
-mvn clean verify
-
-Set-Location '..\frontend'
-npm ci
-npm run lint
-npm test
-npm run build
+Get-NetTCPConnection -LocalPort 8080,8081 -ErrorAction SilentlyContinue
 ```
 
-Requiere Java 21, Maven y Node 22 locales.
+Detener el proceso conflictivo o ajustar la configuración local.
 
-## 17. Seguridad
+### Contraseña administrativa no funciona
 
-No compartir:
+Si cambiaste `.env` después de crear el volumen, el usuario existente conserva la contraseña anterior. Restaurá la anterior o recreá el volumen.
 
-- `.env`;
-- contraseñas/tokens/cookies;
-- dumps reales;
-- hashes o object keys privados de evidencias;
-- logs con información personal.
+### Menos de ocho migraciones
+
+```powershell
+docker compose logs --tail 500 backend
+```
+
+No edites una migración aplicada. Corregí mediante una migración nueva.
+
+### Pantalla de compatibilidad rechazada
+
+Confirmá:
+
+- pedido en `CLASSIFIED`;
+- recepción existente;
+- usuario `ADMIN` u `OPERATOR` para guardar/evaluar;
+- ambos pedidos con perfil.
+
+## 15. Alcance local
+
+Este procedimiento es para desarrollo y evaluación funcional. No constituye un despliegue productivo.
