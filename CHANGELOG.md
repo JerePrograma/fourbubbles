@@ -1,73 +1,96 @@
 # Changelog
 
-## 0.3.0 - Compatibilidad explicable
+## 0.4.0 - Producción física base
 
 Fecha: 2026-07-20.
 
 ### Agregado
 
-- Migración Flyway V8.
-- Perfil de tratamiento único por pedido y recepción.
-- Atributos de color, material, temperatura, secadora, fragancia, suavizante, tratamiento hipoalergénico, ropa de bebé, mascotas, suciedad pesada y exclusividad.
-- Motor `COMPAT-1` con razones `HARD` y `WARNING`.
-- Recomendación compartida de temperatura, secadora, suavizante, fragancia, programa y modo.
-- Evaluación histórica por par ordenado, versiones de perfil y versión de reglas.
-- Excepción administrativa separada y auditada.
-- UI de perfil, selección de candidato, evaluación, explicación y excepción.
-- 25 pruebas unitarias y 19 integraciones backend.
-- Prueba concurrente A/B contra B/A con reutilización del mismo snapshot.
+- Flyway V9 con máquinas, programas, ciclos, asignaciones e historial.
+- Flyway V10 para congelar parámetros técnicos de programas ya utilizados.
+- Máquinas `WASHER` y `DRYER` con capacidad, estado y vigencia.
+- Programas `WASH` y `DRY` con duración y parámetros seguros.
+- Ciclos `PLANNED`, `RUNNING`, `COMPLETED` y `CANCELLED`.
+- Planificación idempotente con `Idempotency-Key` y advisory lock PostgreSQL.
+- Uno o dos pedidos por ciclo.
+- Peso planificado basado en recepción real y peso real al completar.
+- Capacidad de máquina aplicada antes de planificar y al completar.
+- Máquina única por ciclo activo.
+- Pedido único por etapa activa.
+- Compatibilidad efectiva vigente para ciclos compartidos.
+- Separación requerida cuando la combinación depende de excepción.
+- Estados `WAITING_DRY`, ciclos de lavado/secado y control de calidad.
+- Resultado de calidad `PASS` o `REWASH`.
+- Historial propio de ciclo y del pedido.
+- API de configuración y operación.
+- Pantalla de Producción con planificación, ejecución, calidad y alta básica de máquinas/programas.
 
-### Corregido o endurecido
+### Endurecido
 
-- Las preferencias del cliente no pueden relajarse desde el formulario de compatibilidad.
-- La prohibición de secadora o suavizante se conserva.
-- El tratamiento hipoalergénico se conserva y fuerza fragancia `NONE`.
-- La exclusividad del pedido o cliente se conserva.
-- El orden UUID usa la representación canónica y coincide con el constraint de PostgreSQL.
-- Las evaluaciones bloquean ambos pedidos en orden estable para evitar duplicados concurrentes.
-- La autorización de excepción bloquea la evaluación antes de modificarla.
-- Una excepción no cambia el resultado original; solo altera la compatibilidad efectiva.
+- Un pedido exclusivo no puede compartir ciclo aunque exista excepción.
+- El programa no puede ser más agresivo que el perfil de ningún pedido.
+- Los parámetros técnicos de un programa usado son inmutables.
+- Máquina, programa y pedidos se bloquean transaccionalmente.
+- Dos claves distintas compitiendo por una máquina permiten una sola planificación.
+- Dos solicitudes concurrentes con la misma clave/payload reciben el mismo ciclo.
+- La cancelación solo se permite antes de iniciar.
+- El secado mecánico no se inventa: perfiles que no admiten secadora pasan de lavado a calidad.
+
+### Pruebas
+
+- 28 unitarias.
+- 25 integraciones PostgreSQL/Flyway.
+- 53 casos backend totales.
+- Flujo lavado → secado → calidad.
+- Capacidad excedida.
+- Idempotencia concurrente.
+- Competencia por máquina.
+- Permisos de lectura/configuración/operación.
+- Frontend TypeScript, Vitest y build.
 
 ### Pendiente
 
-- ciclos y máquinas;
-- asignación de pedidos compatibles a ciclos;
-- capacidad, lavado, secado y control de calidad;
-- almacenamiento binario de evidencias;
-- logística, caja, costos, inventario y reclamos.
+- rutas, agenda, kilómetros y WhatsApp;
+- caja, costos, margen y conciliación;
+- inventario y consumo de insumos;
+- mantenimiento completo;
+- object storage de evidencias;
+- abonos, reclamos y compensaciones.
+
+## 0.3.0 - Compatibilidad explicable
+
+Fecha: 2026-07-20.
+
+- Flyway V8.
+- Perfil efectivo por pedido/recepción.
+- Motor `COMPAT-1`, razones y recomendación.
+- Evaluaciones históricas y excepciones administrativas.
+- Orden UUID canónico y concurrencia A/B-B/A.
+- 25 unitarias y 19 integraciones.
 
 ## 0.2.0 - Recepción física idempotente
 
 Fecha: 2026-07-20.
 
-- Migración Flyway V7.
+- Flyway V7.
 - Recepción única por pedido e `Idempotency-Key`.
-- Peso y conteo reales separados de la declaración.
-- Diferencias por pedido y prenda.
-- Daños, manchas, observaciones, etiqueta, bolsa y evidencia metadata.
-- Política de aprobación por piezas, daño o peso material.
-- Decisión aprobada/rechazada con actor, fecha y notas.
-- UI y pruebas de idempotencia secuencial/concurrente.
+- Peso/conteo real, diferencias, inspección y decisión.
+- Etiqueta, bolsa y evidencia metadata.
 
 ## 0.1.2 - Cierre administrativo de Fase 1
 
 Fecha: 2026-07-20.
 
-- Domicilios versionados e historial.
-- Cotización manual trazable.
-- Planificación temprana controlada.
-- Promociones y pagos con control de concurrencia.
-- Historial financiero y auditoría.
-- Jerarquía RBAC.
-- Verificación local autenticada.
+- Domicilios versionados.
+- Cotización manual y planificación.
+- Promociones/pagos concurrentes.
+- Historial financiero, auditoría y RBAC.
 
 ## 0.1.1 - Hardening y flujo operativo
 
 Fecha: 2026-07-20.
 
-- Contratos de seguridad, correlación y protección de login.
-- Preferencias tipadas.
-- UI operativa de clientes, pedidos, estados y pagos.
+- Seguridad, correlación, preferencias tipadas y UI operativa.
 
 ## 0.1.0 - Plataforma y núcleo inicial
 
