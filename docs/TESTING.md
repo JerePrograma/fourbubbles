@@ -1,10 +1,10 @@
 # Estrategia y estado de pruebas
 
-Última actualización: 2026-07-20.
+Última actualización: 2026-07-21.
 
-Versión: `0.3.0`.
+Versión funcional: `0.3.0`.
 
-## Gate de pull request
+## Gate continuo
 
 ### Backend
 
@@ -15,35 +15,12 @@ mvn clean verify
 
 El gate usa Java 21, PostgreSQL 16 mediante Testcontainers, Flyway V1-V8 y validación JPA.
 
-Resultado verificado para 0.3.0:
+Resultado histórico aceptado para 0.3.0:
 
-- **25 pruebas unitarias**;
-- **19 pruebas de integración**;
-- **44 casos backend totales**;
-- 0 fallos en el gate aceptado.
-
-Clases unitarias principales:
-
-- `PricingServiceTest`;
-- `GarmentEquivalenceCalculatorTest`;
-- `OrderTransitionPolicyTest`;
-- `OrderLimitPolicyTest`;
-- `LoginAttemptServiceTest`;
-- `ReceptionDifferencePolicyTest`;
-- `CompatibilityEngineTest`;
-- `CompatibilityServiceTest`.
-
-Clases de integración principales:
-
-- `ApplicationContextIT`;
-- `ApiContractIT`;
-- `OperationalFlowIT`;
-- `AdministrativeFlowIT`;
-- `AdministrativeAuthorizationIT`;
-- `ConcurrentPaymentIT`;
-- `ReceptionFlowIT`;
-- `CompatibilityFlowIT`;
-- `ConcurrentCompatibilityIT`.
+- 25 pruebas unitarias;
+- 19 pruebas de integración;
+- 44 casos backend totales;
+- 0 fallos.
 
 ### Frontend
 
@@ -55,7 +32,24 @@ npm test
 npm run build
 ```
 
-El gate comprueba TypeScript estricto, Vitest, build Vite, rutas nuevas y modelos de recepción/compatibilidad.
+El gate comprueba TypeScript estricto, Vitest y build Vite.
+
+### PowerShell
+
+```powershell
+.\scripts\tests\Local.Common.Tests.ps1
+```
+
+Las pruebas no requieren Docker y cubren:
+
+- lectura de `.env`, comentarios, comillas y valores con `=`;
+- agregado idempotente de variables faltantes;
+- preservación de secretos existentes;
+- normalización de salida Compose vacía, objeto único, array y JSON por líneas;
+- validación de rango y duplicación de puertos;
+- inicialización de un `.env` existente sin reemplazos.
+
+El job `powershell` se ejecuta con PowerShell 7 en GitHub Actions.
 
 ### Contenedores
 
@@ -64,22 +58,43 @@ docker compose config --quiet
 docker compose build
 ```
 
-Valida el modelo Compose y construye backend/frontend.
+El job usa puertos host alternativos para comprobar que Compose no depende de `5432`, `8080` ni `8081`.
 
-### Runtime smoke
+## Runtime smoke
 
-El workflow permanente levanta el stack completo y verifica:
+El workflow `Runtime smoke` prueba el stack real con:
 
-1. PostgreSQL saludable;
-2. backend listo;
-3. Flyway aplicado;
-4. SPA accesible;
-5. login con credenciales del entorno;
-6. consulta autenticada de catálogo.
+```text
+POSTGRES_HOST_PORT=15432
+BACKEND_HOST_PORT=18081
+FRONTEND_HOST_PORT=18080
+```
 
-## Cobertura funcional de compatibilidad
+Secuencia validada por el workflow:
 
-### Motor
+1. construye e inicia frontend con `--no-deps`, antes de que exista backend;
+2. exige que Nginx permanezca saludable, validando resolución DNS diferida;
+3. inicia PostgreSQL y backend;
+4. espera readiness;
+5. valida SPA;
+6. valida rechazo anónimo 401/403 por el proxy frontend;
+7. realiza login por Nginx;
+8. consulta catálogo protegido por Nginx;
+9. consulta `flyway_schema_history` y exige ocho migraciones o más;
+10. imprime diagnóstico ante falla y elimina stack y volumen al finalizar.
+
+## Verificación local
+
+```powershell
+.\scripts\Start-Local.ps1 -Rebuild -SkipOpen
+.\scripts\Verify-Local.ps1
+```
+
+`Verify-Local.ps1` no continúa después de una aserción fallida. En su bloque de error muestra `docker compose ps --all` y logs recientes.
+
+## Cobertura funcional existente
+
+### Compatibilidad
 
 - carga compatible sin razones duras;
 - exclusividad bloqueante;
@@ -90,65 +105,42 @@ El workflow permanente levanta el stack completo y verifica:
 - suciedad pesada contra carga sensible;
 - fragancia incompatible;
 - reducción de temperatura;
-- deshabilitación de secadora y suavizante.
+- deshabilitación de secadora y suavizante;
+- persistencia de perfil efectivo;
+- orden UUID canónico;
+- reevaluación por cambio de versión;
+- excepción exclusiva de `ADMIN`;
+- concurrencia A/B y B/A sin snapshots duplicados.
 
-### Servicio
-
-- restricciones del cliente no relajables;
-- exclusividad del pedido no relajable;
-- fragancia `NONE` para perfil hipoalergénico;
-- persistencia del perfil efectivo;
-- orden UUID canónico alineado con el constraint de PostgreSQL;
-- caso determinista `7fff…/8000…`, donde `UUID.compareTo` no sirve como orden canónico.
-
-### Integración
-
-- flujo pedido → recepción → `CLASSIFIED` → perfil;
-- evaluación compatible/incompatible;
-- reuso del snapshot con mismas versiones;
-- creación de evaluación nueva al cambiar perfil;
-- autorización de excepción por `ADMIN`;
-- rechazo de excepción para roles inferiores;
-- precondiciones de estado y perfil;
-- dos solicitudes concurrentes A/B y B/A reutilizan el mismo ID de evaluación.
-
-## Concurrencia cubierta
-
-- consumo concurrente de promoción;
-- pagos concurrentes sin sobrecobro;
-- recepción concurrente con la misma clave idempotente;
-- compatibilidad concurrente con orden de entrada inverso.
-
-`ConcurrentCompatibilityIT` verifica que el bloqueo ordenado y la identidad canónica eviten snapshots duplicados.
-
-## Contratos de seguridad
-
-Se prueban:
+### Seguridad y concurrencia
 
 - 401 sin autenticación;
 - 403 por rol insuficiente;
-- cotización manual `ADMIN`;
-- auditoría `ADMIN`;
+- cotización manual y auditoría `ADMIN`;
 - recepción permitida a `DRIVER`;
-- decisión de recepción no permitida a `DRIVER`;
-- excepción de compatibilidad exclusiva de `ADMIN`.
+- decisión de recepción restringida;
+- promoción concurrente;
+- pagos sin sobrecobro;
+- recepción idempotente concurrente;
+- compatibilidad concurrente.
 
 ## Diagnóstico de fallos
 
-Los workflows de diagnóstico son temporales. Se crean solo para aislar una falla y se eliminan antes del merge.
+Los gates válidos son:
 
-El gate válido es:
+- `CI / backend`;
+- `CI / frontend`;
+- `CI / powershell`;
+- `CI / containers`;
+- `Runtime smoke / compose-smoke`.
 
-- `CI`;
-- `Runtime smoke`.
-
-No se considera estable un PR porque un diagnóstico aislado pase.
+No se declara validado un cambio solo porque `docker compose config` pase: el smoke debe confirmar ejecución real.
 
 ## Casos aún faltantes
 
-- property-based testing de combinaciones del motor;
 - pruebas E2E de navegador;
 - accesibilidad automatizada;
+- property-based testing del motor;
 - pruebas de carga;
 - restauración desde backup;
 - seguridad dinámica;
