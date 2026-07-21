@@ -64,7 +64,7 @@ if ($LASTEXITCODE -ne 0) {
     throw 'No se pudo consultar flyway_schema_history.'
 }
 $MigrationCount = [int]($MigrationResult.Trim())
-Assert-True -Condition ($MigrationCount -ge 8) -Message "Se esperaban al menos 8 migraciones exitosas; se encontraron $MigrationCount."
+Assert-True -Condition ($MigrationCount -ge 9) -Message "Se esperaban al menos 9 migraciones exitosas; se encontraron $MigrationCount."
 
 Write-Host '4/5 Verificando aplicación web...'
 $Frontend = Invoke-WebRequest -Uri 'http://localhost:8080/' -Method Get -TimeoutSec 10
