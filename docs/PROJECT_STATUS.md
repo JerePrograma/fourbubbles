@@ -90,10 +90,12 @@ El sistema todavía no crea ciclos, asigna máquinas, ejecuta lavado/secado, arm
 - [x] recomendación de tratamiento compartido.
 - [x] evaluación por par ordenado y versiones de perfiles/reglas.
 - [x] reevaluación histórica al cambiar un perfil.
-- [x] bloqueo de ambos pedidos en orden UUID.
+- [x] orden UUID canónico alineado entre Java y PostgreSQL.
+- [x] bloqueo de ambos pedidos en orden estable.
+- [x] evaluación concurrente A/B y B/A reutiliza el mismo snapshot.
 - [x] excepción separada, bloqueada transaccionalmente y auditada.
 - [x] UI de perfil, candidato, evaluación, razones y excepción.
-- [x] 24 pruebas unitarias y 18 integraciones backend en el gate de 0.3.0.
+- [x] 25 pruebas unitarias y 19 integraciones backend en el gate de 0.3.0.
 
 ## Parcial
 
@@ -167,7 +169,7 @@ Resultado: **16 cumplen, 4 son parciales y 5 están pendientes**.
 2. No hay corrección versionada de una recepción confirmada.
 3. La aprobación no es firma digital del cliente.
 4. Las reglas de compatibilidad están codificadas en `COMPAT-1`, no administradas desde UI.
-5. La excepción permite compatibilidad efectiva, pero no debe usarse como sustituto de una regla correcta.
+5. La excepción permite compatibilidad efectiva, pero no debe sustituir una regla correcta.
 6. No existe idempotencia para proveedores de pago externos.
 7. Rate limiting de login local.
 8. Backups, restauración y rollback no automatizados.
