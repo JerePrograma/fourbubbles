@@ -1,171 +1,165 @@
 # Hoja de ruta
 
-Versión base: `0.2.0`.
+Versión base: `0.3.0`.
 
 ## Completado
 
-### 0.1.0 — Plataforma/núcleo
+### 0.1.0 — Plataforma y núcleo
 
 Arquitectura, seguridad, PostgreSQL/Flyway, catálogo, clientes, pedidos, pagos, React, Docker y CI.
 
-### 0.1.1 — Hardening/operación
+### 0.1.1 — Hardening y operación
 
-Contratos de seguridad, correlación, protección de login, preferencias tipadas y UI operativa.
+Contratos de seguridad, correlación, preferencias tipadas y UI operativa.
 
 ### 0.1.2 — Cierre administrativo
 
-Domicilios versionados, cotización manual, planificación, historial financiero, auditoría, RBAC y concurrencia.
+Domicilios versionados, cotización manual, planificación, promociones/pagos concurrentes, auditoría y documentación integral.
 
 ### 0.2.0 — Recepción física
 
 - Flyway V7;
-- recepción única e idempotente;
+- recepción idempotente;
 - peso/conteo real;
-- composición real por prenda;
-- diferencias;
-- daño/mancha;
+- inspección y diferencias;
 - aprobación/rechazo;
-- etiqueta/bolsa;
-- evidencia metadata;
-- UI;
-- pruebas concurrentes.
+- etiqueta, bolsa y evidencia metadata;
+- UI y pruebas concurrentes.
 
-## Próximo corte: 0.3.0 — Compatibilidad
+### 0.3.0 — Compatibilidad explicable
 
-Objetivo: decidir de forma explicable qué pedidos/prendas pueden compartir tratamiento usando datos reales de recepción.
+- Flyway V8;
+- perfil efectivo por pedido/recepción;
+- color, material, temperatura y productos;
+- condiciones hipoalergénicas, bebé, mascotas, suciedad y exclusividad;
+- motor `COMPAT-1` con razones y recomendación;
+- snapshots por versión;
+- bloqueos transaccionales;
+- excepción exclusiva de `ADMIN`;
+- UI y pruebas.
 
-### Modelo
+## Próximo corte — 0.4.0 Producción base
 
-- atributos normalizados de tratamiento;
-- versiones de reglas;
-- restricciones duras/blandas;
-- evaluación por pedido;
-- conflictos explicados;
-- excepciones autorizadas.
+Objetivo: convertir compatibilidad en una asignación física controlada.
 
-### Variables
+### Máquinas
 
-- color y transferencia;
-- material;
+- entidad máquina;
+- tipo lavadora/secadora;
+- capacidad en gramos;
+- estado operativo;
+- fechas de alta/baja;
+- mantenimiento básico;
+- CRUD administrativo mínimo.
+
+### Programas
+
+- nombre y tipo;
 - temperatura;
-- secadora;
-- fragancia/suavizante;
-- hipoalergénico;
-- bebé;
-- mascotas;
-- suciedad/contaminación;
-- daño/mancha;
-- ciclo exclusivo.
+- duración estimada;
+- material compatible;
+- secadora/suavizante/fragancia admitidos;
+- vigencia.
 
-### Reglas
+### Ciclos
 
-- incompatibles no se proponen juntos;
-- resultado explicable;
-- datos reales prevalecen sobre declaración;
-- excepción solo `ADMIN`, con motivo;
-- versiones históricas conservadas.
+- identificador legible;
+- máquina;
+- programa;
+- capacidad planificada y real;
+- estado del ciclo;
+- inicio/fin;
+- operador;
+- uno o dos pedidos;
+- modo compartido/exclusivo.
 
-### UI/API
+### Asignación
 
-- perfil de tratamiento de recepción;
-- evaluación individual;
-- comparar pedidos;
-- propuestas compatibles;
-- conflictos;
-- excepción auditada.
+- solo pedidos `CLASSIFIED`;
+- perfil existente;
+- evaluación compatible efectiva para dos pedidos;
+- exclusividad respetada;
+- peso total menor o igual a capacidad;
+- bloqueo de máquina/pedidos;
+- idempotencia o constraint para evitar doble asignación;
+- historial/auditoría.
 
-### Pruebas
+### Ejecución mínima
 
-- matrices críticas;
-- simetría/transitividad cuando aplique;
-- versionado;
-- autorización;
-- combinaciones concurrentes;
-- explicación consistente.
+- planificar ciclo;
+- iniciar lavado;
+- finalizar lavado;
+- iniciar/finalizar secado si aplica;
+- control de calidad;
+- relavado o avance a doblado.
 
-## 0.4.0 — Producción
+### Pruebas obligatorias
 
-- máquinas/capacidad;
-- programas;
-- ciclos compartidos/exclusivos;
-- asignación segura;
-- sobrepeso;
-- bolsas de red;
-- lavado/secado;
-- calidad/relavado;
-- doblado/embolsado;
-- mantenimiento.
+- capacidad exacta permitida;
+- sobrepeso rechazado;
+- incompatibles rechazados;
+- excepción efectiva admitida;
+- pedido exclusivo no compartido;
+- máquina fuera de servicio rechazada;
+- asignación concurrente sin duplicados;
+- transiciones y auditoría.
 
-## 0.5.0 — Logística
+## 0.5.0 — Logística y agenda
 
-- franjas;
-- rutas/paradas;
+- franjas horarias;
+- rutas y paradas;
+- asignación de conductor;
 - orden de visita;
-- retiro/entrega;
-- kilometraje/combustible;
+- retiro/entrega reales;
+- kilómetros, combustible y tiempo;
 - incidencias;
-- agenda;
-- WhatsApp.
+- mensajes/plantillas de WhatsApp;
+- agenda diaria con capacidad.
 
-## 0.6.0 — Finanzas
+## 0.6.0 — Caja, costos y rentabilidad
 
-- caja/arqueo;
+- caja diaria y arqueo;
 - ingresos/egresos;
 - reembolsos;
 - comprobantes;
 - conciliación;
-- costos por pedido/ciclo;
-- mano de obra/amortización;
-- margen/rentabilidad.
+- costos de insumos, energía, agua, transporte y mano de obra;
+- costo por ciclo/pedido;
+- amortización;
+- margen y rentabilidad.
 
 ## 0.7.0 — Crecimiento
 
 - abonos;
-- comercios/SLA;
-- inventario;
-- equipamiento;
-- reclamos/compensaciones;
-- políticas;
-- tableros/alertas.
+- comercios y SLA;
+- inventario y lotes;
+- compras/consumo;
+- equipamiento/mantenimiento;
+- reclamos, evidencias y compensaciones;
+- políticas y aceptación;
+- tableros y alertas.
 
-## Línea productiva transversal
+## Transversal antes de producción
 
-- TLS;
-- secretos gestionados;
-- PostgreSQL gestionado;
-- backups/restauración;
-- object storage;
-- URLs firmadas y escaneo;
-- observabilidad;
-- rate limiting compartido;
-- SAST/dependencias/imágenes;
-- privacidad/retención;
-- rollback;
-- versionado API.
+- TLS y dominio;
+- secretos administrados;
+- backup/restore probado;
+- object storage privado;
+- observabilidad central;
+- rate limit distribuido;
+- política de privacidad;
+- límites de recursos;
+- rollback ensayado;
+- pruebas E2E, carga y seguridad.
 
-## Priorización
+## Criterio de avance
 
-```text
-recepción ✓
-→ compatibilidad
-→ producción
-→ logística
-→ finanzas
-→ crecimiento
-```
+Un corte solo se fusiona a `main` cuando:
 
-Ahora existen peso/composición reales. Compatibilidad es el siguiente paso; crear ciclos antes repetiría el error de optimizar sin reglas de mezcla.
-
-## Definición de terminado
-
-Cada corte exige:
-
-1. migración aditiva;
-2. dominio/transacciones;
-3. API/permisos;
-4. UI cuando corresponda;
-5. pruebas de riesgo y concurrencia;
-6. runtime smoke;
-7. documentación;
-8. CI verde;
-9. squash limpio en `main`.
+1. migración aditiva y validación JPA pasan;
+2. pruebas unitarias/integración pasan;
+3. TypeScript, Vitest y build pasan;
+4. imágenes se construyen;
+5. runtime smoke pasa;
+6. workflows diagnósticos fueron eliminados;
+7. documentación refleja exactamente el alcance y los límites.
