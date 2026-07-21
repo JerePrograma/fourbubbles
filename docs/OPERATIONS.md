@@ -1,6 +1,6 @@
 # Operación y despliegue
 
-Versión: `0.3.0`.
+Última actualización: 2026-07-21.
 
 ## Perfiles
 
@@ -10,13 +10,20 @@ Versión: `0.3.0`.
 
 Compose usa `dev`; no es una topología productiva.
 
-## Servicios locales
+## Topología local
 
-| Servicio | Puerto | Responsabilidad |
-|---|---:|---|
-| frontend | 8080 | Nginx + SPA React |
-| backend | 8081 | API Spring bajo `/api` |
-| postgres | interno | PostgreSQL 16 |
+| Servicio | Puerto interno | Puerto host predeterminado | Variable |
+|---|---:|---:|---|
+| frontend | 80 | 8080 | `FRONTEND_HOST_PORT` |
+| backend | 8080 | 8081 | `BACKEND_HOST_PORT` |
+| postgres | 5432 | 5432 | `POSTGRES_HOST_PORT` |
+
+Las publicaciones se limitan a `127.0.0.1`. La red interna permanece estable:
+
+- frontend llama a `backend:8080`;
+- backend llama a `postgres:5432`.
+
+`COMPOSE_PROJECT_NAME=fourbubbles` evita colisiones de nombres, red y volumen con otros proyectos.
 
 ## Inicio recomendado
 
@@ -26,16 +33,116 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\Verify-Local.ps1
 ```
 
-`Start-Local.ps1` crea `.env` cuando no existe, genera secretos locales y espera readiness.
+Parámetros:
 
-`Verify-Local.ps1` valida:
+| Parámetro | Efecto |
+|---|---|
+| `-Rebuild` | reconstruye imágenes antes de iniciar |
+| `-Reset` | elimina el volumen PostgreSQL y recrea el stack |
+| `-SkipOpen` | no abre el navegador al finalizar |
 
-1. contenedores;
-2. health del backend;
-3. ocho migraciones Flyway o más;
-4. SPA;
-5. login;
-6. API protegida.
+## Idempotencia de `.env`
+
+`Start-Local.ps1` crea `.env` desde `.env.example` cuando no existe. Si existe:
+
+- conserva todos los valores existentes;
+- no reemplaza secretos;
+- agrega variables faltantes;
+- rechaza placeholders o Base64 JWT inválido;
+- valida que los puertos sean distintos y estén entre 1 y 65535.
+
+Modificar `APP_DEV_ADMIN_PASSWORD` después de crear PostgreSQL no cambia la contraseña persistida del usuario. Debe restaurarse el valor original o recrearse el volumen con `-Reset`.
+
+## Conflictos de puertos
+
+La prevalidación ocurre antes de construir imágenes. Para cada puerto muestra, según corresponda:
+
+- contenedor, imagen, ID y publicación;
+- PID, proceso y ruta ejecutable.
+
+No se detienen proyectos ni procesos ajenos. Las correcciones admitidas son cambiar el puerto en `.env` o detener manualmente el recurso identificado.
+
+## Health y dependencias
+
+- PostgreSQL usa `pg_isready`.
+- Backend usa `/api/actuator/health/readiness`.
+- Frontend comprueba que Nginx sirva el punto de montaje React.
+- Backend depende de PostgreSQL `service_healthy`.
+- Frontend depende del backend `service_healthy`.
+- Los tres servicios usan `restart: on-failure:3`, evitando reinicios infinitos por configuración inválida.
+
+Nginx usa el DNS embebido de Docker y resolución diferida de `backend`, por lo que puede iniciar aunque el registro DNS del backend todavía no exista. Un fallo transitorio de resolución ya no mata permanentemente al frontend.
+
+## Verificación
+
+```powershell
+.\scripts\Verify-Local.ps1
+```
+
+Comprueba:
+
+1. salida de Compose vacía, objeto único o colección sin depender de `.Count` sobre un escalar;
+2. presencia exacta de `postgres`, `backend` y `frontend`;
+3. estado `running` y health `healthy`;
+4. puertos efectivos mediante `docker compose port`;
+5. readiness backend;
+6. al menos ocho migraciones Flyway exitosas;
+7. SPA y proxy Nginx;
+8. rechazo anónimo 401/403;
+9. login administrativo;
+10. catálogo protegido no vacío.
+
+Ante cualquier error imprime estado y logs y termina con código no exitoso.
+
+## Detención, reinicio y limpieza
+
+Detener preservando datos:
+
+```powershell
+docker compose down --remove-orphans
+```
+
+Reiniciar con la configuración actual:
+
+```powershell
+.\scripts\Start-Local.ps1
+.\scripts\Verify-Local.ps1
+```
+
+Reconstruir:
+
+```powershell
+.\scripts\Start-Local.ps1 -Rebuild
+.\scripts\Verify-Local.ps1
+```
+
+Destruir datos:
+
+```powershell
+docker compose down -v --remove-orphans
+```
+
+O mediante el flujo integrado:
+
+```powershell
+.\scripts\Start-Local.ps1 -Reset -Rebuild
+```
+
+## Recuperación ante inicio parcial
+
+Si el inicio falla después de invocar Compose:
+
+1. se muestran estado y logs;
+2. se ejecuta `docker compose down --remove-orphans`;
+3. se conserva `postgres_data`;
+4. el script relanza la excepción;
+5. no se imprimen URLs ni mensajes de éxito.
+
+Reintento recomendado:
+
+```powershell
+.\scripts\Start-Local.ps1 -Rebuild -SkipOpen
+```
 
 ## Actualización
 
@@ -46,108 +153,27 @@ git pull --ff-only origin main
 .\scripts\Verify-Local.ps1
 ```
 
-Flyway aplica V8 automáticamente. No editar migraciones ya publicadas.
+Flyway aplica migraciones pendientes automáticamente. No se editan migraciones ya publicadas.
 
-## Logs
-
-```powershell
-docker compose logs --tail 300 postgres
-docker compose logs --tail 300 backend
-docker compose logs --tail 300 frontend
-docker compose logs -f backend
-```
-
-En producción los logs del backend son JSON y deben enviarse a una plataforma central.
-
-## Detención y reinicio
-
-Detener conservando datos:
+## Diagnóstico manual
 
 ```powershell
-docker compose down
+docker compose ps --all
+docker compose logs --tail 300 postgres backend frontend
+docker compose port postgres 5432
+docker compose port backend 8080
+docker compose port frontend 80
 ```
 
-Reiniciar:
-
-```powershell
-docker compose up -d
-```
-
-Eliminar entorno y datos:
-
-```powershell
-docker compose down -v --remove-orphans
-```
-
-## Verificación funcional mínima
-
-Después de una actualización:
-
-1. iniciar sesión;
-2. consultar catálogo;
-3. crear o consultar un cliente;
-4. consultar un pedido existente;
-5. confirmar que recepción carga;
-6. en un pedido `CLASSIFIED`, guardar perfil de compatibilidad;
-7. evaluar contra otro pedido clasificado con perfil;
-8. verificar auditoría como `ADMIN`.
-
-## Compatibilidad operativa
-
-- El perfil solo se modifica en `CLASSIFIED`.
-- Los dos pedidos se bloquean por UUID durante una evaluación.
-- Una evaluación existente se reutiliza si las versiones no cambiaron.
-- Una excepción requiere `ADMIN` y motivo.
-- Compatibilidad no asigna máquinas ni cambia estados.
-
-## Health y diagnóstico
-
-```powershell
-Invoke-RestMethod 'http://localhost:8081/api/actuator/health'
-docker compose ps
-.\scripts\Verify-Local.ps1
-```
-
-Ante error de migración:
-
-- revisar logs de backend;
-- consultar `flyway_schema_history`;
-- no borrar una migración aplicada;
-- corregir mediante una migración nueva.
-
-## Backups
+## Backups y producción
 
 No existe automatización productiva. Antes de usar datos reales se requiere:
 
-- backup programado;
-- cifrado;
-- retención;
-- restauración ensayada;
-- RPO/RTO definidos;
-- procedimiento de rollback de aplicación compatible con migraciones aditivas.
-
-## Evidencias
-
-La base solo almacena metadata. El futuro object storage debe ofrecer:
-
-- buckets privados;
-- cifrado;
-- URLs temporales;
-- validación MIME/tamaño/hash;
-- política de retención y borrado;
-- trazabilidad de acceso.
-
-## Checklist previo a producción
-
-- [ ] dominio y TLS;
-- [ ] perfil `prod` verificado;
-- [ ] secretos administrados;
-- [ ] CORS/cookies revisados;
-- [ ] backups y restore probados;
-- [ ] object storage privado;
-- [ ] observabilidad y alertas;
-- [ ] límites CPU/memoria;
-- [ ] rate limit distribuido;
-- [ ] política de privacidad;
-- [ ] rollback ensayado;
-- [ ] smoke post-deploy.
+- backup programado, cifrado y con retención;
+- restauración ensayada y RPO/RTO definidos;
+- TLS y secretos administrados;
+- object storage privado para evidencias;
+- observabilidad y alertas;
+- límites CPU/memoria;
+- rollback compatible con migraciones aditivas;
+- smoke post-deploy.
