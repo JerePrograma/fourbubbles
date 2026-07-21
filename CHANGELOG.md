@@ -2,7 +2,7 @@
 
 ## 0.3.0 - Compatibilidad explicable
 
-Fecha: 2026-07-21.
+Fecha: 2026-07-20.
 
 ### Agregado
 
@@ -14,8 +14,8 @@ Fecha: 2026-07-21.
 - Evaluación histórica por par ordenado, versiones de perfil y versión de reglas.
 - Excepción administrativa separada y auditada.
 - UI de perfil, selección de candidato, evaluación, explicación y excepción.
-- Pruebas unitarias del motor y de restricciones efectivas.
-- Integraciones de perfil, reevaluación versionada, permisos y excepción.
+- 25 pruebas unitarias y 19 integraciones backend.
+- Prueba concurrente A/B contra B/A con reutilización del mismo snapshot.
 
 ### Corregido o endurecido
 
@@ -23,7 +23,8 @@ Fecha: 2026-07-21.
 - La prohibición de secadora o suavizante se conserva.
 - El tratamiento hipoalergénico se conserva y fuerza fragancia `NONE`.
 - La exclusividad del pedido o cliente se conserva.
-- Las evaluaciones bloquean ambos pedidos en orden UUID para evitar duplicados concurrentes.
+- El orden UUID usa la representación canónica y coincide con el constraint de PostgreSQL.
+- Las evaluaciones bloquean ambos pedidos en orden estable para evitar duplicados concurrentes.
 - La autorización de excepción bloquea la evaluación antes de modificarla.
 - Una excepción no cambia el resultado original; solo altera la compatibilidad efectiva.
 
