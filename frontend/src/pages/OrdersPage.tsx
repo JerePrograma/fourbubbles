@@ -20,8 +20,11 @@ const statusOptions: Array<{ value: '' | OrderStatus; label: string }> = [
   { value: 'CLASSIFIED', label: 'Clasificado' },
   { value: 'WAITING_WASH', label: 'Esperando lavado' },
   { value: 'WASHING', label: 'Lavando' },
+  { value: 'WAITING_DRY', label: 'Esperando secado' },
   { value: 'DRYING', label: 'Secando' },
   { value: 'QUALITY_CONTROL', label: 'Control de calidad' },
+  { value: 'REWASH_REQUIRED', label: 'Requiere relavado' },
+  { value: 'FOLDING', label: 'Doblado' },
   { value: 'READY_FOR_DELIVERY', label: 'Listo para entregar' },
   { value: 'DELIVERY_SCHEDULED', label: 'Entrega programada' },
   { value: 'DELIVERED', label: 'Entregado' },
@@ -73,7 +76,7 @@ export function OrdersPage(): JSX.Element {
   return (
     <section>
       <div className="page-heading">
-        <div><h1>Pedidos</h1><p className="muted">Cotización, recepción, compatibilidad, seguimiento y pago</p></div>
+        <div><h1>Pedidos</h1><p className="muted">Cotización, recepción, compatibilidad, producción y pago</p></div>
         {canWrite && <Link className="button" to="/orders/new">Nuevo pedido</Link>}
       </div>
       {searchParams.has('created') && <div className="success">Pedido {searchParams.get('created')} creado correctamente.</div>}
@@ -101,25 +104,22 @@ export function OrdersPage(): JSX.Element {
                 <td><span className="badge neutral-badge">{order.paymentStatus}</span></td>
                 <td>{formatMoney(order.confirmedPrice ?? order.quotedPrice, order.currencyCode)}</td>
                 <td>{order.pickupScheduledAt ? formatDate(order.pickupScheduledAt) : 'Sin programar'}</td>
-                <td>
-                  <div className="operation-links">
-                    <Link className="text-link" to={`/orders/${order.id}/reception`}>{order.status === 'PICKED_UP' ? 'Recibir' : 'Recepción'}</Link>
-                    <Link className="text-link" to={`/orders/${order.id}/compatibility`}>Compatibilidad</Link>
-                  </div>
-                </td>
+                <td><div className="operation-links">
+                  <Link className="text-link" to={`/orders/${order.id}/reception`}>{order.status === 'PICKED_UP' ? 'Recibir' : 'Recepción'}</Link>
+                  <Link className="text-link" to={`/orders/${order.id}/compatibility`}>Compatibilidad</Link>
+                  <Link className="text-link" to="/production">Producción</Link>
+                </div></td>
               </tr>
             ))}</tbody>
           </table>
         )}
       </div>
 
-      {totalPages > 1 && (
-        <div className="pagination">
-          <button className="secondary-button" disabled={page === 0 || loading} onClick={() => void load(page - 1, orderNumber, statusFilter)}>Anterior</button>
-          <span>Página {page + 1} de {totalPages}</span>
-          <button className="secondary-button" disabled={page + 1 >= totalPages || loading} onClick={() => void load(page + 1, orderNumber, statusFilter)}>Siguiente</button>
-        </div>
-      )}
+      {totalPages > 1 && <div className="pagination">
+        <button className="secondary-button" disabled={page === 0 || loading} onClick={() => void load(page - 1, orderNumber, statusFilter)}>Anterior</button>
+        <span>Página {page + 1} de {totalPages}</span>
+        <button className="secondary-button" disabled={page + 1 >= totalPages || loading} onClick={() => void load(page + 1, orderNumber, statusFilter)}>Siguiente</button>
+      </div>}
     </section>
   );
 }

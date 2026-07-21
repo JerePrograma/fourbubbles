@@ -24,7 +24,8 @@ public class OrderTransitionPolicy {
         allow(OrderStatus.WAITING_PRICE_APPROVAL, OrderStatus.CLASSIFIED, OrderStatus.CANCELLED);
         allow(OrderStatus.CLASSIFIED, OrderStatus.WAITING_WASH);
         allow(OrderStatus.WAITING_WASH, OrderStatus.WASHING);
-        allow(OrderStatus.WASHING, OrderStatus.DRYING, OrderStatus.QUALITY_CONTROL);
+        allow(OrderStatus.WASHING, OrderStatus.WAITING_DRY, OrderStatus.QUALITY_CONTROL);
+        allow(OrderStatus.WAITING_DRY, OrderStatus.DRYING);
         allow(OrderStatus.DRYING, OrderStatus.QUALITY_CONTROL);
         allow(OrderStatus.QUALITY_CONTROL, OrderStatus.REWASH_REQUIRED, OrderStatus.FOLDING);
         allow(OrderStatus.REWASH_REQUIRED, OrderStatus.WAITING_WASH);
