@@ -156,7 +156,7 @@ class ProductionFlowIT extends PostgresIntegrationTestSupport {
                         Map.entry("babyClothes", false),
                         Map.entry("petContact", false),
                         Map.entry("heavySoil", false),
-                        Map.entry("exclusiveCycle", exclusive))));
+                        Map.entry("exclusiveCycle", exclusive)))));
     }
 
     private void evaluate(String token, String first, String second) throws Exception {
