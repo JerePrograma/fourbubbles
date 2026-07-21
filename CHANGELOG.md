@@ -1,5 +1,42 @@
 # Changelog
 
+## Unreleased - Puesta en marcha local resistente
+
+Fecha: 2026-07-21.
+
+### Agregado
+
+- Variables `POSTGRES_HOST_PORT`, `BACKEND_HOST_PORT` y `FRONTEND_HOST_PORT`.
+- `COMPOSE_PROJECT_NAME` para aislar recursos locales.
+- Healthcheck del frontend.
+- Librería `scripts/Local.Common.ps1` para `.env`, puertos, Compose, health y diagnóstico.
+- Pruebas PowerShell sin Pester ni dependencias externas.
+- Parámetros `-Reset` y `-SkipOpen` en `Start-Local.ps1`.
+- Smoke test que inicia Nginx antes del backend y usa puertos no predeterminados.
+- Validación de acceso anónimo rechazado antes del login autenticado.
+
+### Corregido
+
+- Puertos host rígidos `5432`, `8080` y `8081`.
+- Inicio que detectaba conflictos recién después de construir o crear servicios.
+- Falta de información sobre contenedor, imagen, PID y proceso en conflictos.
+- Posibilidad de dejar un stack parcialmente iniciado después de una excepción.
+- Mensajes de éxito emitidos fuera de una única unidad de control PowerShell.
+- `.Count` sobre salida Compose vacía o escalar.
+- Suposición de que `docker compose ps --format json` siempre devuelve un array.
+- Verificación y documentación acopladas a puertos fijos.
+- Nginx abortando con `host not found in upstream "backend"` durante una resolución DNS transitoria.
+- Verificación incompleta del frontend, proxy, health y acceso protegido.
+
+### Endurecido
+
+- `.env` se crea o completa idempotentemente sin reemplazar secretos existentes.
+- Placeholders y JWT Base64 inválido se rechazan con error explícito.
+- Los puertos se publican solo en `127.0.0.1`.
+- Las políticas de reinicio quedan acotadas a tres reintentos por fallo.
+- Los diagnósticos muestran estado y logs antes de limpiar un inicio parcial.
+- La limpieza automática preserva el volumen PostgreSQL salvo `-Reset` o `down -v` explícito.
+
 ## 0.3.0 - Compatibilidad explicable
 
 Fecha: 2026-07-20.
