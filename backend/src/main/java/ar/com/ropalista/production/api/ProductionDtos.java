@@ -66,6 +66,10 @@ public final class ProductionDtos {
     public record QualityControlRequest(@NotNull QualityDecision decision,
                                         @NotBlank @Size(max = 1000) String observation) {}
 
+    public record QualityControlResponse(UUID orderId, String orderNumber,
+                                         String previousStatus, String newStatus,
+                                         QualityDecision decision, String observation) {}
+
     public record CycleOrderResponse(UUID orderId, String orderNumber, int assignmentOrder,
                                      int assignedWeightGrams, boolean separationRequired,
                                      String orderStatus) {}
