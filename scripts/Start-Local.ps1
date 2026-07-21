@@ -12,6 +12,7 @@ $ErrorActionPreference = 'Stop'
 $RepositoryRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $RepositoryRoot
 . (Join-Path $PSScriptRoot 'Local.Common.ps1')
+. (Join-Path $PSScriptRoot 'Local.ContainerIdentity.ps1')
 
 $AttemptedStart = $false
 $EnvironmentResult = $null
