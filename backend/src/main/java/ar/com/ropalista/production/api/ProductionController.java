@@ -123,9 +123,12 @@ public class ProductionController {
 
     @PatchMapping("/orders/{orderId}/quality-control")
     @PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
-    ApiResponse<ProductionDtos.CycleOrderResponse> qualityControl(
+    ApiResponse<ProductionDtos.QualityControlResponse> qualityControl(
             @PathVariable UUID orderId,
             @Valid @RequestBody ProductionDtos.QualityControlRequest request) {
-        return ApiResponse.ok(service.qualityControl(orderId, request));
+        var result = service.qualityControl(orderId, request);
+        return ApiResponse.ok(new ProductionDtos.QualityControlResponse(
+                result.orderId(), result.orderNumber(), "QUALITY_CONTROL",
+                result.orderStatus(), request.decision(), request.observation()));
     }
 }
