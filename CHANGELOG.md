@@ -1,43 +1,52 @@
 # Changelog
 
+## 0.3.0 - Compatibilidad explicable
+
+Fecha: 2026-07-21.
+
+### Agregado
+
+- Migración Flyway V8.
+- Perfil de tratamiento único por pedido y recepción.
+- Atributos de color, material, temperatura, secadora, fragancia, suavizante, tratamiento hipoalergénico, ropa de bebé, mascotas, suciedad pesada y exclusividad.
+- Motor `COMPAT-1` con razones `HARD` y `WARNING`.
+- Recomendación compartida de temperatura, secadora, suavizante, fragancia, programa y modo.
+- Evaluación histórica por par ordenado, versiones de perfil y versión de reglas.
+- Excepción administrativa separada y auditada.
+- UI de perfil, selección de candidato, evaluación, explicación y excepción.
+- Pruebas unitarias del motor y de restricciones efectivas.
+- Integraciones de perfil, reevaluación versionada, permisos y excepción.
+
+### Corregido o endurecido
+
+- Las preferencias del cliente no pueden relajarse desde el formulario de compatibilidad.
+- La prohibición de secadora o suavizante se conserva.
+- El tratamiento hipoalergénico se conserva y fuerza fragancia `NONE`.
+- La exclusividad del pedido o cliente se conserva.
+- Las evaluaciones bloquean ambos pedidos en orden UUID para evitar duplicados concurrentes.
+- La autorización de excepción bloquea la evaluación antes de modificarla.
+- Una excepción no cambia el resultado original; solo altera la compatibilidad efectiva.
+
+### Pendiente
+
+- ciclos y máquinas;
+- asignación de pedidos compatibles a ciclos;
+- capacidad, lavado, secado y control de calidad;
+- almacenamiento binario de evidencias;
+- logística, caja, costos, inventario y reclamos.
+
 ## 0.2.0 - Recepción física idempotente
 
 Fecha: 2026-07-20.
 
-### Agregado
-
 - Migración Flyway V7.
-- Agregado `OrderReception`, ítems reales y metadatos de evidencias.
-- `Idempotency-Key` obligatorio y único.
-- Peso y conteo reales sin sobrescribir la declaración original.
-- Diferencias por pedido y por tipo de prenda.
-- Daños, manchas, observaciones, etiqueta y bolsa.
-- Política de aprobación por diferencia de piezas, daño o peso material.
-- Umbral de peso: mayor a 250 g o 10 % del declarado.
-- Decisión `APPROVED`/`REJECTED` con actor, fecha y notas.
-- Transiciones automáticas desde `PICKED_UP` hasta `CLASSIFIED` o `WAITING_PRICE_APPROVAL`.
-- Metadatos de archivo: clave, nombre, MIME, tamaño, SHA-256 y descripción.
-- UI de recepción, consulta y decisión.
-- Pruebas unitarias de umbral.
-- Integración de idempotencia secuencial y concurrente, aprobación y permisos.
-
-### Corregido o endurecido
-
-- Una recepción repetida con la misma clave devuelve el mismo agregado.
-- Otra clave no puede crear una segunda recepción del pedido.
-- La composición real se deriva de los ítems y exige todos los códigos declarados.
-- Códigos adicionales solo se admiten si su equivalencia está vigente.
-- Fecha futura, recepción vacía y duplicados se rechazan.
-- Las evidencias guardan metadatos; no se insertan binarios en PostgreSQL.
-
-### Pendiente
-
-- almacenamiento gestionado y carga binaria de fotos;
-- compatibilidad;
-- ciclos y máquinas;
-- logística;
-- caja, costos y rentabilidad;
-- inventario y reclamos completos.
+- Recepción única por pedido e `Idempotency-Key`.
+- Peso y conteo reales separados de la declaración.
+- Diferencias por pedido y prenda.
+- Daños, manchas, observaciones, etiqueta, bolsa y evidencia metadata.
+- Política de aprobación por piezas, daño o peso material.
+- Decisión aprobada/rechazada con actor, fecha y notas.
+- UI y pruebas de idempotencia secuencial/concurrente.
 
 ## 0.1.2 - Cierre administrativo de Fase 1
 
