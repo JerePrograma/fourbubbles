@@ -2,9 +2,11 @@
 
 Sistema de gestión para una lavandería doméstica con retiro y entrega, inicialmente orientado a Marcos Paz y Mariano Acosta.
 
-> Versión: **0.3.0**. El circuito administrativo, la recepción física y la evaluación explicable de compatibilidad están implementados. Ciclos, máquinas, logística, caja/costos y crecimiento siguen pendientes.
+> Versión funcional: **0.3.0**. Revisión operativa local: **2026-07-21**.
 
-## Implementado
+## Estado
+
+El circuito administrativo, la recepción física y la evaluación explicable de compatibilidad están implementados. Ciclos, máquinas, logística, caja/costos y crecimiento siguen pendientes.
 
 ### Plataforma
 
@@ -12,18 +14,9 @@ Sistema de gestión para una lavandería doméstica con retiro y entrega, inicia
 - PostgreSQL 16 y Flyway V1-V8 como autoridad del esquema.
 - Hibernate con `ddl-auto=validate`.
 - Monolito modular, OpenAPI, Actuator, Docker Compose y Nginx.
-- CI de backend, frontend, contenedores y smoke test del stack real.
+- CI de backend, frontend, PowerShell, contenedores y smoke test del stack real.
 
-### Seguridad y consistencia
-
-- JWT HS256, refresh token opaco rotativo, BCrypt y cookie segura.
-- jerarquía `ADMIN > OPERATOR > DRIVER > REPORT_VIEWER`.
-- autorización por método, errores JSON, `X-Request-ID` y logs correlacionados.
-- bloqueo pesimista en promociones, pagos, recepción y compatibilidad.
-- recepción idempotente mediante `Idempotency-Key`.
-- excepciones de compatibilidad exclusivas de `ADMIN` y auditadas.
-
-### Operación
+### Operación implementada
 
 - clientes, preferencias y domicilios versionados;
 - servicios, equivalencias, precios y promociones versionados;
@@ -38,20 +31,11 @@ Sistema de gestión para una lavandería doméstica con retiro y entrega, inicia
 - excepción administrativa separada del resultado original;
 - UI para clientes, pedidos, recepción, compatibilidad, pagos y auditoría.
 
-## Pendiente
+El detalle funcional está en [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) y [docs/ROADMAP.md](docs/ROADMAP.md).
 
-- ciclos reales, máquinas, capacidad, lavado, secado, calidad y relavado;
-- asignación de pedidos compatibles a ciclos;
-- almacenamiento binario gestionado de fotografías;
-- rutas, kilómetros, paradas y WhatsApp;
-- caja, costos, margen y rentabilidad;
-- abonos, inventario, mantenimiento y reclamos.
+## Inicio local resistente a conflictos
 
-El detalle está en [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) y [docs/ROADMAP.md](docs/ROADMAP.md).
-
-## Inicio rápido en Windows
-
-Requisitos: Git, Docker Desktop y PowerShell 7.
+Requisitos: Git, Docker Desktop con contenedores Linux y PowerShell 7.
 
 ```powershell
 git clone https://github.com/JerePrograma/fourbubbles.git
@@ -63,14 +47,83 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\Verify-Local.ps1
 ```
 
-La verificación comprueba contenedores, health, ocho migraciones Flyway o más, SPA, login y una API protegida.
+`Start-Local.ps1`:
 
-| Componente | URL |
-|---|---|
-| Aplicación | `http://localhost:8080` |
-| API | `http://localhost:8081/api` |
-| Swagger | `http://localhost:8081/api/swagger-ui.html` |
-| Health | `http://localhost:8081/api/actuator/health` |
+- crea o completa `.env` de forma idempotente;
+- no reemplaza secretos existentes;
+- valida los tres puertos publicados;
+- detecta contenedores o procesos ajenos antes de construir;
+- no detiene proyectos ajenos;
+- limpia un inicio parcial fallido sin eliminar PostgreSQL;
+- espera health real de PostgreSQL, backend y frontend;
+- abre la aplicación salvo que se use `-SkipOpen`.
+
+`Verify-Local.ps1` valida cero, uno o varios objetos JSON de Compose sin asumir una colección fija, resuelve los puertos efectivos y comprueba contenedores, health, Flyway, SPA, proxy Nginx, rechazo anónimo, login y catálogo protegido.
+
+### Puertos configurables
+
+| Variable | Puerto host predeterminado | Puerto interno | Servicio |
+|---|---:|---:|---|
+| `POSTGRES_HOST_PORT` | 5432 | 5432 | PostgreSQL |
+| `BACKEND_HOST_PORT` | 8081 | 8080 | Spring Boot |
+| `FRONTEND_HOST_PORT` | 8080 | 80 | Nginx/React |
+
+La comunicación interna no cambia: `backend -> postgres:5432` y `frontend -> backend:8080`.
+
+Ejemplo para convivir con WordPress u otros proyectos:
+
+```dotenv
+POSTGRES_HOST_PORT=15432
+BACKEND_HOST_PORT=18081
+FRONTEND_HOST_PORT=18080
+```
+
+Después:
+
+```powershell
+.\scripts\Start-Local.ps1 -Rebuild -SkipOpen
+.\scripts\Verify-Local.ps1
+```
+
+Las URLs se imprimen con los puertos efectivos. No se deben codificar `8080`, `8081` o `5432` en procedimientos locales.
+
+## Comandos operativos
+
+Iniciar o reconciliar sin reconstruir:
+
+```powershell
+.\scripts\Start-Local.ps1
+```
+
+Reconstruir imágenes:
+
+```powershell
+.\scripts\Start-Local.ps1 -Rebuild
+```
+
+Recrear todo, destruyendo la base local:
+
+```powershell
+.\scripts\Start-Local.ps1 -Reset -Rebuild
+```
+
+Verificar:
+
+```powershell
+.\scripts\Verify-Local.ps1
+```
+
+Detener preservando datos:
+
+```powershell
+docker compose down --remove-orphans
+```
+
+Destruir también PostgreSQL:
+
+```powershell
+docker compose down -v --remove-orphans
+```
 
 ## Flujo funcional
 
@@ -89,47 +142,22 @@ La verificación comprueba contenedores, health, ocho migraciones Flyway o más,
 
 La compatibilidad no crea ni ejecuta ciclos: solo determina si dos pedidos podrían compartir tratamiento con las reglas vigentes.
 
-## Perfil efectivo
-
-El perfil solicitado nunca puede relajar restricciones persistidas:
-
-- una prohibición de secadora o suavizante del cliente se conserva;
-- la exigencia hipoalergénica se conserva y fuerza fragancia `NONE`;
-- la exclusividad del pedido o cliente conserva `exclusiveCycle=true`.
-
-Las evaluaciones se identifican por par ordenado, versiones de perfiles y versión del motor `COMPAT-1`. Actualizar un perfil produce una evaluación histórica nueva. Una excepción no altera el resultado original: solo cambia `effectivelyCompatible` y registra motivo, actor y fecha.
-
-## Endpoints principales
-
-| Método | Ruta | Uso |
-|---|---|---|
-| POST | `/api/auth/login` | iniciar sesión |
-| GET/POST/PUT | `/api/clients...` | clientes y domicilios |
-| GET/POST/PATCH | `/api/orders...` | pedidos, precio y estados |
-| POST/GET | `/api/orders/{id}/reception...` | recepción y decisión |
-| PUT/GET | `/api/orders/{id}/compatibility-profile` | perfil de tratamiento |
-| POST | `/api/compatibility/evaluate` | evaluar dos pedidos |
-| GET | `/api/compatibility/evaluations/{id}` | consultar evaluación |
-| POST | `/api/compatibility/evaluations/{id}/exception` | excepción administrativa |
-| POST/GET | `/api/payments` | pagos e historial |
-| GET | `/api/audit` | auditoría administrativa |
-
 ## Documentación
 
 - [Estado integral](docs/PROJECT_STATUS.md)
-- [Alcance funcional](docs/FUNCTIONAL_SCOPE.md)
 - [Guía Windows](docs/WINDOWS_SETUP.md)
+- [Operación](docs/OPERATIONS.md)
+- [Pruebas](docs/TESTING.md)
+- [Alcance funcional](docs/FUNCTIONAL_SCOPE.md)
 - [Guía de uso](docs/USER_GUIDE.md)
 - [Arquitectura](docs/ARCHITECTURE.md)
 - [Modelo de datos](docs/DATA_MODEL.md)
 - [Contrato API](docs/API.md)
-- [Pruebas](docs/TESTING.md)
 - [Seguridad](docs/SECURITY.md)
-- [Operación](docs/OPERATIONS.md)
 - [Supuestos](docs/ASSUMPTIONS.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Changelog](CHANGELOG.md)
 
 ## Advertencia productiva
 
-Compose usa perfil `dev`. No es una topología productiva. Faltan TLS, secretos administrados, backups restaurables, almacenamiento de objetos, observabilidad central, límites de recursos y rollback probado.
+Compose usa perfil `dev` y publica servicios solo en `127.0.0.1`. No es una topología productiva. Faltan TLS, secretos administrados, backups restaurables, almacenamiento de objetos, observabilidad central, límites de recursos y rollback probado.
