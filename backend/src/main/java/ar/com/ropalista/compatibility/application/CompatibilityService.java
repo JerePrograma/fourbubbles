@@ -97,7 +97,7 @@ public class CompatibilityService {
             throw new BusinessException("SAME_ORDER_COMPATIBILITY",
                     "Debe seleccionar dos pedidos diferentes", HttpStatus.BAD_REQUEST);
         }
-        UUID firstId = request.orderAId().compareTo(request.orderBId()) < 0
+        UUID firstId = compareCanonical(request.orderAId(), request.orderBId()) < 0
                 ? request.orderAId() : request.orderBId();
         UUID secondId = firstId.equals(request.orderAId()) ? request.orderBId() : request.orderAId();
 
@@ -161,6 +161,10 @@ public class CompatibilityService {
                 Map.of("effectiveCompatible", true, "authorizedBy", actor),
                 request.reason());
         return toEvaluationResponse(saved);
+    }
+
+    static int compareCanonical(UUID left, UUID right) {
+        return left.toString().compareTo(right.toString());
     }
 
     private LaundryOrder lockClassifiedOrder(UUID orderId) {
