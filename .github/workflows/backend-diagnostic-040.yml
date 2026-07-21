@@ -1,0 +1,38 @@
+name: Backend diagnostic 0.4.0
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend-diagnostic:
+    if: github.head_ref == 'agent/0.4.0-production'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print production failures
+        shell: bash
+        run: |
+          set -o pipefail
+          git clone -q --depth 1 --branch agent/0.4.0-production https://github.com/JerePrograma/fourbubbles.git repo
+          cd repo/backend
+          if [ -n "${JAVA_HOME_21_X64:-}" ]; then
+            export JAVA_HOME="$JAVA_HOME_21_X64"
+            export PATH="$JAVA_HOME/bin:$PATH"
+          fi
+          set +e
+          mvn -B -Dstyle.color=never clean verify > /tmp/backend.log 2>&1
+          code=$?
+          for report in target/surefire-reports/*Production*.txt target/failsafe-reports/*Production*.txt; do
+            if [ -f "$report" ]; then
+              echo "===== $report ====="
+              cat "$report"
+            fi
+          done
+          if [ "$code" -ne 0 ]; then
+            grep -E '^\[ERROR\]|COMPILATION ERROR|Tests run:|Failures:|Errors:|Caused by:|cannot find symbol|incompatible types|PSQLException|constraint|expected:|but was:' /tmp/backend.log | tail -n 400 || true
+          else
+            grep -E 'Tests run:|BUILD SUCCESS' /tmp/backend.log | tail -n 100
+          fi
+          exit "$code"
