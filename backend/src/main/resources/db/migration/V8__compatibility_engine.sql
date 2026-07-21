@@ -46,7 +46,7 @@ CREATE TABLE compatibility_evaluations (
     updated_by VARCHAR(100) NOT NULL,
     version BIGINT NOT NULL DEFAULT 0,
     CONSTRAINT ck_compatibility_distinct_orders CHECK (order_a_id <> order_b_id),
-    CONSTRAINT ck_compatibility_ordering CHECK (order_a_id < order_b_id),
+    CONSTRAINT ck_compatibility_ordering CHECK (order_a_id::text < order_b_id::text),
     CONSTRAINT uk_compatibility_profile_versions UNIQUE
         (order_a_id, order_b_id, profile_a_version, profile_b_version, rule_version)
 );
