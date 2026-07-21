@@ -1,187 +1,141 @@
 # Alcance funcional
 
-Versión: `0.2.0`.
+Versión: `0.3.0`.
 
 Este documento describe funciones utilizables, no solamente tablas o estados.
 
+## Estado por módulo
+
 | Módulo | Estado | Alcance disponible | Pendiente principal |
 |---|---|---|---|
-| Autenticación | Implementado base | login, refresh, logout, JWT, cookie segura, bloqueo local | usuarios UI, MFA, limitación distribuida |
+| Autenticación | Implementado base | login, refresh, logout, JWT, cookie segura y bloqueo local | usuarios UI, MFA y limitación distribuida |
 | RBAC | Implementado | jerarquía y permisos por método | permisos finos por transición |
 | Clientes | Avanzado | alta, búsqueda, actualización, estado y preferencias | timeline agregado |
-| Domicilios | Implementado administrativo | múltiples, principal, vigencia, baja e historial | coordenadas y geocodificación |
+| Domicilios | Implementado administrativo | múltiples, principal, vigencia, baja e historial | coordenadas/geocodificación |
 | Zonas | Inicial | Marcos Paz y Mariano Acosta | radios y restricciones avanzadas |
 | Catálogo | Inicial versionado | servicios y equivalencias | CRUD administrativo UI |
 | Precios | Implementado | automático/manual, vigencia, histórico y desglose | simulación y reglas compuestas |
 | Promociones | Implementado soportado | cupos, primera compra, domicilio y concurrencia | créditos y reglas compuestas |
 | Pedidos | Avanzado | alta, cotización, planificación, estados y búsqueda | edición física versionada posterior |
-| Recepción | Implementado base | idempotencia, peso/conteo real, inspección, diferencias y aprobación | almacenamiento binario y correcciones versionadas |
-| Evidencias | Parcial | metadata y SHA-256 | upload/download y object storage |
+| Recepción | Implementado base | idempotencia, peso/conteo real, inspección, diferencias y aprobación | binarios y correcciones versionadas |
+| Evidencias | Parcial | metadata, tamaño, MIME y SHA-256 | upload/download y object storage |
+| Compatibilidad | Implementado base | perfil, evaluación por pares, razones, recomendación, historial y excepción | matriz administrable y comparación múltiple |
 | Pagos | Implementado base robusto | parciales, totales, saldo, historial y concurrencia | caja, reembolsos y webhooks |
-| Auditoría | Implementado administrativo | persistencia, filtros e interfaz | exportación y retención |
-| Compatibilidad | Pendiente | datos reales disponibles como insumo | matriz y motor explicable |
-| Producción | Pendiente | estados preparatorios | ciclos, máquinas, lavado/secado/calidad |
-| Logística | Pendiente | fechas en pedido | rutas, agenda, kilómetros y entrega |
-| Finanzas | Parcial mínimo | cobros | caja, costos, margen y rentabilidad |
-| Inventario | Pendiente | ninguno | stock, lotes y consumo |
-| Reclamos | Pendiente | estado `CLAIM` | circuito, evidencia y compensación |
-| Crecimiento | Pendiente | catálogo/promociones base | abonos, comercios, SLA y tableros |
+| Auditoría | Implementado base | eventos sensibles y consulta paginada | exportación/retención |
+| Producción | Pendiente | compatibilidad como insumo | ciclos, máquinas, capacidad y calidad |
+| Logística | Pendiente | fechas de retiro/promesa | rutas, paradas y kilómetros |
+| Finanzas | Parcial mínimo | cobros | caja, costos, margen y conciliación |
+| Crecimiento | Pendiente | base comercial | abonos, inventario, mantenimiento y reclamos |
 
-## Tres snapshots diferentes
-
-### Declaración
-
-Se registra al crear el pedido:
-
-- prendas declaradas;
-- cantidades físicas;
-- grupos;
-- unidades equivalentes;
-- peso declarado opcional;
-- precio inicial.
-
-### Recepción real
-
-Se registra una única vez de forma idempotente:
-
-- peso real;
-- conteo real total;
-- conteo real por equivalencia;
-- diferencias;
-- daños/manchas;
-- observaciones;
-- etiqueta/bolsa;
-- evidencia metadata;
-- aprobación.
-
-No sobrescribe la declaración.
-
-### Producción
-
-Todavía pendiente:
-
-- compatibilidad;
-- composición de ciclos;
-- máquina/programa;
-- consumos;
-- tiempos;
-- calidad y relavado.
-
-## Reglas de cliente/domicilio
-
-- WhatsApp activo único.
-- Al menos un domicilio activo.
-- Un único principal activo.
-- El principal no se desactiva directamente.
-- Baja lógica e historial.
-- Pedidos conservan el domicilio histórico.
-
-## Reglas de precio/promoción
-
-- precio automático original separado del cotizado vigente;
-- cotización manual requiere `ADMIN` y motivo;
-- confirmación congela el precio;
-- promoción se consume al confirmar;
-- la promoción se bloquea y revalida bajo transacción;
-- una carrera no consume dos veces el mismo beneficio restringido.
-
-## Reglas de recepción
-
-### Estado de origen
-
-Solo `PICKED_UP`.
-
-### Idempotencia
-
-- cabecera obligatoria `Idempotency-Key`;
-- 16–120 caracteres `[A-Za-z0-9._:-]`;
-- misma clave y pedido: mismo resultado;
-- misma clave en otro pedido: conflicto;
-- segunda clave en pedido ya recibido: conflicto;
-- constraint único por pedido y por clave.
-
-### Composición
-
-- todos los códigos declarados deben aparecer;
-- códigos duplicados se rechazan;
-- cantidades reales son enteros no negativos;
-- total real debe ser positivo;
-- prenda adicional exige equivalencia vigente;
-- diferencias se calculan por código y total.
-
-### Peso
-
-- peso real positivo;
-- fecha no puede superar cinco minutos en el futuro;
-- diferencia se conserva en gramos;
-- aprobación requerida cuando el desvío supera 250 g o 10 %.
-
-### Inspección
-
-- daño obliga a aprobación;
-- diferencia de piezas obliga a aprobación;
-- mancha se registra, pero no obliga por sí sola;
-- observaciones generales y por ítem;
-- etiqueta única `RCV-xxxxxx`;
-- bolsa opcional.
-
-### Evidencia
-
-Se registran solamente metadatos:
-
-- object key;
-- nombre;
-- MIME;
-- tamaño;
-- SHA-256;
-- descripción.
-
-El binario debe existir en un almacenamiento externo. El sistema no afirma que haya subido un archivo solo porque guardó metadata.
-
-### Estados resultantes
-
-Sin aprobación:
+## Flujo implementado
 
 ```text
-PICKED_UP → RECEIVED → PENDING_INSPECTION → CLASSIFIED
+cliente
+  -> domicilio activo
+  -> pedido declarado
+  -> precio automático/manual
+  -> confirmación y retiro
+  -> PICKED_UP
+  -> recepción real idempotente
+  -> CLASSIFIED o WAITING_PRICE_APPROVAL
+  -> perfil de tratamiento
+  -> evaluación explicable contra otro CLASSIFIED
+  -> compatible / bloqueado / excepción ADMIN
 ```
 
-Con aprobación:
+La evaluación de compatibilidad no crea un ciclo ni cambia el estado del pedido.
 
-```text
-PICKED_UP → RECEIVED → PENDING_INSPECTION → WAITING_PRICE_APPROVAL
-```
+## Perfil de tratamiento
 
-Decisión:
+Solo puede crearse o modificarse mientras el pedido está `CLASSIFIED` y posee recepción.
 
-```text
-APPROVED → CLASSIFIED
-REJECTED → CANCELLED
-```
+Atributos:
 
-## Reglas de pago
+- grupo de color;
+- grupo de material;
+- temperatura máxima;
+- secadora;
+- política de fragancia;
+- suavizante;
+- hipoalergénico;
+- ropa de bebé;
+- contacto con mascotas;
+- suciedad pesada;
+- ciclo exclusivo;
+- notas.
 
-- precio confirmado obligatorio;
-- importe positivo;
-- no superar saldo;
-- pedido bloqueado durante el cobro;
-- pagos concurrentes no sobrecobran;
-- historial por fecha, medio, actor y referencia.
+El perfil guardado es efectivo, no una copia ciega del formulario. Se aplican reglas no relajables:
 
-## Datos iniciales
+- `dryerAllowed=false` del cliente prevalece;
+- `softenerAllowed=false` del cliente prevalece;
+- `hypoallergenic=true` prevalece y fuerza `fragrancePolicy=NONE`;
+- `exclusiveCycle=true` del pedido o cliente prevalece.
 
-- 2 zonas;
-- 11 servicios;
-- 21 equivalencias;
-- 11 precios;
-- 9 promociones;
-- 4 medios de pago.
+## Evaluación de compatibilidad
 
-## Regla de honestidad
+Requiere dos pedidos diferentes, ambos `CLASSIFIED` y con perfil.
 
-- `RECEIVED` ahora sí tiene agregado físico.
-- `WASHING` todavía no implica un ciclo real.
-- `DELIVERY_SCHEDULED` todavía no implica una ruta.
-- `CLAIM` todavía no implica un módulo de reclamos.
+El motor `COMPAT-1` genera:
 
-Un módulo se considera finalizado cuando existen datos, reglas, transacción, API, permisos, UI cuando corresponde y pruebas de los riesgos críticos.
+- `compatible` original;
+- lista de razones con severidad `HARD` o `WARNING`;
+- temperatura máxima común;
+- uso de secadora y suavizante;
+- política de fragancia;
+- programa recomendado;
+- modo `SHARED` o `BLOCKED`.
+
+Reglas duras iniciales:
+
+- ciclo exclusivo;
+- color desconocido o distinto;
+- materiales incompatibles;
+- aislamiento hipoalergénico;
+- cruce bebé/mascotas;
+- suciedad pesada contra carga sensible;
+- política de fragancia distinta.
+
+Advertencias iniciales:
+
+- reducción de temperatura;
+- deshabilitación de secadora;
+- deshabilitación de suavizante.
+
+La evaluación se reutiliza si coinciden el par ordenado, las versiones de ambos perfiles y la versión de reglas. Si cambia un perfil, se crea un nuevo snapshot histórico.
+
+## Excepción administrativa
+
+Solo `ADMIN` puede autorizarla y debe informar un motivo.
+
+La excepción:
+
+- no cambia `compatible`;
+- establece `overridden=true`;
+- establece `effectivelyCompatible=true`;
+- conserva actor y fecha;
+- queda auditada;
+- no puede duplicarse.
+
+## Roles
+
+| Operación | ADMIN | OPERATOR | DRIVER | REPORT_VIEWER |
+|---|---:|---:|---:|---:|
+| crear/editar cliente y domicilio | Sí | Sí | No | No |
+| crear/editar pedido temprano | Sí | Sí | No | No |
+| cotización manual | Sí | No | No | No |
+| registrar recepción | Sí | Sí | Sí | No |
+| decidir diferencia de recepción | Sí | Sí | No | No |
+| guardar perfil | Sí | Sí | No | No |
+| evaluar compatibilidad | Sí | Sí | No | No |
+| consultar perfil/evaluación | Sí | Sí | Sí | Sí |
+| autorizar excepción | Sí | No | No | No |
+| registrar pago | Sí | Sí | No | No |
+| consultar auditoría | Sí | No | No | No |
+
+## Límites conscientes
+
+- La compatibilidad es por pares, no un optimizador de lotes.
+- Una excepción no asigna pedidos a una máquina.
+- No se valida capacidad porque todavía no existen ciclos/máquinas.
+- La evidencia de recepción es metadata; no existe almacenamiento binario integrado.
+- Los estados posteriores a `CLASSIFIED` no representan ejecución física completa.
