@@ -1,6 +1,6 @@
 # Contrato API
 
-Versión documentada: `0.3.0`.
+Versión documentada: `0.4.0`.
 
 La API se sirve bajo `/api`. Swagger local: `/api/swagger-ui.html`.
 
@@ -15,213 +15,180 @@ La API se sirve bajo `/api`. Swagger local: `/api/swagger-ui.html`.
 Error:
 
 ```json
+{"success":false,"code":"BUSINESS_CODE","message":"Descripción segura","status":422,"path":"/api/...","timestamp":"2026-07-20T20:00:00-03:00","violations":[]}
+```
+
+Las rutas protegidas requieren `Authorization: Bearer <token>`.
+
+## Núcleo existente
+
+| Área | Rutas principales |
+|---|---|
+| Auth | `/auth/login`, `/auth/refresh`, `/auth/logout` |
+| Clientes | `/clients...` |
+| Pedidos | `/orders...` |
+| Recepción | `/orders/{id}/reception...` |
+| Compatibilidad | `/orders/{id}/compatibility-profile`, `/compatibility...` |
+| Pagos | `/payments...` |
+| Auditoría | `/audit` |
+
+## Producción
+
+### Máquinas
+
+| Método | Ruta | Rol | Uso |
+|---|---|---|---|
+| GET | `/production/machines` | todos | listar |
+| POST | `/production/machines` | ADMIN | crear |
+| PUT | `/production/machines/{id}` | ADMIN | actualizar |
+
+Ejemplo de request:
+
+```json
 {
-  "success": false,
-  "code": "BUSINESS_CODE",
-  "message": "Descripción segura",
-  "status": 422,
-  "path": "/api/...",
-  "timestamp": "2026-07-20T20:00:00-03:00",
-  "violations": []
+  "code":"WASHER_02",
+  "name":"Lavadora secundaria",
+  "machineType":"WASHER",
+  "capacityGrams":10000,
+  "status":"ACTIVE",
+  "active":true,
+  "notes":null
 }
 ```
 
-Las rutas protegidas requieren `Authorization: Bearer <access-token>`. El refresh token viaja en cookie `HttpOnly`.
+Código y tipo son inmutables después de crear. No se actualiza una máquina con ciclo activo.
 
-## Autenticación
+### Programas
 
-| Método | Ruta | Uso |
-|---|---|---|
-| POST | `/auth/login` | autenticar y emitir sesión |
-| POST | `/auth/refresh` | rotar refresh y emitir access token |
-| POST | `/auth/logout` | revocar sesión actual |
+| Método | Ruta | Rol | Uso |
+|---|---|---|---|
+| GET | `/production/programs?stage=WASH` | todos | listar/filtrar |
+| POST | `/production/programs` | ADMIN | crear |
+| PUT | `/production/programs/{id}` | ADMIN | actualizar |
 
-## Clientes y domicilios
+Programa WASH:
 
-| Método | Ruta | Uso |
-|---|---|---|
-| POST | `/clients` | crear cliente con domicilio principal |
-| GET | `/clients` | búsqueda paginada |
-| GET | `/clients/{id}` | detalle |
-| PUT | `/clients/{id}` | actualizar perfil/preferencias |
-| POST | `/clients/{id}/addresses` | agregar domicilio |
-| PUT | `/clients/{id}/addresses/{addressId}/primary` | cambiar principal |
-| DELETE | `/clients/{id}/addresses/{addressId}` | baja lógica |
+```json
+{
+  "code":"WASH_30_NONE",
+  "name":"Lavado 30 sin fragancia",
+  "stage":"WASH",
+  "durationMinutes":45,
+  "maxTemperatureC":30,
+  "gentle":false,
+  "usesSoftener":false,
+  "fragrancePolicy":"NONE",
+  "active":true,
+  "notes":null
+}
+```
 
-## Pedidos
+Programa DRY usa `maxTemperatureC=null`, `fragrancePolicy=null` y `usesSoftener=false`.
 
-| Método | Ruta | Uso |
-|---|---|---|
-| POST | `/orders` | crear pedido declarado |
-| GET | `/orders` | buscar por número, cliente o estado |
-| GET | `/orders/{id}` | detalle |
-| PATCH | `/orders/{id}/planning` | retiro, promesa y notas tempranas |
-| POST | `/orders/{id}/manual-quote` | cotización manual `ADMIN` |
-| POST | `/orders/{id}/confirm-price` | confirmar precio y promoción |
-| PATCH | `/orders/{id}/status` | transición permitida |
+Código/etapa son inmutables. Tras el primer uso también quedan congelados duración, temperatura, gentle, suavizante, fragancia y tipo de máquina.
 
-## Recepción
+### Planificar ciclo
 
-### Registrar
+`POST /production/cycles`
 
-`POST /orders/{id}/reception`
+Roles: `ADMIN`, `OPERATOR`.
 
 Header obligatorio:
 
 ```http
-Idempotency-Key: web-reception-550e8400-e29b-41d4-a716-446655440000
+Idempotency-Key: web-cycle-550e8400-e29b-41d4-a716-446655440000
 ```
-
-Ejemplo:
 
 ```json
 {
-  "receivedAt": "2026-07-20T18:00:00-03:00",
-  "actualWeightGrams": 2350,
-  "bagCode": "BAG-001",
-  "notes": "Recepción sin novedades",
-  "items": [
-    {
-      "equivalenceCode": "TSHIRT",
-      "physicalPieces": 4,
-      "damaged": false,
-      "stained": false,
-      "observations": null
-    }
+  "machineId":"94000000-0000-0000-0000-000000000001",
+  "programId":"95000000-0000-0000-0000-000000000002",
+  "orderIds":[
+    "11111111-1111-1111-1111-111111111111",
+    "22222222-2222-2222-2222-222222222222"
   ],
-  "evidences": []
+  "notes":"Separar mediante bolsas identificadas"
 }
 ```
 
-La misma clave devuelve el mismo agregado. Una clave diferente no puede crear una segunda recepción para el pedido.
-
-### Consultar y decidir
-
-| Método | Ruta | Uso |
-|---|---|---|
-| GET | `/orders/{id}/reception` | consultar snapshot real |
-| POST | `/orders/{id}/reception/decision` | `APPROVED` o `REJECTED` |
-
-## Compatibilidad
-
-### Guardar perfil
-
-`PUT /orders/{orderId}/compatibility-profile`
-
-Permisos: `ADMIN` u `OPERATOR`.
+La misma clave con la misma máquina, programa y conjunto de pedidos devuelve el ciclo existente. Reusarla con otra identidad devuelve `IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD`. Las notas no forman parte de la identidad actual.
 
 Precondiciones:
 
-- pedido `CLASSIFIED`;
-- recepción existente.
+- 1 o 2 pedidos distintos;
+- máquina activa/libre;
+- programa activo y del tipo correcto;
+- etapa válida del pedido;
+- perfil y peso real;
+- capacidad suficiente;
+- sin asignación activa de la etapa;
+- para dos pedidos, evaluación vigente efectivamente compatible;
+- ningún pedido exclusivo.
 
-```json
-{
-  "colorGroup": "LIGHT",
-  "materialGroup": "COTTON",
-  "maxTemperatureC": 40,
-  "dryerAllowed": true,
-  "fragrancePolicy": "STANDARD",
-  "softenerAllowed": true,
-  "hypoallergenic": false,
-  "babyClothes": false,
-  "petContact": false,
-  "heavySoil": false,
-  "exclusiveCycle": false,
-  "notes": null
-}
-```
+### Consultar ciclos
 
-El backend devuelve el perfil efectivo. Puede endurecer el request según cliente/pedido.
-
-`GET /orders/{orderId}/compatibility-profile` permite consulta a los cuatro roles y devuelve `null` cuando aún no existe perfil.
-
-### Evaluar dos pedidos
-
-`POST /compatibility/evaluate`
-
-```json
-{
-  "orderAId": "11111111-1111-1111-1111-111111111111",
-  "orderBId": "22222222-2222-2222-2222-222222222222"
-}
-```
-
-Permisos: `ADMIN` u `OPERATOR`.
-
-Respuesta principal:
-
-```json
-{
-  "id": "33333333-3333-3333-3333-333333333333",
-  "orderAId": "11111111-1111-1111-1111-111111111111",
-  "orderBId": "22222222-2222-2222-2222-222222222222",
-  "profileAVersion": 0,
-  "profileBVersion": 0,
-  "ruleVersion": "COMPAT-1",
-  "compatible": false,
-  "overridden": false,
-  "effectivelyCompatible": false,
-  "reasons": [
-    {
-      "code": "COLOR_GROUP_MISMATCH",
-      "severity": "HARD",
-      "message": "Los grupos de color no coinciden"
-    }
-  ],
-  "recommendation": {
-    "maxTemperatureC": 30,
-    "dryerAllowed": false,
-    "softenerAllowed": false,
-    "fragrancePolicy": "NONE",
-    "programMode": "NORMAL",
-    "cycleMode": "BLOCKED"
-  },
-  "exception": null
-}
-```
-
-El orden de entrada no altera la identidad de la evaluación: el par se normaliza por UUID.
-
-### Consultar evaluación
-
-`GET /compatibility/evaluations/{evaluationId}`
-
-Permisos de lectura: todos los roles.
-
-### Autorizar excepción
-
-`POST /compatibility/evaluations/{evaluationId}/exception`
-
-Solo `ADMIN`.
-
-```json
-{"reason":"Separación mediante bolsas y supervisión reforzada"}
-```
-
-No se permite si la evaluación original ya era compatible o si ya existe una excepción.
-
-## Pagos y auditoría
-
-| Método | Ruta | Uso |
+| Método | Ruta | Rol |
 |---|---|---|
-| POST | `/payments` | registrar pago |
-| GET | `/payments/order/{orderId}` | historial por pedido |
-| GET | `/audit` | consulta administrativa paginada |
+| GET | `/production/cycles/{id}` | todos |
+| GET | `/production/cycles?status=PLANNED&stage=WASH&page=0&size=20` | todos |
 
-## Códigos de error relevantes de compatibilidad
+La respuesta contiene máquina, programa, pesos, fechas, pedidos, separación requerida e historial.
+
+### Operar ciclo
+
+`POST /production/cycles/{id}/start`
+
+```json
+{"observation":"Carga verificada"}
+```
+
+`POST /production/cycles/{id}/complete`
+
+```json
+{"actualWeightGrams":5200,"observation":"Ciclo finalizado"}
+```
+
+`POST /production/cycles/{id}/cancel`
+
+```json
+{"observation":"Máquina reservada para mantenimiento"}
+```
+
+Solo se cancela `PLANNED`. Solo se inicia `PLANNED`. Solo se completa `RUNNING`.
+
+### Control de calidad
+
+`PATCH /production/orders/{orderId}/quality-control`
+
+```json
+{"decision":"PASS","observation":"Sin manchas ni olor residual"}
+```
+
+Decisiones:
+
+- `PASS` → `FOLDING`;
+- `REWASH` → `REWASH_REQUIRED`.
+
+## Códigos relevantes
 
 | Código | Estado | Significado |
 |---|---:|---|
-| `ORDER_NOT_FOUND` | 404 | pedido inexistente |
-| `ORDER_NOT_READY_FOR_COMPATIBILITY` | 422 | pedido fuera de `CLASSIFIED` |
-| `RECEPTION_NOT_FOUND` | 422 | no existe recepción |
-| `TREATMENT_PROFILE_NOT_FOUND` | 422 | falta perfil de uno de los pedidos |
-| `SAME_ORDER_COMPATIBILITY` | 400 | se seleccionó el mismo pedido |
-| `COMPATIBILITY_EVALUATION_NOT_FOUND` | 404 | evaluación inexistente |
-| `COMPATIBILITY_EXCEPTION_NOT_REQUIRED` | 422 | resultado original compatible |
-| `COMPATIBILITY_EXCEPTION_ALREADY_EXISTS` | 409 | excepción duplicada |
+| `IDEMPOTENCY_KEY_REQUIRED` | 400 | falta header |
+| `INVALID_IDEMPOTENCY_KEY` | 400 | longitud inválida |
+| `IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD` | 409 | clave usada con otra identidad |
+| `PRODUCTION_MACHINE_NOT_FOUND` | 404 | máquina inexistente |
+| `PRODUCTION_MACHINE_UNAVAILABLE` | 422 | fuera de servicio/inactiva |
+| `PRODUCTION_MACHINE_BUSY` | 409 | posee ciclo activo |
+| `PRODUCTION_MACHINE_CAPACITY_EXCEEDED` | 422 | supera capacidad |
+| `PRODUCTION_MACHINE_PROGRAM_MISMATCH` | 422 | programa de otro tipo |
+| `ORDER_NOT_READY_FOR_PRODUCTION_STAGE` | 422 | estado inválido |
+| `ORDER_ALREADY_ASSIGNED_TO_ACTIVE_CYCLE` | 409 | asignación activa |
+| `PROGRAM_NOT_ALLOWED_FOR_ORDER` | 422 | contradice perfil |
+| `CURRENT_COMPATIBILITY_EVALUATION_REQUIRED` | 422 | falta evaluación vigente |
+| `ORDERS_NOT_EFFECTIVELY_COMPATIBLE` | 422 | no compatibles |
+| `EXCLUSIVE_ORDER_CANNOT_SHARE_CYCLE` | 422 | exclusividad |
+| `ORDER_NOT_IN_QUALITY_CONTROL` | 422 | control de calidad fuera de etapa |
 
-## Fuera del contrato actual
+## Fuera del contrato
 
-No existen endpoints productivos para ciclos, máquinas, rutas, caja, costos, inventario ni carga binaria de evidencias.
+No existen todavía endpoints completos de rutas, caja/costos, inventario, mantenimiento detallado, reclamos ni almacenamiento binario.
