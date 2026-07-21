@@ -46,6 +46,7 @@ Las pruebas no requieren Docker y cubren:
 - agregado idempotente de variables faltantes;
 - preservación de secretos existentes;
 - normalización de salida Compose vacía, objeto único, array y JSON por líneas;
+- normalización de IDs Docker completos al formato abreviado usado para detectar recursos propios;
 - validación de rango y duplicación de puertos;
 - inicialización de un `.env` existente sin reemplazos.
 
@@ -82,6 +83,15 @@ Secuencia validada por el workflow:
 8. consulta catálogo protegido por Nginx;
 9. consulta `flyway_schema_history` y exige ocho migraciones o más;
 10. imprime diagnóstico ante falla y elimina stack y volumen al finalizar.
+
+## Estados agregados de commit
+
+Los workflows publican estados consultables también para pushes directos a `main`:
+
+- `validation/ci-summary`: resume backend, frontend, PowerShell y contenedores;
+- `validation/runtime-smoke`: resume el smoke completo.
+
+Ambos deben estar en `success`. Esto evita depender de una vista de Pull Request para comprobar GitHub Actions y permite reutilizarlos en reglas de protección de rama.
 
 ## Verificación local
 
@@ -132,7 +142,9 @@ Los gates válidos son:
 - `CI / frontend`;
 - `CI / powershell`;
 - `CI / containers`;
-- `Runtime smoke / compose-smoke`.
+- `Runtime smoke / compose-smoke`;
+- `validation/ci-summary`;
+- `validation/runtime-smoke`.
 
 No se declara validado un cambio solo porque `docker compose config` pase: el smoke debe confirmar ejecución real.
 
