@@ -5,6 +5,7 @@ const baseNavItems = [
   ['/dashboard', 'Inicio'],
   ['/clients', 'Clientes'],
   ['/orders', 'Pedidos'],
+  ['/production', 'Producción'],
   ['/agenda', 'Agenda'],
 ] as const;
 
