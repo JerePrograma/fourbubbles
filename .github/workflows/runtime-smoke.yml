@@ -16,6 +16,12 @@ jobs:
   compose-smoke:
     runs-on: ubuntu-latest
     env:
+      COMPOSE_PROJECT_NAME: fourbubbles-smoke
+      POSTGRES_HOST_PORT: '15432'
+      BACKEND_HOST_PORT: '18081'
+      FRONTEND_HOST_PORT: '18080'
+      POSTGRES_DB: ropalista
+      POSTGRES_USER: ropalista
       POSTGRES_PASSWORD: smoke-postgres-password
       APP_DEV_ADMIN_USERNAME: admin
       APP_DEV_ADMIN_PASSWORD: smoke-admin-password
@@ -23,30 +29,44 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Start complete stack and verify HTTP flow
+      - name: Start frontend before backend to verify deferred DNS
         shell: bash
         run: |
           set -euo pipefail
-          cleanup() {
-            code=$?
-            trap - EXIT
-            if [ "$code" -ne 0 ]; then
-              docker compose ps || true
-              docker compose logs --tail 250 || true
-            fi
-            docker compose down -v --remove-orphans || true
-            exit "$code"
-          }
-          trap cleanup EXIT
-
           docker compose config --quiet
-          docker compose up --build -d
+          docker compose up --build -d --no-deps frontend
 
-          for attempt in $(seq 1 60); do
-            if curl --fail --silent http://localhost:8081/api/actuator/health/readiness > /tmp/readiness.json; then
+          for attempt in $(seq 1 30); do
+            status=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$(docker compose ps -q frontend)")
+            if [ "$status" = "healthy" ]; then
+              exit 0
+            fi
+            if [ "$status" = "exited" ] || [ "$status" = "dead" ]; then
+              docker compose logs --tail 200 frontend
+              exit 1
+            fi
+            sleep 2
+          done
+
+          docker compose ps --all
+          docker compose logs --tail 200 frontend
+          echo "Frontend did not become healthy before backend startup" >&2
+          exit 1
+
+      - name: Start backend and PostgreSQL
+        shell: bash
+        run: docker compose up --build -d postgres backend
+
+      - name: Verify complete HTTP and database flow
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for attempt in $(seq 1 80); do
+            if curl --fail --silent "http://localhost:${BACKEND_HOST_PORT}/api/actuator/health/readiness" > /tmp/readiness.json; then
               break
             fi
-            if [ "$attempt" -eq 60 ]; then
+            if [ "$attempt" -eq 80 ]; then
               echo "Backend readiness timeout" >&2
               exit 1
             fi
@@ -60,13 +80,17 @@ jobs:
           assert payload.get('status') == 'UP', payload
           PY
 
-          curl --fail --silent http://localhost:8080/ > /tmp/frontend.html
+          curl --fail --silent "http://localhost:${FRONTEND_HOST_PORT}/" > /tmp/frontend.html
           grep -q '<div id="root"></div>' /tmp/frontend.html
+
+          anonymous_status=$(curl --silent --output /tmp/anonymous.json --write-out '%{http_code}' \
+            "http://localhost:${FRONTEND_HOST_PORT}/api/catalog/services")
+          test "$anonymous_status" = "401" -o "$anonymous_status" = "403"
 
           curl --fail --silent \
             --header 'Content-Type: application/json' \
             --data '{"username":"admin","password":"smoke-admin-password"}' \
-            http://localhost:8081/api/auth/login > /tmp/login.json
+            "http://localhost:${FRONTEND_HOST_PORT}/api/auth/login" > /tmp/login.json
 
           python3 - <<'PY' > /tmp/token.txt
           import json
@@ -81,7 +105,7 @@ jobs:
           token=$(cat /tmp/token.txt)
           curl --fail --silent \
             --header "Authorization: Bearer $token" \
-            http://localhost:8081/api/catalog/services > /tmp/services.json
+            "http://localhost:${FRONTEND_HOST_PORT}/api/catalog/services" > /tmp/services.json
 
           python3 - <<'PY'
           import json
@@ -91,4 +115,19 @@ jobs:
           assert len(payload.get('data', [])) >= 1, payload
           PY
 
-          docker compose ps
+          migration_count=$(docker compose exec -T postgres \
+            psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc \
+            'select count(*) from flyway_schema_history where success = true;')
+          test "${migration_count//[[:space:]]/}" -ge 8
+
+          docker compose ps --all
+
+      - name: Show diagnostics on failure
+        if: failure()
+        run: |
+          docker compose ps --all || true
+          docker compose logs --tail 300 postgres backend frontend || true
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v --remove-orphans || true
