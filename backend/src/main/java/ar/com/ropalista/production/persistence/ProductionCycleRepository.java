@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -19,7 +20,7 @@ public interface ProductionCycleRepository extends JpaRepository<ProductionCycle
     @EntityGraph(attributePaths = {"machine", "program", "orders", "orders.order"})
     Optional<ProductionCycle> findByIdempotencyKey(String idempotencyKey);
 
-    boolean existsByMachineIdAndStatusIn(UUID machineId, Iterable<ProductionCycleStatus> statuses);
+    boolean existsByMachineIdAndStatusIn(UUID machineId, Collection<ProductionCycleStatus> statuses);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @EntityGraph(attributePaths = {"machine", "program", "orders", "orders.order"})
