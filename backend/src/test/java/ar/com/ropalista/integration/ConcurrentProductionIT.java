@@ -113,11 +113,12 @@ class ConcurrentProductionIT extends PostgresIntegrationTestSupport {
     }
 
     private String createMachine(String token, String suffix) throws Exception {
+        String shortId = UUID.randomUUID().toString().substring(0, 8);
         JsonNode response = performJson(post("/production/machines")
                 .header("Authorization", bearer(token))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(Map.of(
-                        "code", "WASHER_CONCURRENT_" + suffix + "_" + UUID.randomUUID(),
+                        "code", "WC_" + suffix + "_" + shortId,
                         "name", "Lavadora concurrente " + suffix,
                         "machineType", "WASHER",
                         "capacityGrams", 10000,
