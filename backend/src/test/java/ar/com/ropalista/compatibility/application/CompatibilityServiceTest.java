@@ -86,10 +86,22 @@ class CompatibilityServiceTest {
         assertThat(saved.isDryerAllowed()).isFalse();
         assertThat(saved.isSoftenerAllowed()).isFalse();
         assertThat(saved.isHypoallergenic()).isTrue();
+        assertThat(saved.getFragrancePolicy()).isEqualTo(FragrancePolicy.NONE);
         assertThat(saved.isExclusiveCycle()).isTrue();
         assertThat(response.dryerAllowed()).isFalse();
         assertThat(response.softenerAllowed()).isFalse();
         assertThat(response.hypoallergenic()).isTrue();
+        assertThat(response.fragrancePolicy()).isEqualTo(FragrancePolicy.NONE);
         assertThat(response.exclusiveCycle()).isTrue();
+    }
+
+    @Test
+    void canonicalUuidOrderingMatchesDatabaseTextOrderingAcrossSignedBoundary() {
+        UUID lowerCanonical = UUID.fromString("7fffffff-ffff-ffff-ffff-ffffffffffff");
+        UUID higherCanonical = UUID.fromString("80000000-0000-0000-0000-000000000000");
+
+        assertThat(lowerCanonical.compareTo(higherCanonical)).isGreaterThan(0);
+        assertThat(CompatibilityService.compareCanonical(lowerCanonical, higherCanonical)).isLessThan(0);
+        assertThat(CompatibilityService.compareCanonical(higherCanonical, lowerCanonical)).isGreaterThan(0);
     }
 }
