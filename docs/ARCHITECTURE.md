@@ -1,6 +1,6 @@
 # Arquitectura
 
-Versión: `0.2.0`.
+Versión: `0.3.0`.
 
 ## Decisión
 
@@ -9,161 +9,168 @@ Monolito modular con límites por dominio. Se prioriza consistencia transacciona
 ## Módulos
 
 ```text
-auth        identidad, sesiones, roles y login throttling
-audit       eventos y consulta administrativa
-catalog     servicios y equivalencias
-customer    clientes, preferencias y domicilios
-location    zonas
-pricing     precios y promociones
-order       pedido declarado, precio, planificación y estados
-reception   snapshot real, inspección, diferencia, evidencia y decisión
-payment     cobros, saldo e historial
-common      contratos, errores, correlación y auditoría base
-config      seguridad/OpenAPI/infraestructura
+auth           identidad, sesiones, roles y login throttling
+audit          eventos sensibles y consulta
+catalog        servicios y equivalencias
+customer       clientes y domicilios
+location       zonas
+pricing        precios, promociones y usos
+order          pedido declarado, estados y planificación
+payment        medios, cobros e historial
+reception      snapshot físico real, diferencias y decisión
+compatibility  perfiles, motor, evaluaciones y excepciones
+common         API, errores y entidad auditable
+config         seguridad e infraestructura transversal
 ```
 
-## Límite `order` / `reception`
-
-### `order`
-
-Es dueño de:
-
-- declaración inicial;
-- composición cotizada;
-- precio;
-- planificación;
-- estado;
-- resumen de totales reales (`actualPhysicalPieces`, `actualWeightGrams`).
-
-### `reception`
-
-Es dueño de:
-
-- agregado único;
-- idempotencia;
-- composición real detallada;
-- diferencias;
-- inspección;
-- aprobación;
-- etiqueta/bolsa;
-- evidencia metadata.
-
-La recepción referencia el pedido y actualiza su resumen dentro de la misma transacción, pero no muta `order_items`.
-
-## Flujo transaccional de recepción
+## Dependencias principales
 
 ```text
-HTTP POST + Idempotency-Key
-        ↓
-ReceptionService
-        ↓
-consulta clave previa
-        ↓
-bloqueo PESSIMISTIC_WRITE de LaundryOrder
-        ↓
-revalidación clave/pedido/estado
-        ↓
-construcción OrderReception + items + evidences
-        ↓
-actualización resumen real del pedido
-        ↓
-historial de estados
-        ↓
-auditoría
-        ↓
-commit único
+customer ─┐
+catalog  ─┼─> order ─> reception ─> compatibility
+pricing  ─┘      └────────> payment
+                    └──────> audit
 ```
 
-La doble consulta alrededor del bloqueo evita respuestas inconsistentes bajo carreras. Los constraints únicos son la última barrera.
+- `order` conserva la declaración y resumen real.
+- `reception` es dueño del agregado físico recibido.
+- `compatibility` consume pedido y recepción, pero no modifica su composición.
+- `compatibility` no depende de futuros ciclos/máquinas.
 
-## Política de diferencias
+## Capas
 
-`ReceptionDifferencePolicy` es un componente puro y probado.
+Cada módulo contiene solo las capas que necesita:
 
-Entrada:
+- API: controladores y DTO;
+- aplicación: orquestación y transacciones;
+- dominio: entidades y reglas locales;
+- persistencia: repositorios JPA;
+- infraestructura: adaptadores cuando corresponda.
 
-- piezas declaradas/reales;
-- peso declarado/real;
-- daño.
+Los controladores no acceden directamente a repositorios.
+
+## Transacciones críticas
+
+### Confirmación de precio
+
+- bloquea promoción;
+- revalida vigencia/cupos;
+- registra uso;
+- confirma precio;
+- audita.
+
+### Pago
+
+- bloquea pedido;
+- recalcula saldo;
+- impide sobrepago;
+- registra cobro;
+- actualiza estado de pago;
+- audita.
+
+### Recepción
+
+- bloquea pedido;
+- verifica idempotencia;
+- crea snapshot real;
+- calcula diferencias;
+- avanza estados;
+- audita.
+
+### Perfil de compatibilidad
+
+- bloquea pedido;
+- exige `CLASSIFIED` y recepción;
+- calcula restricciones efectivas;
+- crea/actualiza perfil versionado;
+- audita.
+
+### Evaluación
+
+- normaliza el par por UUID;
+- bloquea ambos pedidos en ese orden;
+- relee perfiles/versiones;
+- reutiliza snapshot existente o crea uno nuevo;
+- persiste razones/recomendación JSONB;
+- audita.
+
+### Excepción
+
+- bloquea evaluación;
+- valida incompatibilidad original;
+- crea excepción única;
+- conserva resultado original;
+- audita.
+
+## Compatibilidad explicable
+
+`CompatibilityEngine` es puro y determinista. Entrada:
+
+- dos `ProfileData`.
 
 Salida:
 
-- diferencias;
-- peso material;
-- necesidad de aprobación.
+- `compatible`;
+- razones estructuradas;
+- recomendación estructurada.
 
-Umbral:
+La versión `COMPAT-1` forma parte de la identidad histórica. Cambiar semántica requiere una nueva versión de reglas, no reinterpretar filas existentes.
 
-```text
-abs(delta peso) > max(250 g, ceil(10 % declarado))
-```
+## Perfil efectivo
 
-## Evidencias
+La capa de aplicación combina:
 
-`ReceptionEvidence` almacena metadata, no bytes. La arquitectura prevista es:
+- request operativo;
+- preferencias del cliente;
+- exclusividad del pedido.
 
-```text
-browser/operador
-   ↓ carga firmada futura
-object storage privado
-   ↓ objectKey/hash/metadata
-API reception
-   ↓
-PostgreSQL
-```
-
-Hasta implementar esa carga, la UI solo permite registrar metadata de un objeto preexistente.
-
-## Estados
-
-La recepción usa la política de transiciones existente y genera historia por cada paso:
-
-```text
-PICKED_UP → RECEIVED → PENDING_INSPECTION
-```
-
-Luego:
-
-- `CLASSIFIED`; o
-- `WAITING_PRICE_APPROVAL`.
-
-La decisión transaccional mueve a `CLASSIFIED` o `CANCELLED`.
+La combinación es monotónica respecto de restricciones: nunca hace el tratamiento más permisivo que sus fuentes.
 
 ## Persistencia
 
+- PostgreSQL 16.
+- Flyway V1-V8.
+- Hibernate solo valida.
 - UUID internos.
-- secuencias para número de pedido y etiqueta.
-- PostgreSQL/Flyway V1–V7.
-- JSONB solo en snapshots flexibles.
-- TIMESTAMPTZ para instantes.
-- constraints e índices de idempotencia.
-- `ddl-auto=validate`.
+- `NUMERIC(15,2)` para dinero.
+- gramos enteros.
+- JSONB para snapshots explicables.
+- constraints únicos como última defensa.
 
 ## Frontend
 
-- SPA React/TypeScript.
-- pantalla separada `/orders/:id/reception`.
-- estado del formulario genera una clave estable con `crypto.randomUUID()`.
-- backend decide umbrales, transiciones y permisos.
-- frontend no recalcula reglas críticas.
+SPA React con:
 
-## Runtime
+- contexto de autenticación;
+- access token en memoria;
+- refresh por cookie;
+- rutas protegidas;
+- clientes/pedidos/recepción/compatibilidad/pagos/auditoría;
+- TypeScript estricto.
 
-```text
-browser → Nginx :8080 → Spring :8081 → PostgreSQL :5432
-```
+La UI no replica reglas críticas; muestra la respuesta efectiva del backend.
 
-CI y runtime smoke validan el conjunto.
+## Integraciones futuras
 
-## Próxima evolución
+### Object storage
 
-Compatibilidad debe consumir `reception_items` y atributos reales. No debe mezclar directamente pedidos sobre `order_items` declarados cuando existe recepción.
+La base conservará metadata y referencias. Los binarios vivirán fuera de PostgreSQL.
 
-Futuros candidatos a adaptadores separados:
+### Producción
 
-- object storage;
-- notificaciones;
-- logística;
-- pagos externos.
+El siguiente módulo debe consumir `compatibility`, no incorporarse dentro de él. Ciclo, máquina, programa, capacidad y asignación serán agregados propios.
 
-No separar microservicios sin presión real: recepción, pedido y estados requieren atomicidad local.
+### Logística
+
+Rutas y paradas serán independientes de pedidos para permitir replanificación sin reescribir la historia del pedido.
+
+## Límites actuales
+
+- despliegue Compose orientado a desarrollo;
+- sin event bus;
+- sin caché distribuida;
+- sin object storage;
+- sin motor de reglas administrable;
+- sin ciclos, máquinas, rutas ni caja.
+
+Estos límites son conscientes: distribuir antes de estabilizar el dominio agregaría complejidad sin resolver el riesgo operativo principal.
