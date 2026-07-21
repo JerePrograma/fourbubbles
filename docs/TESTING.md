@@ -17,9 +17,9 @@ El gate usa Java 21, PostgreSQL 16 mediante Testcontainers, Flyway V1-V8 y valid
 
 Resultado verificado para 0.3.0:
 
-- **24 pruebas unitarias**;
-- **18 pruebas de integración**;
-- **42 casos backend totales**;
+- **25 pruebas unitarias**;
+- **19 pruebas de integración**;
+- **44 casos backend totales**;
 - 0 fallos en el gate aceptado.
 
 Clases unitarias principales:
@@ -42,7 +42,8 @@ Clases de integración principales:
 - `AdministrativeAuthorizationIT`;
 - `ConcurrentPaymentIT`;
 - `ReceptionFlowIT`;
-- `CompatibilityFlowIT`.
+- `CompatibilityFlowIT`;
+- `ConcurrentCompatibilityIT`.
 
 ### Frontend
 
@@ -54,13 +55,7 @@ npm test
 npm run build
 ```
 
-El gate comprueba:
-
-- TypeScript estricto;
-- pruebas Vitest;
-- build Vite;
-- importación de rutas/páginas nuevas;
-- contrato de modelos de recepción y compatibilidad.
+El gate comprueba TypeScript estricto, Vitest, build Vite, rutas nuevas y modelos de recepción/compatibilidad.
 
 ### Contenedores
 
@@ -102,7 +97,9 @@ El workflow permanente levanta el stack completo y verifica:
 - restricciones del cliente no relajables;
 - exclusividad del pedido no relajable;
 - fragancia `NONE` para perfil hipoalergénico;
-- persistencia del perfil efectivo.
+- persistencia del perfil efectivo;
+- orden UUID canónico alineado con el constraint de PostgreSQL;
+- caso determinista `7fff…/8000…`, donde `UUID.compareTo` no sirve como orden canónico.
 
 ### Integración
 
@@ -112,17 +109,17 @@ El workflow permanente levanta el stack completo y verifica:
 - creación de evaluación nueva al cambiar perfil;
 - autorización de excepción por `ADMIN`;
 - rechazo de excepción para roles inferiores;
-- precondiciones de estado y perfil.
+- precondiciones de estado y perfil;
+- dos solicitudes concurrentes A/B y B/A reutilizan el mismo ID de evaluación.
 
-## Concurrencia
-
-Ya cubierto:
+## Concurrencia cubierta
 
 - consumo concurrente de promoción;
 - pagos concurrentes sin sobrecobro;
-- recepción concurrente con misma clave idempotente.
+- recepción concurrente con la misma clave idempotente;
+- compatibilidad concurrente con orden de entrada inverso.
 
-La implementación de compatibilidad añade bloqueo ordenado de ambos pedidos y constraint único del snapshot. Debe mantenerse una prueba concurrente explícita al ampliar el módulo o antes de crear ciclos.
+`ConcurrentCompatibilityIT` verifica que el bloqueo ordenado y la identidad canónica eviten snapshots duplicados.
 
 ## Contratos de seguridad
 
@@ -138,18 +135,17 @@ Se prueban:
 
 ## Diagnóstico de fallos
 
-Los workflows de diagnóstico son temporales. Se crean solo para aislar una falla y deben eliminarse antes del merge.
+Los workflows de diagnóstico son temporales. Se crean solo para aislar una falla y se eliminan antes del merge.
 
-El gate válido es el de workflows permanentes:
+El gate válido es:
 
 - `CI`;
 - `Runtime smoke`.
 
-No se considera estable un PR por el solo hecho de que un diagnóstico pase.
+No se considera estable un PR porque un diagnóstico aislado pase.
 
 ## Casos aún faltantes
 
-- evaluación concurrente duplicada explícita;
 - property-based testing de combinaciones del motor;
 - pruebas E2E de navegador;
 - accesibilidad automatizada;
