@@ -1,7 +1,9 @@
 #requires -Version 7.0
 [CmdletBinding()]
 param(
-    [switch]$Rebuild
+    [switch]$Rebuild,
+    [switch]$Reset,
+    [switch]$SkipOpen
 )
 
 Set-StrictMode -Version Latest
@@ -9,116 +11,122 @@ $ErrorActionPreference = 'Stop'
 
 $RepositoryRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $RepositoryRoot
+. (Join-Path $PSScriptRoot 'Local.Common.ps1')
 
-function Assert-Command {
-    param([Parameter(Mandatory)][string]$Name)
+$AttemptedStart = $false
+$EnvironmentResult = $null
 
-    if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
-        throw "No se encontró '$Name' en PATH. Instalalo antes de continuar."
+try {
+    Assert-ExternalCommand -Name 'docker'
+
+    & docker info *> $null
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Docker no está disponible. Iniciá Docker Desktop y volvé a ejecutar.'
+    }
+    & docker compose version *> $null
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Docker Compose no está disponible como subcomando de Docker.'
+    }
+
+    $EnvironmentResult = Initialize-LocalEnvironment `
+        -ExamplePath (Join-Path $RepositoryRoot '.env.example') `
+        -EnvironmentPath (Join-Path $RepositoryRoot '.env')
+
+    Write-Host 'Validando configuración Docker Compose...'
+    & docker compose config --quiet
+    if ($LASTEXITCODE -ne 0) {
+        throw 'La configuración Docker Compose o .env no es válida.'
+    }
+
+    Write-Host 'Comprobando conflictos de puertos antes de construir...'
+    Assert-ConfiguredPortsAvailable -Ports $EnvironmentResult.Ports
+
+    if ($Reset) {
+        Write-Host 'Eliminando contenedores, redes y volumen PostgreSQL del proyecto...' -ForegroundColor Yellow
+        Invoke-ComposeChecked -Arguments @('down', '-v', '--remove-orphans')
+    }
+
+    $Arguments = @('up', '-d', '--remove-orphans')
+    if ($Rebuild) {
+        $Arguments += '--build'
+    }
+
+    $AttemptedStart = $true
+    Invoke-ComposeChecked -Arguments $Arguments
+
+    Write-Host 'Esperando health real de PostgreSQL...'
+    [void](Wait-ComposeServiceHealthy -Service 'postgres' -TimeoutSeconds 180)
+    Write-Host 'Esperando readiness real del backend...'
+    [void](Wait-ComposeServiceHealthy -Service 'backend' -TimeoutSeconds 240)
+    Write-Host 'Esperando health real del frontend...'
+    [void](Wait-ComposeServiceHealthy -Service 'frontend' -TimeoutSeconds 120)
+
+    $PostgresPort = Get-ComposePublishedPort -Service 'postgres' -ContainerPort 5432
+    $BackendPort = Get-ComposePublishedPort -Service 'backend' -ContainerPort 8080
+    $FrontendPort = Get-ComposePublishedPort -Service 'frontend' -ContainerPort 80
+
+    $BackendHealthUri = "http://localhost:$BackendPort/api/actuator/health/readiness"
+    $FrontendUri = "http://localhost:$FrontendPort/"
+
+    $Health = Invoke-RestMethod -Uri $BackendHealthUri -Method Get -TimeoutSec 10
+    if ($Health.status -ne 'UP') {
+        throw "El backend respondió un estado de readiness inesperado: $($Health.status)."
+    }
+
+    $Frontend = Invoke-WebRequest -Uri $FrontendUri -Method Get -TimeoutSec 10
+    if ($Frontend.StatusCode -ne 200 -or -not $Frontend.Content.Contains('<div id="root"></div>')) {
+        throw 'El frontend no devolvió la SPA esperada.'
+    }
+
+    Write-Host ''
+    Write-Host 'Four Bubbles / Ropa Lista está iniciado y saludable.' -ForegroundColor Green
+    Write-Host "Aplicación: http://localhost:$FrontendPort"
+    Write-Host "API:        http://localhost:$BackendPort/api"
+    Write-Host "Swagger:    http://localhost:$BackendPort/api/swagger-ui.html"
+    Write-Host "Salud:      $BackendHealthUri"
+    Write-Host "PostgreSQL: localhost:$PostgresPort"
+
+    if ($EnvironmentResult.Created) {
+        Write-Host ''
+        Write-Host 'Se creó .env con secretos locales aleatorios.' -ForegroundColor Yellow
+    }
+    elseif ($EnvironmentResult.AddedKeys.Count -gt 0) {
+        Write-Host ''
+        Write-Host "Se completaron variables faltantes en .env sin reemplazar valores existentes: $($EnvironmentResult.AddedKeys -join ', ')." -ForegroundColor Yellow
+    }
+    else {
+        Write-Host ''
+        Write-Host 'Se reutilizó .env sin modificarlo.'
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace([string]$EnvironmentResult.GeneratedAdminPassword)) {
+        Write-Host ''
+        Write-Host 'Credenciales administrativas generadas:' -ForegroundColor Yellow
+        Write-Host "Usuario: $($EnvironmentResult.Values['APP_DEV_ADMIN_USERNAME'])"
+        Write-Host "Contraseña: $($EnvironmentResult.GeneratedAdminPassword)"
+        Write-Host 'Guardá esta contraseña. Cambiar .env no modifica una cuenta ya persistida en PostgreSQL.'
+    }
+
+    if (-not $SkipOpen -and $IsWindows) {
+        Start-Process "http://localhost:$FrontendPort"
     }
 }
+catch {
+    Write-Host ''
+    Write-Host "Inicio local fallido: $($_.Exception.Message)" -ForegroundColor Red
 
-function New-RandomBase64 {
-    param([Parameter(Mandatory)][ValidateRange(32, 256)][int]$Bytes)
-
-    $Buffer = [byte[]]::new($Bytes)
-    [System.Security.Cryptography.RandomNumberGenerator]::Fill($Buffer)
-    return [Convert]::ToBase64String($Buffer)
-}
-
-function New-Password {
-    $Raw = New-RandomBase64 -Bytes 32
-    return $Raw.Replace('+', 'A').Replace('/', 'B').TrimEnd('=')
-}
-
-Assert-Command -Name 'docker'
-
-& docker info *> $null
-if ($LASTEXITCODE -ne 0) {
-    throw 'Docker no está disponible. Iniciá Docker Desktop y volvé a ejecutar.'
-}
-
-$EnvExamplePath = Join-Path $RepositoryRoot '.env.example'
-$EnvPath = Join-Path $RepositoryRoot '.env'
-
-if (-not (Test-Path -LiteralPath $EnvExamplePath)) {
-    throw "No existe $EnvExamplePath"
-}
-
-$CreatedEnvironment = $false
-$GeneratedAdminPassword = $null
-
-if (-not (Test-Path -LiteralPath $EnvPath)) {
-    $PostgresPassword = New-Password
-    $GeneratedAdminPassword = New-Password
-    $JwtSecret = New-RandomBase64 -Bytes 48
-
-    $Content = Get-Content -LiteralPath $EnvExamplePath -Raw
-    $Content = $Content.Replace('POSTGRES_PASSWORD=change-me', "POSTGRES_PASSWORD=$PostgresPassword")
-    $Content = $Content.Replace('DB_PASSWORD=change-me', "DB_PASSWORD=$PostgresPassword")
-    $Content = $Content.Replace(
-        'JWT_SECRET_BASE64=REPLACE_WITH_AT_LEAST_32_RANDOM_BYTES_ENCODED_AS_BASE64',
-        "JWT_SECRET_BASE64=$JwtSecret"
-    )
-    $Content = $Content.Replace('APP_DEV_ADMIN_PASSWORD=change-me-now', "APP_DEV_ADMIN_PASSWORD=$GeneratedAdminPassword")
-
-    Set-Content -LiteralPath $EnvPath -Value $Content -Encoding utf8
-    $CreatedEnvironment = $true
-}
-
-& docker compose config --quiet
-if ($LASTEXITCODE -ne 0) {
-    throw 'La configuración Docker Compose o .env no es válida.'
-}
-
-$Arguments = @('compose', 'up', '-d')
-if ($Rebuild) {
-    $Arguments += '--build'
-}
-
-& docker @Arguments
-if ($LASTEXITCODE -ne 0) {
-    throw 'Docker Compose no pudo iniciar el entorno.'
-}
-
-$HealthUri = 'http://localhost:8081/api/actuator/health'
-$Deadline = (Get-Date).AddMinutes(3)
-$Healthy = $false
-
-while ((Get-Date) -lt $Deadline) {
-    try {
-        $Health = Invoke-RestMethod -Uri $HealthUri -Method Get -TimeoutSec 5
-        if ($Health.status -eq 'UP') {
-            $Healthy = $true
-            break
+    if ($AttemptedStart) {
+        try {
+            Show-ComposeDiagnostics -Tail 250
         }
+        catch {
+            Write-Host "No se pudieron obtener diagnósticos completos: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+
+        Write-Host ''
+        Write-Host 'Limpiando el inicio parcial del proyecto sin eliminar el volumen PostgreSQL...' -ForegroundColor Yellow
+        & docker compose down --remove-orphans 2>&1 | ForEach-Object { Write-Host $_ }
     }
-    catch {
-        Start-Sleep -Seconds 3
-    }
-}
 
-& docker compose ps
-
-if (-not $Healthy) {
-    & docker compose logs --tail 200 backend
-    throw "El backend no quedó saludable dentro del plazo. Revisá los logs anteriores."
-}
-
-Write-Host ''
-Write-Host 'Four Bubbles / Ropa Lista está iniciado.' -ForegroundColor Green
-Write-Host 'Aplicación: http://localhost:8080'
-Write-Host 'Swagger:    http://localhost:8081/api/swagger-ui.html'
-Write-Host 'Salud:      http://localhost:8081/api/actuator/health'
-
-if ($CreatedEnvironment) {
-    Write-Host ''
-    Write-Host 'Credenciales de desarrollo generadas:' -ForegroundColor Yellow
-    Write-Host 'Usuario: admin'
-    Write-Host "Contraseña: $GeneratedAdminPassword"
-    Write-Host 'Guardá esta contraseña. Modificar .env no cambia automáticamente una cuenta ya creada.'
-}
-else {
-    Write-Host ''
-    Write-Host 'Se reutilizó el archivo .env existente; no fue modificado.'
+    throw
 }
