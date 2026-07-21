@@ -5,6 +5,7 @@ import ar.com.ropalista.common.api.BusinessException;
 import ar.com.ropalista.compatibility.api.CompatibilityDtos;
 import ar.com.ropalista.compatibility.domain.CompatibilityEvaluation;
 import ar.com.ropalista.compatibility.domain.CompatibilityException;
+import ar.com.ropalista.compatibility.domain.FragrancePolicy;
 import ar.com.ropalista.compatibility.domain.OrderTreatmentProfile;
 import ar.com.ropalista.compatibility.persistence.CompatibilityEvaluationRepository;
 import ar.com.ropalista.compatibility.persistence.OrderTreatmentProfileRepository;
@@ -14,6 +15,7 @@ import ar.com.ropalista.order.persistence.LaundryOrderRepository;
 import ar.com.ropalista.reception.persistence.OrderReceptionRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
@@ -57,26 +59,23 @@ public class CompatibilityService {
             UUID orderId, CompatibilityDtos.TreatmentProfileRequest request) {
         LaundryOrder order = orders.findByIdForUpdate(orderId)
                 .orElseThrow(() -> new BusinessException("ORDER_NOT_FOUND", "Pedido inexistente", HttpStatus.NOT_FOUND));
-        if (order.getStatus() != OrderStatus.CLASSIFIED) {
-            throw new BusinessException("ORDER_NOT_READY_FOR_COMPATIBILITY",
-                    "El perfil de tratamiento solo puede editarse en CLASSIFIED",
-                    HttpStatus.UNPROCESSABLE_ENTITY);
-        }
+        requireClassified(order);
         var reception = receptions.findByOrderId(orderId)
                 .orElseThrow(() -> new BusinessException("RECEPTION_NOT_FOUND",
                         "El pedido debe poseer una recepción", HttpStatus.UNPROCESSABLE_ENTITY));
+        EffectiveProfile effective = effectiveProfile(order, request);
         OrderTreatmentProfile profile = profiles.findByOrderId(orderId).orElse(null);
         Map<String, Object> before = profile == null ? null : profileSummary(profile);
         if (profile == null) {
-            profile = new OrderTreatmentProfile(order, reception, request.colorGroup(), request.materialGroup(),
-                    request.maxTemperatureC(), request.dryerAllowed(), request.fragrancePolicy(),
-                    request.softenerAllowed(), request.hypoallergenic(), request.babyClothes(),
-                    request.petContact(), request.heavySoil(), request.exclusiveCycle(), request.notes());
+            profile = new OrderTreatmentProfile(order, reception, effective.colorGroup(), effective.materialGroup(),
+                    effective.maxTemperatureC(), effective.dryerAllowed(), effective.fragrancePolicy(),
+                    effective.softenerAllowed(), effective.hypoallergenic(), effective.babyClothes(),
+                    effective.petContact(), effective.heavySoil(), effective.exclusiveCycle(), effective.notes());
         } else {
-            profile.update(request.colorGroup(), request.materialGroup(), request.maxTemperatureC(),
-                    request.dryerAllowed(), request.fragrancePolicy(), request.softenerAllowed(),
-                    request.hypoallergenic(), request.babyClothes(), request.petContact(),
-                    request.heavySoil(), request.exclusiveCycle(), request.notes());
+            profile.update(effective.colorGroup(), effective.materialGroup(), effective.maxTemperatureC(),
+                    effective.dryerAllowed(), effective.fragrancePolicy(), effective.softenerAllowed(),
+                    effective.hypoallergenic(), effective.babyClothes(), effective.petContact(),
+                    effective.heavySoil(), effective.exclusiveCycle(), effective.notes());
         }
         OrderTreatmentProfile saved = profiles.saveAndFlush(profile);
         audit.record("TREATMENT_PROFILE", saved.getId(), before == null ? "CREATE" : "UPDATE",
@@ -101,12 +100,13 @@ public class CompatibilityService {
         UUID firstId = request.orderAId().compareTo(request.orderBId()) < 0
                 ? request.orderAId() : request.orderBId();
         UUID secondId = firstId.equals(request.orderAId()) ? request.orderBId() : request.orderAId();
-        OrderTreatmentProfile first = profiles.findByOrderId(firstId)
-                .orElseThrow(() -> missingProfile(firstId));
-        OrderTreatmentProfile second = profiles.findByOrderId(secondId)
-                .orElseThrow(() -> missingProfile(secondId));
-        requireClassified(first.getOrder());
-        requireClassified(second.getOrder());
+
+        LaundryOrder firstOrder = lockClassifiedOrder(firstId);
+        LaundryOrder secondOrder = lockClassifiedOrder(secondId);
+        OrderTreatmentProfile first = profiles.findByOrderId(firstOrder.getId())
+                .orElseThrow(() -> missingProfile(firstOrder.getId()));
+        OrderTreatmentProfile second = profiles.findByOrderId(secondOrder.getId())
+                .orElseThrow(() -> missingProfile(secondOrder.getId()));
 
         Specification<CompatibilityEvaluation> specification = (root, query, builder) -> builder.and(
                 builder.equal(root.get("orderA").get("id"), firstId),
@@ -120,7 +120,7 @@ public class CompatibilityService {
         }
 
         var result = engine.evaluate(toProfileData(first), toProfileData(second));
-        CompatibilityEvaluation evaluation = new CompatibilityEvaluation(first.getOrder(), second.getOrder(),
+        CompatibilityEvaluation evaluation = new CompatibilityEvaluation(firstOrder, secondOrder,
                 first.getVersion(), second.getVersion(), CompatibilityEngine.RULE_VERSION,
                 result.compatible(), json(result.reasons()), json(result.recommendation()));
         CompatibilityEvaluation saved = evaluations.saveAndFlush(evaluation);
@@ -141,7 +141,7 @@ public class CompatibilityService {
     @Transactional
     public CompatibilityDtos.EvaluationResponse authorizeException(
             UUID evaluationId, CompatibilityDtos.ExceptionRequest request, String actor) {
-        CompatibilityEvaluation evaluation = evaluations.findById(evaluationId)
+        CompatibilityEvaluation evaluation = evaluations.findByIdForUpdate(evaluationId)
                 .orElseThrow(() -> new BusinessException("COMPATIBILITY_EVALUATION_NOT_FOUND",
                         "Evaluación inexistente", HttpStatus.NOT_FOUND));
         if (evaluation.isCompatible()) {
@@ -163,10 +163,17 @@ public class CompatibilityService {
         return toEvaluationResponse(saved);
     }
 
+    private LaundryOrder lockClassifiedOrder(UUID orderId) {
+        LaundryOrder order = orders.findByIdForUpdate(orderId)
+                .orElseThrow(() -> new BusinessException("ORDER_NOT_FOUND", "Pedido inexistente", HttpStatus.NOT_FOUND));
+        requireClassified(order);
+        return order;
+    }
+
     private void requireClassified(LaundryOrder order) {
         if (order.getStatus() != OrderStatus.CLASSIFIED) {
             throw new BusinessException("ORDER_NOT_READY_FOR_COMPATIBILITY",
-                    "Ambos pedidos deben estar en CLASSIFIED", HttpStatus.UNPROCESSABLE_ENTITY);
+                    "El pedido debe estar en CLASSIFIED", HttpStatus.UNPROCESSABLE_ENTITY);
         }
     }
 
@@ -174,6 +181,52 @@ public class CompatibilityService {
         return new BusinessException("TREATMENT_PROFILE_NOT_FOUND",
                 "Falta el perfil de tratamiento del pedido " + orderId,
                 HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
+    private EffectiveProfile effectiveProfile(LaundryOrder order,
+                                               CompatibilityDtos.TreatmentProfileRequest request) {
+        JsonNode preferences = readPreferences(order);
+        boolean dryerAllowed = request.dryerAllowed()
+                && preferenceDoesNotForbid(preferences, "dryerAllowed");
+        boolean softenerAllowed = request.softenerAllowed()
+                && preferenceDoesNotForbid(preferences, "softenerAllowed");
+        boolean hypoallergenic = request.hypoallergenic()
+                || preferenceRequires(preferences, "hypoallergenic");
+        boolean exclusiveCycle = request.exclusiveCycle()
+                || order.isExclusiveCycle()
+                || preferenceRequires(preferences, "exclusiveCycle");
+        FragrancePolicy fragrancePolicy = hypoallergenic
+                ? FragrancePolicy.NONE
+                : request.fragrancePolicy();
+        return new EffectiveProfile(request.colorGroup(), request.materialGroup(), request.maxTemperatureC(),
+                dryerAllowed, fragrancePolicy, softenerAllowed, hypoallergenic, request.babyClothes(),
+                request.petContact(), request.heavySoil(), exclusiveCycle, request.notes());
+    }
+
+    private JsonNode readPreferences(LaundryOrder order) {
+        String raw = order.getClient().getPreferencesJson();
+        if (raw == null || raw.isBlank()) {
+            return objectMapper.createObjectNode();
+        }
+        try {
+            JsonNode parsed = objectMapper.readTree(raw);
+            if (parsed == null || !parsed.isObject()) {
+                throw new IllegalStateException("Las preferencias del cliente no son un objeto JSON");
+            }
+            return parsed;
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("Las preferencias persistidas del cliente no son JSON válido", ex);
+        }
+    }
+
+    private boolean preferenceDoesNotForbid(JsonNode preferences, String field) {
+        JsonNode value = preferences.get(field);
+        return value == null || !value.isBoolean() || value.booleanValue();
+    }
+
+    private boolean preferenceRequires(JsonNode preferences, String field) {
+        JsonNode value = preferences.get(field);
+        return value != null && value.isBoolean() && value.booleanValue();
     }
 
     private CompatibilityEngine.ProfileData toProfileData(OrderTreatmentProfile profile) {
@@ -212,6 +265,9 @@ public class CompatibilityService {
         value.put("colorGroup", profile.getColorGroup());
         value.put("materialGroup", profile.getMaterialGroup());
         value.put("maxTemperatureC", profile.getMaxTemperatureC());
+        value.put("dryerAllowed", profile.isDryerAllowed());
+        value.put("fragrancePolicy", profile.getFragrancePolicy());
+        value.put("softenerAllowed", profile.isSoftenerAllowed());
         value.put("hypoallergenic", profile.isHypoallergenic());
         value.put("babyClothes", profile.isBabyClothes());
         value.put("petContact", profile.isPetContact());
@@ -242,5 +298,20 @@ public class CompatibilityService {
         } catch (JsonProcessingException ex) {
             throw new IllegalStateException("Recomendación de compatibilidad inválida", ex);
         }
+    }
+
+    private record EffectiveProfile(
+            ar.com.ropalista.compatibility.domain.ColorGroup colorGroup,
+            ar.com.ropalista.compatibility.domain.MaterialGroup materialGroup,
+            int maxTemperatureC,
+            boolean dryerAllowed,
+            FragrancePolicy fragrancePolicy,
+            boolean softenerAllowed,
+            boolean hypoallergenic,
+            boolean babyClothes,
+            boolean petContact,
+            boolean heavySoil,
+            boolean exclusiveCycle,
+            String notes) {
     }
 }
