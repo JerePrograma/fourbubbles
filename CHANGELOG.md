@@ -10,10 +10,12 @@ Fecha: 2026-07-21.
 - `COMPOSE_PROJECT_NAME` para aislar recursos locales.
 - Healthcheck del frontend.
 - Librería `scripts/Local.Common.ps1` para `.env`, puertos, Compose, health y diagnóstico.
+- Normalización explícita de IDs completos/abreviados de Docker para reinicios idempotentes.
 - Pruebas PowerShell sin Pester ni dependencias externas.
 - Parámetros `-Reset` y `-SkipOpen` en `Start-Local.ps1`.
 - Smoke test que inicia Nginx antes del backend y usa puertos no predeterminados.
 - Validación de acceso anónimo rechazado antes del login autenticado.
+- Estados agregados `validation/ci-summary` y `validation/runtime-smoke` para pushes directos a `main`.
 
 ### Corregido
 
@@ -24,8 +26,10 @@ Fecha: 2026-07-21.
 - Mensajes de éxito emitidos fuera de una única unidad de control PowerShell.
 - `.Count` sobre salida Compose vacía o escalar.
 - Suposición de que `docker compose ps --format json` siempre devuelve un array.
+- Comparación exacta entre IDs abreviados y completos que podía marcar contenedores propios como ajenos.
 - Verificación y documentación acopladas a puertos fijos.
 - Nginx abortando con `host not found in upstream "backend"` durante una resolución DNS transitoria.
+- Healthcheck frontend dependiente de opciones largas de `wget`; ahora usa sintaxis BusyBox portable.
 - Verificación incompleta del frontend, proxy, health y acceso protegido.
 
 ### Endurecido
