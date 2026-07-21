@@ -22,6 +22,8 @@ public interface ProductionCycleRepository extends JpaRepository<ProductionCycle
 
     boolean existsByMachineIdAndStatusIn(UUID machineId, Collection<ProductionCycleStatus> statuses);
 
+    boolean existsByProgramIdAndStatusIn(UUID programId, Collection<ProductionCycleStatus> statuses);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @EntityGraph(attributePaths = {"machine", "program", "orders", "orders.order"})
     @Query("select c from ProductionCycle c where c.id = :id")
