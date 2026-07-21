@@ -27,7 +27,7 @@ function New-RandomBase64 {
 }
 
 function New-Password {
-    $Raw = New-RandomBase64 -Bytes 24
+    $Raw = New-RandomBase64 -Bytes 32
     return $Raw.Replace('+', 'A').Replace('/', 'B').TrimEnd('=')
 }
 
