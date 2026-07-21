@@ -4,6 +4,7 @@ import { apiRequest } from '../api/httpClient';
 import { useAuth } from '../auth/AuthContext';
 import type { PageResponse } from '../models/api';
 import type { OrderStatus, OrderSummary } from '../models/order';
+import '../orders-operations.css';
 
 const statusOptions: Array<{ value: '' | OrderStatus; label: string }> = [
   { value: '', label: 'Todos' },
