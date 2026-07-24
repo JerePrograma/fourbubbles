@@ -13,6 +13,7 @@ Entrada recomendada para agentes: [`AI_CONTEXT.md`](AI_CONTEXT.md).
 | [`PROJECT_STATUS.md`](PROJECT_STATUS.md) | DINÁMICO | Estado funcional, riesgos y progreso | planificación y cierre de tareas | código, pruebas y workflows |
 | [`ROADMAP.md`](ROADMAP.md) | DINÁMICO | Orden de cortes futuros | priorización | estado funcional vigente |
 | [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) | DINÁMICO | Incidencias y deuda verificadas | diagnóstico o diseño de cambios | rutas y símbolos citados |
+| [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md) | OPERATIVO | Síntomas, diagnóstico y solución segura | fallos de entorno o flujo | scripts, servicios y pruebas |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | ESTABLE | Componentes, límites y flujos críticos | cambios transversales o de dominio | paquetes, servicios y persistencia |
 | [`REPOSITORY_MAP.md`](REPOSITORY_MAP.md) | ESTABLE | Mapa de rutas, módulos y puntos de entrada | localizar código | árbol de `main` |
 | [`DATA_MODEL.md`](DATA_MODEL.md) | ESTABLE | Entidades, tablas y relaciones | persistencia o migraciones | Flyway `V1`–`V8` |

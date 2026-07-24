@@ -1,8 +1,10 @@
 # Estado integral del proyecto
 
-Última actualización: 2026-07-21.
+Última actualización: 2026-07-24.
 
 Versión funcional documentada: `0.3.0`.
+
+Commit funcional inspeccionado para la autorreferencia: `6f6d3cd8256408bc574e5b3d4568bf1b2866b0d8`.
 
 ## Resumen ejecutivo
 
@@ -16,12 +18,15 @@ La puesta en marcha local quedó endurecida contra conflictos de puertos, salida
 
 El sistema todavía no crea ciclos, asigna máquinas, ejecuta lavado/secado, arma rutas ni calcula caja/costos. Los estados posteriores a `CLASSIFIED` siguen siendo administrativos hasta que existan esos agregados físicos.
 
+La autorreferencia técnica está publicada y enlazada desde [`AI_CONTEXT.md`](AI_CONTEXT.md) y [`README.md`](README.md). Su validación remota final permanece `NO VERIFICADA` mientras el commit documental no exponga estados agregados de CI.
+
 ## Estado por fase
 
 | Fase | Estado | Entregado | Pendiente principal |
 |---|---|---|---|
 | Diagnóstico | Finalizado | arquitectura, riesgos, supuestos y roadmap | actualización continua |
 | Plataforma | Finalizado para desarrollo | seguridad, PostgreSQL, Flyway, React, Docker, CI, smoke y scripts locales resistentes | endurecimiento productivo |
+| Autorreferencia técnica | Publicada; validación final pendiente | contexto maestro, índice, mapa, configuración, decisiones, incidencias, glosario y troubleshooting | estados de CI del commit documental y checkout local |
 | Administración | Finalizado base | clientes, domicilios, catálogo, pedidos, precios, promociones, pagos y auditoría | timeline y CRUD comercial completo |
 | Recepción 0.2.0 | Finalizado base | idempotencia, peso/conteo real, inspección, diferencias, aprobación y evidencia metadata | binarios y correcciones versionadas |
 | Compatibilidad 0.3.0 | Finalizado base | perfiles, motor explicable, recomendaciones, historial y excepción | matriz configurable y comparación múltiple |
@@ -29,6 +34,21 @@ El sistema todavía no crea ciclos, asigna máquinas, ejecuta lavado/secado, arm
 | Logística | Pendiente | retiro/promesa | rutas, paradas, kilómetros y comunicación |
 | Finanzas | Parcial mínimo | cobros e historial | caja, costos, margen y conciliación |
 | Crecimiento | Pendiente | catálogo/promociones base | abonos, inventario, mantenimiento y reclamos |
+
+## Autorreferencia técnica — 2026-07-24
+
+- `HECHO`: `AGENTS.md` con lectura obligatoria, reglas Git, restricciones técnicas y gates.
+- `HECHO`: `docs/AI_CONTEXT.md` como entrada principal para nuevas sesiones.
+- `HECHO`: `docs/README.md` como índice por estabilidad y fuente de verdad.
+- `HECHO`: mapa del repositorio, configuración, decisiones, incidencias, glosario y troubleshooting.
+- `HECHO`: contratos de API, arquitectura, seguridad y pruebas reconciliados con código actual.
+- `VERIFICADO`: publicación directa en `main`, blobs releídos desde GitHub y `main` apuntando al commit final.
+- `VERIFICADO`: 61 enlaces relativos en el workspace documental aislado, sin enlaces rotos.
+- `VERIFICADO`: UTF-8, encabezado H1, fin de línea, whitespace y patrones de secretos en el workspace documental.
+- `NO VERIFICADO`: ejecución local de Maven, npm, PowerShell y Docker; no hubo checkout local disponible.
+- `NO VERIFICADO`: estados agregados de CI del commit documental final; el conector no devolvió estados.
+
+Fuentes operativas: [`AI_CONTEXT.md`](AI_CONTEXT.md), [`README.md`](README.md), [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) y [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
 
 ## Plataforma finalizada
 
@@ -174,10 +194,14 @@ El sistema todavía no crea ciclos, asigna máquinas, ejecuta lavado/secado, arm
 9. Compose usa `dev` y falta observabilidad central.
 10. Los estados de producción aún no equivalen a ejecución física.
 11. Las pruebas E2E siguen siendo HTTP/API; no hay navegador automatizado.
+12. El commit documental final requiere validación CI observable y verificación desde un checkout local limpio.
+
+El detalle accionable vive en [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
 
 ## Próximo orden recomendado
 
-1. Ciclos y máquinas.
-2. Logística y agenda.
-3. Caja, costos y rentabilidad.
-4. Inventario, reclamos y abonos.
+1. Cerrar la validación documental pendiente.
+2. Ciclos y máquinas.
+3. Logística y agenda.
+4. Caja, costos y rentabilidad.
+5. Inventario, reclamos y abonos.

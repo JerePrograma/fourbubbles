@@ -32,6 +32,7 @@ Base funcional inspeccionada: `6f6d3cd8256408bc574e5b3d4568bf1b2866b0d8`.
 - validar: [`TESTING.md`](TESTING.md);
 - estado vigente: [`PROJECT_STATUS.md`](PROJECT_STATUS.md);
 - incidencias verificadas: [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md);
+- diagnóstico reproducible: [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md);
 - próximos cortes: [`ROADMAP.md`](ROADMAP.md);
 - decisiones: [`DECISIONS.md`](DECISIONS.md);
 - términos: [`GLOSSARY.md`](GLOSSARY.md).
