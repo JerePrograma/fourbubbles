@@ -2,40 +2,29 @@
 
 Sistema de gestión para una lavandería doméstica con retiro y entrega, inicialmente orientado a Marcos Paz y Mariano Acosta.
 
-> Versión funcional: **0.3.0**. Revisión operativa local: **2026-07-21**.
+> Versión funcional: **0.4.0**. Última actualización documental: **2026-07-24**.
 
 ## Estado
 
-El circuito administrativo, la recepción física y la evaluación explicable de compatibilidad están implementados. Ciclos, máquinas, logística, caja/costos y crecimiento siguen pendientes.
+Están implementados cuatro cortes funcionales:
 
-### Plataforma
+- administración de clientes, domicilios, catálogo, pedidos, precios, promociones, pagos y auditoría;
+- recepción física idempotente con peso, conteo, inspección, diferencias y decisión;
+- compatibilidad explicable mediante perfiles, razones, recomendación y excepción administrativa;
+- producción base con máquinas, programas, ciclos, capacidad, lavado, secado y control de calidad.
 
-- Java 21, Spring Boot 3, Maven, React 18, TypeScript, Vite y Vitest.
-- PostgreSQL 16 y Flyway V1-V8 como autoridad del esquema.
-- Hibernate con `ddl-auto=validate`.
-- Monolito modular, OpenAPI, Actuator, Docker Compose y Nginx.
-- CI de backend, frontend, PowerShell, contenedores y smoke test del stack real.
+La producción admite uno o dos pedidos. Una carga compartida exige perfiles vigentes, compatibilidad efectiva, ausencia de exclusividad y capacidad suficiente. Una excepción no elimina el riesgo original: el ciclo queda marcado con `separationRequired`.
 
-### Operación implementada
+## Stack
 
-- clientes, preferencias y domicilios versionados;
-- servicios, equivalencias, precios y promociones versionados;
-- pedidos, planificación, cotización automática/manual y estados;
-- pagos parciales/totales e historial;
-- recepción física con peso, conteo, daños, manchas, etiqueta y bolsa;
-- aprobación o rechazo de diferencias;
-- perfil de tratamiento por pedido clasificado;
-- comparación de dos pedidos con razones `HARD` y `WARNING`;
-- recomendación de temperatura, secadora, suavizante, fragancia y programa;
-- evaluaciones históricas por versión de perfil y versión de reglas;
-- excepción administrativa separada del resultado original;
-- UI para clientes, pedidos, recepción, compatibilidad, pagos y auditoría.
+- Java 21, Spring Boot 3, Maven, JPA/Hibernate y Flyway;
+- PostgreSQL 16;
+- React 18, TypeScript, Vite y Vitest;
+- Docker Compose, Nginx, PowerShell 7 y GitHub Actions.
 
-El detalle funcional está en [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) y [docs/ROADMAP.md](docs/ROADMAP.md).
+Flyway `V1`–`V10` es la autoridad del esquema. Hibernate usa `ddl-auto=validate`.
 
-Para nuevas sesiones automatizadas, comenzar por [docs/AI_CONTEXT.md](docs/AI_CONTEXT.md) y navegar desde [docs/README.md](docs/README.md).
-
-## Inicio local resistente a conflictos
+## Inicio local
 
 Requisitos: Git, Docker Desktop con contenedores Linux y PowerShell 7.
 
@@ -49,124 +38,55 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\Verify-Local.ps1
 ```
 
-`Start-Local.ps1`:
+Los scripts crean o completan `.env` sin reemplazar secretos, detectan conflictos de puertos, esperan health real y validan al menos diez migraciones.
 
-- crea o completa `.env` de forma idempotente;
-- no reemplaza secretos existentes;
-- valida los tres puertos publicados;
-- detecta contenedores o procesos ajenos antes de construir;
-- no detiene proyectos ajenos;
-- limpia un inicio parcial fallido sin eliminar PostgreSQL;
-- espera health real de PostgreSQL, backend y frontend;
-- abre la aplicación salvo que se use `-SkipOpen`.
+Puertos host configurables:
 
-`Verify-Local.ps1` valida cero, uno o varios objetos JSON de Compose sin asumir una colección fija, resuelve los puertos efectivos y comprueba contenedores, health, Flyway, SPA, proxy Nginx, rechazo anónimo, login y catálogo protegido.
+| Variable | Predeterminado |
+|---|---:|
+| `POSTGRES_HOST_PORT` | 5432 |
+| `BACKEND_HOST_PORT` | 8081 |
+| `FRONTEND_HOST_PORT` | 8080 |
 
-### Puertos configurables
-
-| Variable | Puerto host predeterminado | Puerto interno | Servicio |
-|---|---:|---:|---|
-| `POSTGRES_HOST_PORT` | 5432 | 5432 | PostgreSQL |
-| `BACKEND_HOST_PORT` | 8081 | 8080 | Spring Boot |
-| `FRONTEND_HOST_PORT` | 8080 | 80 | Nginx/React |
-
-La comunicación interna no cambia: `backend -> postgres:5432` y `frontend -> backend:8080`.
-
-Ejemplo para convivir con WordPress u otros proyectos:
-
-```dotenv
-POSTGRES_HOST_PORT=15432
-BACKEND_HOST_PORT=18081
-FRONTEND_HOST_PORT=18080
-```
-
-Después:
-
-```powershell
-.\scripts\Start-Local.ps1 -Rebuild -SkipOpen
-.\scripts\Verify-Local.ps1
-```
-
-Las URLs se imprimen con los puertos efectivos. No se deben codificar `8080`, `8081` o `5432` en procedimientos locales.
-
-## Comandos operativos
-
-Iniciar o reconciliar sin reconstruir:
-
-```powershell
-.\scripts\Start-Local.ps1
-```
-
-Reconstruir imágenes:
-
-```powershell
-.\scripts\Start-Local.ps1 -Rebuild
-```
-
-Recrear todo, destruyendo la base local:
-
-```powershell
-.\scripts\Start-Local.ps1 -Reset -Rebuild
-```
-
-Verificar:
-
-```powershell
-.\scripts\Verify-Local.ps1
-```
-
-Detener preservando datos:
-
-```powershell
-docker compose down --remove-orphans
-```
-
-Destruir también PostgreSQL:
-
-```powershell
-docker compose down -v --remove-orphans
-```
+Los puertos internos no cambian: `postgres:5432`, `backend:8080`, `frontend:80`.
 
 ## Flujo funcional
 
-1. Iniciar sesión.
-2. Crear cliente y domicilio.
-3. Crear pedido con composición declarada.
-4. Revisar o ajustar precio y confirmar.
-5. Programar retiro y avanzar hasta `PICKED_UP`.
-6. Registrar recepción real.
-7. Resolver diferencias hasta `CLASSIFIED`.
-8. Abrir **Compatibilidad** y guardar el perfil.
-9. Seleccionar otro pedido `CLASSIFIED` con perfil.
-10. Evaluar compatibilidad y revisar razones/recomendación.
-11. Como `ADMIN`, autorizar una excepción cuando corresponda.
+1. Crear cliente y domicilio.
+2. Crear pedido, revisar precio y confirmar.
+3. Programar retiro y avanzar a `PICKED_UP`.
+4. Registrar recepción y resolver diferencias hasta `CLASSIFIED`.
+5. Guardar perfil de tratamiento.
+6. Evaluar compatibilidad cuando dos pedidos puedan compartir tratamiento.
+7. Abrir **Producción**, seleccionar máquina, programa y uno o dos pedidos.
+8. Planificar ciclo con `Idempotency-Key`.
+9. Iniciar y completar lavado.
+10. Planificar/completar secado cuando el perfil lo permite.
+11. Resolver control de calidad: `PASS` lleva a `FOLDING`; `REWASH` a `REWASH_REQUIRED`.
 12. Registrar pagos y consultar auditoría.
 
-La compatibilidad no crea ni ejecuta ciclos: solo determina si dos pedidos podrían compartir tratamiento con las reglas vigentes.
+## Límites actuales
+
+- separación física interna no modelada: solo existe `separationRequired`;
+- no hay asignación automática óptima, insumos, costos ni mantenimiento completo;
+- evidencias de recepción almacenan metadata, no archivos;
+- no hay rutas, caja completa, inventario ni reclamos;
+- no hay navegador E2E, carga, DAST ni accesibilidad automatizada;
+- Compose usa `dev` y no es despliegue productivo.
 
 ## Documentación
 
-- [Autorreferencia técnica para agentes](docs/AI_CONTEXT.md)
+- [Contexto para agentes](docs/AI_CONTEXT.md)
 - [Índice documental](docs/README.md)
-- [Mapa del repositorio](docs/REPOSITORY_MAP.md)
-- [Configuración](docs/CONFIGURATION.md)
-- [Decisiones técnicas](docs/DECISIONS.md)
-- [Incidencias conocidas](docs/KNOWN_ISSUES.md)
-- [Glosario](docs/GLOSSARY.md)
 - [Estado integral](docs/PROJECT_STATUS.md)
-- [Guía Windows](docs/WINDOWS_SETUP.md)
-- [Operación](docs/OPERATIONS.md)
-- [Pruebas](docs/TESTING.md)
+- [Release 0.4.0](docs/RELEASE_0_4_0.md)
+- [Arquitectura](docs/ARCHITECTURE.md)
+- [API](docs/API.md)
+- [Modelo de datos](docs/DATA_MODEL.md)
 - [Alcance funcional](docs/FUNCTIONAL_SCOPE.md)
 - [Guía de uso](docs/USER_GUIDE.md)
-- [Arquitectura](docs/ARCHITECTURE.md)
-- [Modelo de datos](docs/DATA_MODEL.md)
-- [Contrato API](docs/API.md)
-- [Seguridad](docs/SECURITY.md)
-- [Supuestos](docs/ASSUMPTIONS.md)
+- [Pruebas](docs/TESTING.md)
+- [Operación](docs/OPERATIONS.md)
 - [Roadmap](docs/ROADMAP.md)
+- [Incidencias](docs/KNOWN_ISSUES.md)
 - [Changelog](CHANGELOG.md)
-
-## Advertencia productiva
-
-Compose usa perfil `dev` y publica servicios solo en `127.0.0.1`. No es una topología productiva. Faltan TLS, secretos administrados, backups restaurables, almacenamiento de objetos, observabilidad central, límites de recursos y rollback probado.

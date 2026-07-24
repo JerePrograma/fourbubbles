@@ -6,18 +6,17 @@ Este archivo aplica a todo el repositorio.
 
 Antes de analizar o modificar:
 
-1. leer [`docs/AI_CONTEXT.md`](docs/AI_CONTEXT.md);
-2. usar [`docs/README.md`](docs/README.md) como índice;
+1. leer `docs/AI_CONTEXT.md`;
+2. usar `docs/README.md` como índice;
 3. consultar la documentación específica de la capa afectada;
-4. leer todos los `AGENTS.md` más cercanos al archivo objetivo, si en el futuro se agregan.
+4. leer cualquier `AGENTS.md` más cercano al archivo objetivo.
 
-## Estado Git canónico
+## Git canónico
 
-Repositorio: `JerePrograma/fourbubbles`.
-
-Rama de trabajo: `main`.
-
-Fuente de verdad: `origin/main`.
+- repositorio: `JerePrograma/fourbubbles`;
+- rama de trabajo: `main`;
+- fuente de verdad: `origin/main`;
+- no crear ramas ni Pull Requests salvo autorización expresa.
 
 Antes de editar:
 
@@ -40,26 +39,27 @@ git switch main
 git pull --ff-only origin main
 ```
 
-Cambios locales ajenos, remoto incorrecto, conflictos o divergencia no resoluble por fast-forward son `BLOQUEANTE`. No usar `reset --hard`, `clean`, `push --force`, stashes, ramas ni Pull Requests sin autorización expresa.
+Cambios locales ajenos, remoto incorrecto, conflictos o divergencia no resoluble por fast-forward son `BLOQUEANTE`. No usar `reset --hard`, `clean`, `push --force`, stashes, ramas ni Pull Requests sin autorización.
 
 ## Reglas técnicas inviolables
 
-- El backend es un monolito modular por funcionalidad bajo `ar.com.ropalista`.
-- Los controladores deben delegar en aplicación y no incorporar reglas de dominio. `CatalogController` es una excepción técnica existente; no extender ese patrón.
-- Flyway es la autoridad del esquema. No modificar migraciones publicadas `V1` a `V8`; agregar `V9` o superior.
-- Hibernate usa `ddl-auto=validate`.
-- No mezclar composición declarada del pedido con el snapshot real de recepción.
-- No reinterpretar snapshots históricos de precio, recepción o compatibilidad.
-- `CompatibilityEngine.RULE_VERSION` identifica semántica histórica. Cambiar reglas requiere una versión nueva.
-- Al bloquear dos pedidos, conservar el orden UUID canónico usado por `CompatibilityService.compareCanonical`.
-- Una excepción de compatibilidad no cambia `compatible`, razones ni recomendación original.
-- El frontend no es autoridad de permisos, transiciones, precio ni compatibilidad.
-- El access token permanece en memoria; el refresh token viaja en cookie `HttpOnly`.
-- No versionar secretos, credenciales, tokens, datos personales ni archivos `.env`.
+- Monolito modular por funcionalidad bajo `ar.com.ropalista`.
+- Los controladores delegan en aplicación; no incorporar reglas ni acceso nuevo a repositorios.
+- Flyway es la autoridad. `V1` a `V10` están publicadas y son inmutables; todo cambio de esquema usa `V11+`.
+- Hibernate permanece con `ddl-auto=validate`.
+- No mezclar pedido declarado, recepción real, compatibilidad histórica ni ejecución productiva.
+- No reinterpretar precios, recepciones, evaluaciones o ciclos históricos.
+- `COMPAT-1` es semántica histórica; cualquier cambio exige una versión nueva.
+- Los pares de pedidos se bloquean por UUID canónico.
+- Una excepción no cambia el resultado de compatibilidad; en producción solo puede exigir `separationRequired`.
+- `separationRequired` es una marca operativa, no trazabilidad física de bolsas o compartimentos.
+- La creación de ciclos conserva idempotencia, bloqueo de máquina, bloqueo ordenado de pedidos y capacidad en gramos.
+- Un programa usado conserva sus parámetros técnicos; la base lo protege mediante `V10`.
+- El frontend no decide permisos, transiciones, capacidad, compatibilidad ni precio.
+- Access token en memoria; refresh en cookie `HttpOnly`.
+- No versionar secretos, credenciales, tokens, datos personales ni `.env`.
 
 ## Validaciones canónicas
-
-Desde la raíz, según el alcance:
 
 ```bash
 cd backend
@@ -85,7 +85,9 @@ docker compose config --quiet
 docker compose build
 ```
 
-Antes de confirmar cambios:
+La instalación debe registrar al menos diez migraciones Flyway exitosas. Los estados remotos esperados son `validation/ci-summary=success` y `validation/runtime-smoke=success`.
+
+Antes de confirmar:
 
 ```bash
 git diff --check
@@ -93,12 +95,6 @@ git diff --stat
 git status --short
 ```
 
-Los estados remotos esperados son `validation/ci-summary=success` y `validation/runtime-smoke=success`.
-
-## Documentación
-
-Actualizar la fuente canónica correspondiente, no duplicar información dinámica. La entrada para agentes es [`docs/AI_CONTEXT.md`](docs/AI_CONTEXT.md). Estado, incidencias y roadmap viven en documentos dinámicos separados.
-
 ## Informe final
 
-Informar como mínimo: veredicto, SHA inicial/final, archivos y símbolos modificados, comandos ejecutados con resultado real, validaciones no ejecutadas, commit, publicación, estado local/remoto, pendientes y bloqueantes.
+Informar: veredicto, SHA inicial/final, archivos y símbolos modificados, comandos con resultado real, validaciones no ejecutadas, commit, publicación, estado local/remoto, pendientes y bloqueantes.

@@ -1,165 +1,72 @@
 # Hoja de ruta
 
-Versión base: `0.3.0`.
+Versión base: `0.4.0`.
 
 ## Completado
 
-### 0.1.0 — Plataforma y núcleo
+### 0.1 — Plataforma y administración
 
-Arquitectura, seguridad, PostgreSQL/Flyway, catálogo, clientes, pedidos, pagos, React, Docker y CI.
+Seguridad, catálogo, clientes, pedidos, pagos, React, Docker, CI, operación y auditoría.
 
-### 0.1.1 — Hardening y operación
+### 0.2 — Recepción física
 
-Contratos de seguridad, correlación, preferencias tipadas y UI operativa.
+Flyway `V7`, idempotencia, peso/conteo real, diferencias, decisión y metadata de evidencia.
 
-### 0.1.2 — Cierre administrativo
+### 0.3 — Compatibilidad explicable
 
-Domicilios versionados, cotización manual, planificación, promociones/pagos concurrentes, auditoría y documentación integral.
+Flyway `V8`, perfiles, `COMPAT-1`, evaluaciones históricas, recomendación y excepción.
 
-### 0.2.0 — Recepción física
+### 0.4 — Producción base
 
-- Flyway V7;
-- recepción idempotente;
-- peso/conteo real;
-- inspección y diferencias;
-- aprobación/rechazo;
-- etiqueta, bolsa y evidencia metadata;
-- UI y pruebas concurrentes.
+Flyway `V9`/`V10`, máquinas, programas, ciclos, capacidad, lavado, secado, calidad, UI y concurrencia.
 
-### 0.3.0 — Compatibilidad explicable
+## Endurecimiento inmediato de 0.4
 
-- Flyway V8;
-- perfil efectivo por pedido/recepción;
-- color, material, temperatura y productos;
-- condiciones hipoalergénicas, bebé, mascotas, suciedad y exclusividad;
-- motor `COMPAT-1` con razones y recomendación;
-- snapshots por versión;
-- bloqueos transaccionales;
-- excepción exclusiva de `ADMIN`;
-- UI y pruebas.
+1. E2E de navegador para el flujo productivo.
+2. Trazabilidad física de separación para ciclos exceptuados.
+3. Administración UI completa de máquinas/programas.
+4. Métricas de duración, capacidad y fallos.
+5. Cierre de versiones de artefactos `0.4.0`.
 
-## Próximo corte — 0.4.0 Producción base
+## 0.5 — Logística y agenda
 
-Objetivo: convertir compatibilidad en una asignación física controlada.
-
-### Máquinas
-
-- entidad máquina;
-- tipo lavadora/secadora;
-- capacidad en gramos;
-- estado operativo;
-- fechas de alta/baja;
-- mantenimiento básico;
-- CRUD administrativo mínimo.
-
-### Programas
-
-- nombre y tipo;
-- temperatura;
-- duración estimada;
-- material compatible;
-- secadora/suavizante/fragancia admitidos;
-- vigencia.
-
-### Ciclos
-
-- identificador legible;
-- máquina;
-- programa;
-- capacidad planificada y real;
-- estado del ciclo;
-- inicio/fin;
-- operador;
-- uno o dos pedidos;
-- modo compartido/exclusivo.
-
-### Asignación
-
-- solo pedidos `CLASSIFIED`;
-- perfil existente;
-- evaluación compatible efectiva para dos pedidos;
-- exclusividad respetada;
-- peso total menor o igual a capacidad;
-- bloqueo de máquina/pedidos;
-- idempotencia o constraint para evitar doble asignación;
-- historial/auditoría.
-
-### Ejecución mínima
-
-- planificar ciclo;
-- iniciar lavado;
-- finalizar lavado;
-- iniciar/finalizar secado si aplica;
-- control de calidad;
-- relavado o avance a doblado.
-
-### Pruebas obligatorias
-
-- capacidad exacta permitida;
-- sobrepeso rechazado;
-- incompatibles rechazados;
-- excepción efectiva admitida;
-- pedido exclusivo no compartido;
-- máquina fuera de servicio rechazada;
-- asignación concurrente sin duplicados;
-- transiciones y auditoría.
-
-## 0.5.0 — Logística y agenda
-
-- franjas horarias;
-- rutas y paradas;
-- asignación de conductor;
-- orden de visita;
-- retiro/entrega reales;
+- franjas, rutas y paradas;
+- conductor y orden de visita;
+- retiro/entrega real;
 - kilómetros, combustible y tiempo;
-- incidencias;
-- mensajes/plantillas de WhatsApp;
-- agenda diaria con capacidad.
+- incidencias y mensajes;
+- capacidad diaria.
 
-## 0.6.0 — Caja, costos y rentabilidad
+## 0.6 — Caja, costos y rentabilidad
 
-- caja diaria y arqueo;
-- ingresos/egresos;
-- reembolsos;
-- comprobantes;
+- caja y arqueo;
+- ingresos/egresos/reembolsos;
 - conciliación;
-- costos de insumos, energía, agua, transporte y mano de obra;
+- insumos, energía, agua, transporte y mano de obra;
 - costo por ciclo/pedido;
-- amortización;
-- margen y rentabilidad.
+- amortización, margen y rentabilidad.
 
-## 0.7.0 — Crecimiento
+## 0.7 — Crecimiento
 
-- abonos;
-- comercios y SLA;
-- inventario y lotes;
+- abonos y SLA;
+- inventario/lotes;
 - compras/consumo;
-- equipamiento/mantenimiento;
-- reclamos, evidencias y compensaciones;
-- políticas y aceptación;
+- mantenimiento completo;
+- reclamos, compensaciones y políticas;
 - tableros y alertas.
 
-## Transversal antes de producción
+## Transversal antes de producción real
 
-- TLS y dominio;
+- TLS/dominio;
 - secretos administrados;
 - backup/restore probado;
-- object storage privado;
-- observabilidad central;
+- object storage;
+- observabilidad;
 - rate limit distribuido;
-- política de privacidad;
-- límites de recursos;
-- rollback ensayado;
-- pruebas E2E, carga y seguridad.
+- privacidad/retención;
+- recursos y rollback;
+- E2E, accesibilidad, carga y DAST.
 
 ## Criterio de avance
 
-Un corte solo se fusiona a `main` cuando:
-
-1. migración aditiva y validación JPA pasan;
-2. pruebas unitarias/integración pasan;
-3. TypeScript, Vitest y build pasan;
-4. imágenes se construyen;
-5. runtime smoke pasa;
-6. workflows diagnósticos fueron eliminados;
-7. documentación refleja exactamente el alcance y los límites.
+Un corte se considera integrado cuando migraciones, backend, frontend, PowerShell, contenedores, runtime smoke y documentación pasan en `main`.

@@ -1,41 +1,31 @@
 # Alcance funcional
 
-Versión: `0.4.0`.
-
-Este documento describe funciones realmente utilizables.
+Versión: `0.4.0`. Solo se describe comportamiento utilizable.
 
 ## Estado por módulo
 
-| Módulo | Estado | Alcance disponible | Pendiente principal |
+| Módulo | Estado | Alcance disponible | Pendiente |
 |---|---|---|---|
-| Autenticación | Implementado base | login, refresh, logout y bloqueo local | usuarios UI, MFA y rate limit distribuido |
-| RBAC | Implementado | jerarquía y permisos por método | permisos finos por instalación |
-| Clientes/domicilios | Avanzado | alta, preferencias, múltiples domicilios e historial | timeline y geocodificación |
-| Catálogo/precios | Implementado base | servicios, equivalencias, precios y promociones versionados | CRUD UI completo |
-| Pedidos | Avanzado | declaración, cotización, planificación, estados y búsqueda | correcciones físicas versionadas |
-| Recepción | Implementado base | idempotencia, peso/conteo real, inspección y decisión | binarios y correcciones |
-| Compatibilidad | Implementado base | perfil, evaluación, razones, recomendación e excepción | matriz administrable y lotes múltiples |
-| Producción | Implementado base | máquinas, programas, ciclos, capacidad, ejecución y calidad | insumos, mantenimiento y optimización |
-| Pagos | Implementado robusto base | parciales, totales, saldo e historial | caja, reembolsos y webhooks |
-| Auditoría | Implementado base | eventos sensibles y consulta | exportación y retención |
-| Logística | Pendiente | retiro/promesa en pedido | rutas, paradas, kilómetros y agenda |
-| Finanzas | Parcial mínimo | cobros | caja, costos, margen y conciliación |
-| Crecimiento | Pendiente | catálogo/promociones | abonos, inventario y reclamos |
+| autenticación/RBAC | base implementada | login, refresh, logout, jerarquía | MFA, gestión UI, rate limit distribuido |
+| clientes/domicilios | avanzado | alta, preferencias, historial | timeline y geocodificación |
+| catálogo/precios | base implementada | servicios, equivalencias, precios, promociones | CRUD UI completo |
+| pedidos | avanzado | declaración, cotización, planificación, estados | correcciones físicas versionadas |
+| recepción | base implementada | idempotencia, peso/conteo real, inspección, decisión | binarios y enmiendas |
+| compatibilidad | base implementada | perfil, evaluación, razones, recomendación, excepción | matriz administrable, lotes múltiples |
+| producción | base implementada | máquinas, programas, ciclos, capacidad, ejecución, calidad | optimización, insumos, mantenimiento completo |
+| pagos | base robusta | parciales, totales, saldo, historial | caja, reembolsos, conciliación |
+| auditoría | base implementada | eventos y consulta | exportación y retención |
+| logística | pendiente | retiro/promesa en pedido | rutas, paradas, kilómetros, agenda |
+| finanzas | parcial | cobros | costos, margen, caja |
+| crecimiento | pendiente | catálogo/promociones | abonos, inventario, reclamos |
 
 ## Flujo disponible
 
 ```text
-cliente
-→ pedido declarado y precio
-→ retiro
-→ recepción real
-→ CLASSIFIED
-→ perfil de tratamiento
-→ compatibilidad cuando se comparte
-→ ciclo de lavado
-→ ciclo de secado o calidad directa
-→ control de calidad
-→ FOLDING o REWASH_REQUIRED
+cliente → pedido → retiro → recepción → CLASSIFIED
+→ perfil → compatibilidad opcional
+→ lavado → secado o calidad
+→ control de calidad → FOLDING o REWASH_REQUIRED
 → pago / entrega administrativa
 ```
 
@@ -43,68 +33,45 @@ cliente
 
 ### Máquinas
 
-Tipos:
-
-- `WASHER`;
-- `DRYER`.
-
-Estados:
-
-- `ACTIVE`;
-- `MAINTENANCE`;
-- `OUT_OF_SERVICE`.
-
-Una máquina debe estar activa, disponible y sin otro ciclo `PLANNED/RUNNING`.
+- tipos `WASHER` y `DRYER`;
+- capacidad en gramos;
+- estados `ACTIVE`, `MAINTENANCE`, `OUT_OF_SERVICE`;
+- alta/edición solo `ADMIN`;
+- código y tipo inmutables;
+- no se modifica con ciclo activo.
 
 ### Programas
 
-Etapas:
+- etapas `WASH` y `DRY`;
+- duración, gentle, vigencia y notas;
+- lavado: temperatura, suavizante y fragancia;
+- secado: sin parámetros de lavado;
+- parámetros técnicos de programas usados protegidos por `V10`.
 
-- `WASH`: temperatura y fragancia obligatorias; suavizante opcional;
-- `DRY`: sin parámetros de lavado.
-
-El programa se valida contra cada perfil:
-
-- temperatura no superior al máximo;
-- suavizante solo si todos lo permiten;
-- fragancia coincidente;
-- delicado/lana exige programa gentle;
-- secado exige permiso de secadora.
-
-Tras el primer ciclo, sus parámetros técnicos son inmutables. Nombre, notas y activación pueden cambiar.
-
-### Planificación de ciclo
-
-Precondiciones:
+### Planificación
 
 - `ADMIN` u `OPERATOR`;
-- `Idempotency-Key` de 8 a 120 caracteres;
-- máquina/programa compatibles;
+- `Idempotency-Key` de 8–120 caracteres;
 - uno o dos pedidos distintos;
-- perfil vigente en cada pedido;
-- peso real disponible;
+- peso real obligatorio;
+- máquina/programa compatibles;
 - capacidad suficiente;
-- ninguna asignación activa de la misma etapa.
+- sin asignación activa de la misma etapa;
+- perfil vigente y programa permitido.
 
-Para dos pedidos:
+Dos pedidos además exigen:
 
-- ambos perfiles no exclusivos;
-- evaluación `COMPAT-1` con versiones vigentes;
+- no exclusividad;
+- evaluación vigente `COMPAT-1`;
 - `effectivelyCompatible=true`;
-- si `compatible=false` y existe excepción, `separationRequired=true`.
+- `separationRequired=true` si solo una excepción habilita la combinación.
 
-La excepción no permite exceder capacidad ni compartir exclusividad.
-
-### Estados de ciclo
+### Estados
 
 ```text
 PLANNED → RUNNING → COMPLETED
 PLANNED → CANCELLED
 ```
-
-No se cancela un ciclo iniciado. La cancelación deja los pedidos en estado de espera para replanificación.
-
-### Estados de pedido
 
 ```text
 CLASSIFIED / REWASH_REQUIRED
@@ -116,44 +83,35 @@ CLASSIFIED / REWASH_REQUIRED
 → FOLDING o REWASH_REQUIRED
 ```
 
-Si el perfil no permite secadora, lavado completo avanza directamente a calidad.
-
-### Control de calidad
+### Calidad
 
 - `PASS` → `FOLDING`;
-- `REWASH` → `REWASH_REQUIRED`.
-
-Requiere observación y queda auditado.
-
-## Idempotencia y concurrencia
-
-- La misma clave y plan esencial devuelve el mismo ciclo.
-- Reusar la clave con máquina, programa o pedidos diferentes devuelve conflicto.
-- Un advisory lock serializa la misma clave.
-- Un bloqueo de máquina evita dos ciclos activos concurrentes.
-- Los pedidos se bloquean en orden UUID.
-- Constraints parciales/únicos son última defensa.
-
-Las notas no forman parte de la identidad idempotente actual; la identidad se basa en máquina, programa y conjunto de pedidos.
+- `REWASH` → `REWASH_REQUIRED`;
+- observación obligatoria;
+- auditoría de decisión.
 
 ## Roles
 
 | Operación | ADMIN | OPERATOR | DRIVER | REPORT_VIEWER |
 |---|---:|---:|---:|---:|
-| crear/editar máquina/programa | Sí | No | No | No |
+| crear/editar máquina o programa | Sí | No | No | No |
 | consultar configuración/ciclos | Sí | Sí | Sí | Sí |
-| planificar/iniciar/completar/cancelar | Sí | Sí | No | No |
+| planificar/iniciar/completar/cancelar ciclo | Sí | Sí | No | No |
 | control de calidad | Sí | Sí | No | No |
-| recepción | Sí | Sí | Sí | No |
-| compatibilidad | Sí | Sí | lectura | lectura |
+| registrar/decidir recepción | Sí | Sí | No | No |
+| consultar recepción | Sí | Sí | Sí | Sí |
+| guardar/evaluar compatibilidad | Sí | Sí | No | No |
+| consultar compatibilidad | Sí | Sí | Sí | Sí |
+| autorizar excepción | Sí | No | No | No |
 | auditoría | Sí | No | No | No |
 
-## Límites conscientes
+## Límites
 
-- La UI ofrece alta básica; edición avanzada está disponible por API.
-- No hay asignación automática óptima de pedidos.
-- La separación requerida es una marca operativa, no tracking físico interno.
-- No hay consumo de detergente/suavizante ni costo del ciclo.
-- Mantenimiento es un estado, no un módulo completo.
-- No hay secado natural modelado como ciclo.
-- No hay rutas ni agenda logística real.
+- UI productiva base; no administración avanzada completa;
+- sin asignación automática;
+- separación solo marcada, no rastreada físicamente;
+- sin fraccionamiento de pedidos;
+- sin consumos ni costo de ciclo;
+- mantenimiento es estado, no módulo;
+- sin secado natural modelado;
+- sin rutas ni agenda real.

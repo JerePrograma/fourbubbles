@@ -1,31 +1,8 @@
 # Operación y despliegue
 
-Última actualización: 2026-07-21.
+Versión funcional: `0.4.0`.
 
-## Perfiles
-
-- `dev`: administrador inicial y logs de desarrollo.
-- `test`: Testcontainers, Flyway y validación JPA.
-- `prod`: cookies seguras, logs JSON y SQL deshabilitado.
-
-Compose usa `dev`; no es una topología productiva.
-
-## Topología local
-
-| Servicio | Puerto interno | Puerto host predeterminado | Variable |
-|---|---:|---:|---|
-| frontend | 80 | 8080 | `FRONTEND_HOST_PORT` |
-| backend | 8080 | 8081 | `BACKEND_HOST_PORT` |
-| postgres | 5432 | 5432 | `POSTGRES_HOST_PORT` |
-
-Las publicaciones se limitan a `127.0.0.1`. La red interna permanece estable:
-
-- frontend llama a `backend:8080`;
-- backend llama a `postgres:5432`.
-
-`COMPOSE_PROJECT_NAME=fourbubbles` evita colisiones de nombres, red y volumen con otros proyectos.
-
-## Inicio recomendado
+## Inicio
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
@@ -33,147 +10,88 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\Verify-Local.ps1
 ```
 
-Parámetros:
+`Start-Local.ps1` crea/completa `.env`, valida secretos y puertos, inicia Compose y espera health. No detiene recursos ajenos ni elimina PostgreSQL salvo `-Reset`.
 
-| Parámetro | Efecto |
-|---|---|
-| `-Rebuild` | reconstruye imágenes antes de iniciar |
-| `-Reset` | elimina el volumen PostgreSQL y recrea el stack |
-| `-SkipOpen` | no abre el navegador al finalizar |
+## Topología
 
-## Idempotencia de `.env`
+| Servicio | Interno | Host predeterminado |
+|---|---:|---:|
+| frontend | 80 | 8080 |
+| backend | 8080 | 8081 |
+| postgres | 5432 | 5432 |
 
-`Start-Local.ps1` crea `.env` desde `.env.example` cuando no existe. Si existe:
-
-- conserva todos los valores existentes;
-- no reemplaza secretos;
-- agrega variables faltantes;
-- rechaza placeholders o Base64 JWT inválido;
-- valida que los puertos sean distintos y estén entre 1 y 65535.
-
-Modificar `APP_DEV_ADMIN_PASSWORD` después de crear PostgreSQL no cambia la contraseña persistida del usuario. Debe restaurarse el valor original o recrearse el volumen con `-Reset`.
-
-## Conflictos de puertos
-
-La prevalidación ocurre antes de construir imágenes. Para cada puerto muestra, según corresponda:
-
-- contenedor, imagen, ID y publicación;
-- PID, proceso y ruta ejecutable.
-
-No se detienen proyectos ni procesos ajenos. Las correcciones admitidas son cambiar el puerto en `.env` o detener manualmente el recurso identificado.
-
-## Health y dependencias
-
-- PostgreSQL usa `pg_isready`.
-- Backend usa `/api/actuator/health/readiness`.
-- Frontend comprueba que Nginx sirva el punto de montaje React.
-- Backend depende de PostgreSQL `service_healthy`.
-- Frontend depende del backend `service_healthy`.
-- Los tres servicios usan `restart: on-failure:3`, evitando reinicios infinitos por configuración inválida.
-
-Nginx usa el DNS embebido de Docker y resolución diferida de `backend`, por lo que puede iniciar aunque el registro DNS del backend todavía no exista. Un fallo transitorio de resolución ya no mata permanentemente al frontend.
+Los puertos host se configuran con `FRONTEND_HOST_PORT`, `BACKEND_HOST_PORT` y `POSTGRES_HOST_PORT`. Se publican en `127.0.0.1`.
 
 ## Verificación
 
-```powershell
-.\scripts\Verify-Local.ps1
+`Verify-Local.ps1` exige:
+
+1. `postgres`, `backend`, `frontend` únicos, running y healthy;
+2. readiness `UP`;
+3. al menos diez migraciones exitosas;
+4. SPA y proxy Nginx;
+5. rechazo anónimo;
+6. login;
+7. catálogo autenticado.
+
+## Gates
+
+```bash
+cd backend && mvn clean verify
 ```
 
-Comprueba:
-
-1. salida de Compose vacía, objeto único o colección sin depender de `.Count` sobre un escalar;
-2. presencia exacta de `postgres`, `backend` y `frontend`;
-3. estado `running` y health `healthy`;
-4. puertos efectivos mediante `docker compose port`;
-5. readiness backend;
-6. al menos ocho migraciones Flyway exitosas;
-7. SPA y proxy Nginx;
-8. rechazo anónimo 401/403;
-9. login administrativo;
-10. catálogo protegido no vacío.
-
-Ante cualquier error imprime estado y logs y termina con código no exitoso.
-
-## Detención, reinicio y limpieza
-
-Detener preservando datos:
-
-```powershell
-docker compose down --remove-orphans
+```bash
+cd frontend
+npm ci --no-audit --no-fund
+npm run lint
+npm test
+npm run build
 ```
 
-Reiniciar con la configuración actual:
-
 ```powershell
-.\scripts\Start-Local.ps1
-.\scripts\Verify-Local.ps1
+.\scripts\tests\Local.Common.Tests.ps1
 ```
 
-Reconstruir:
-
-```powershell
-.\scripts\Start-Local.ps1 -Rebuild
-.\scripts\Verify-Local.ps1
-```
-
-Destruir datos:
-
-```powershell
-docker compose down -v --remove-orphans
-```
-
-O mediante el flujo integrado:
-
-```powershell
-.\scripts\Start-Local.ps1 -Reset -Rebuild
-```
-
-## Recuperación ante inicio parcial
-
-Si el inicio falla después de invocar Compose:
-
-1. se muestran estado y logs;
-2. se ejecuta `docker compose down --remove-orphans`;
-3. se conserva `postgres_data`;
-4. el script relanza la excepción;
-5. no se imprimen URLs ni mensajes de éxito.
-
-Reintento recomendado:
-
-```powershell
-.\scripts\Start-Local.ps1 -Rebuild -SkipOpen
+```bash
+docker compose config --quiet
+docker compose build
 ```
 
 ## Actualización
 
 ```powershell
 git switch main
+git status
 git pull --ff-only origin main
 .\scripts\Start-Local.ps1 -Rebuild
 .\scripts\Verify-Local.ps1
 ```
 
-Flyway aplica migraciones pendientes automáticamente. No se editan migraciones ya publicadas.
+Flyway aplica `V9` y `V10` automáticamente. No editar `V1`–`V10`.
 
-## Diagnóstico manual
+## Detención y datos
+
+Preservar datos:
+
+```powershell
+docker compose down --remove-orphans
+```
+
+Destruir base local:
+
+```powershell
+.\scripts\Start-Local.ps1 -Reset -Rebuild
+```
+
+`-Reset` elimina clientes, pedidos, recepciones, perfiles, evaluaciones, ciclos, pagos y auditoría locales.
+
+## Diagnóstico
 
 ```powershell
 docker compose ps --all
 docker compose logs --tail 300 postgres backend frontend
-docker compose port postgres 5432
-docker compose port backend 8080
-docker compose port frontend 80
 ```
 
-## Backups y producción
+## Producción
 
-No existe automatización productiva. Antes de usar datos reales se requiere:
-
-- backup programado, cifrado y con retención;
-- restauración ensayada y RPO/RTO definidos;
-- TLS y secretos administrados;
-- object storage privado para evidencias;
-- observabilidad y alertas;
-- límites CPU/memoria;
-- rollback compatible con migraciones aditivas;
-- smoke post-deploy.
+`NO VERIFICADO`: no existen dominio/TLS, gestor de secretos, backup/restore, límites de recursos, observabilidad, object storage ni rollback ensayado. Compose usa perfil `dev`; no desplegarlo con datos reales.

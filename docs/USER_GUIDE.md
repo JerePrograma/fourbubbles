@@ -1,278 +1,109 @@
 # Guía de uso funcional
 
-Versión: `0.3.0`.
+Versión: `0.4.0`.
 
-Esta guía describe funciones realmente disponibles. Compatibilidad no equivale a crear o ejecutar un ciclo de lavado.
+## 1. Preparar el pedido
 
-## 1. Iniciar sesión
+1. Crear cliente y domicilio.
+2. Crear pedido y confirmar precio.
+3. Programar retiro y avanzar a `PICKED_UP`.
+4. Registrar recepción.
+5. Resolver diferencias hasta `CLASSIFIED`.
+6. Guardar perfil de tratamiento.
 
-Abrir `http://localhost:8080` y usar las credenciales generadas por `Start-Local.ps1`.
+## 2. Compatibilidad
 
-## 2. Roles
+Para compartir dos pedidos:
 
-| Rol | Alcance principal |
-|---|---|
-| ADMIN | todas las funciones, cotización manual, auditoría y excepciones |
-| OPERATOR | clientes, pedidos, recepción, perfiles, evaluación y pagos |
-| DRIVER | consulta operativa y registro de recepción |
-| REPORT_VIEWER | consultas de pedidos, perfiles y evaluaciones |
+1. ambos deben tener perfil;
+2. evaluar compatibilidad;
+3. revisar `compatible`, `effectivelyCompatible`, razones y recomendación;
+4. una excepción solo puede autorizarla `ADMIN`.
 
-## 3. Crear cliente
+Una excepción no borra razones ni exclusividad.
 
-Ir a **Clientes → Nuevo cliente**.
+## 3. Abrir Producción
 
-Completar:
+La navegación **Producción** está disponible para usuarios autenticados.
 
-- nombre y apellido;
-- teléfono y WhatsApp;
-- correo opcional;
-- origen;
-- preferencias;
-- notas;
-- domicilio principal.
+La pantalla permite consultar:
 
-El WhatsApp debe ser único entre clientes activos.
+- máquinas;
+- programas;
+- ciclos;
+- estado, etapa, pesos, pedidos e historial.
 
-## 4. Administrar domicilios
+La administración de máquina/programa por API es solo `ADMIN`. La UI actual prioriza operación base.
 
-En **Editar cliente** se puede:
+## 4. Planificar lavado
 
-- agregar domicilio;
-- marcar otro como principal;
-- desactivar un domicilio no principal;
-- revisar historial.
+Como `ADMIN` u `OPERATOR`:
 
-El sistema conserva el domicilio asociado a pedidos anteriores.
+1. elegir lavadora activa;
+2. elegir programa `WASH`;
+3. seleccionar uno o dos pedidos;
+4. ingresar notas;
+5. crear el ciclo.
 
-## 5. Crear pedido
+El cliente genera una clave idempotente. Repetir la misma solicitud no duplica el ciclo.
 
-Ir a **Pedidos → Nuevo pedido**.
+Dos pedidos requieren evaluación vigente y no exclusividad. Si solo una excepción los habilita, revisar `separationRequired=true`. La aplicación no rastrea la separación física.
 
-Seleccionar:
+## 5. Ejecutar ciclo
 
-- cliente;
-- domicilio;
-- servicio;
-- promoción opcional;
-- tipos de prenda y cantidades;
-- peso declarado opcional;
-- ciclo exclusivo si corresponde;
-- retiro y promesa;
-- notas.
+- `PLANNED`: puede iniciarse o cancelarse;
+- `RUNNING`: puede completarse;
+- `COMPLETED`/`CANCELLED`: finales.
 
-El sistema calcula piezas, unidades equivalentes, límites y precio automático.
+Al iniciar lavado: pedidos → `WASHING`.
 
-## 6. Cotizar y confirmar
+Al completar:
 
-En el detalle del pedido:
+- con secadora permitida → `WAITING_DRY`;
+- sin secadora → `QUALITY_CONTROL`.
 
-1. revisar el precio automático;
-2. como `ADMIN`, aplicar cotización manual con motivo si corresponde;
-3. confirmar el precio;
-4. actualizar retiro/promesa antes del bloqueo;
-5. avanzar por estados permitidos.
+## 6. Secado
 
-Flujo previo a recepción:
+Para pedidos `WAITING_DRY`:
 
-```text
-INQUIRY/QUOTED
-→ WAITING_CONFIRMATION
-→ RESERVED
-→ PICKUP_SCHEDULED
-→ PICKED_UP
-```
+1. elegir secadora;
+2. elegir programa `DRY`;
+3. planificar ciclo;
+4. iniciar;
+5. completar.
 
-## 7. Registrar recepción
+Resultado: `QUALITY_CONTROL`.
 
-En **Pedidos**, abrir **Recibir** o **Recepción**.
+## 7. Calidad
 
-Solo se registra desde `PICKED_UP`.
+Abrir el pedido en control de calidad y registrar:
 
-Completar:
+- `PASS`: pasa a `FOLDING`;
+- `REWASH`: pasa a `REWASH_REQUIRED`.
 
-- fecha real;
-- peso real;
-- cantidad real por código de prenda;
-- daño;
-- mancha;
-- observaciones;
-- bolsa opcional;
-- metadata de evidencia opcional.
+La observación es obligatoria. `REWASH_REQUIRED` permite planificar un nuevo lavado.
 
-No inventar evidencia. La aplicación solo almacena referencia, nombre, MIME, tamaño y hash; el archivo debe existir en un almacenamiento externo real.
+## 8. Errores frecuentes
 
-## 8. Resultado de recepción
+- máquina ocupada/no disponible;
+- capacidad excedida;
+- programa incompatible con perfil;
+- pedido ya asignado;
+- evaluación no vigente;
+- exclusividad;
+- clave idempotente reutilizada con otra planificación.
 
-Sin diferencias materiales:
+Corregir la causa; no forzar estados desde base o frontend.
 
-```text
-PICKED_UP
-→ RECEIVED
-→ PENDING_INSPECTION
-→ CLASSIFIED
-```
+## 9. Roles
 
-Con diferencia de piezas, daño o peso mayor a 250 g/10 %:
+- `ADMIN`: configuración, operación, excepción y auditoría;
+- `OPERATOR`: operación productiva;
+- `DRIVER`: consulta;
+- `REPORT_VIEWER`: consulta.
 
-```text
-PICKED_UP
-→ RECEIVED
-→ PENDING_INSPECTION
-→ WAITING_PRICE_APPROVAL
-```
+`DRIVER` no registra recepción ni modifica ciclos.
 
-Un `ADMIN` u `OPERATOR` decide:
+## 10. Límites
 
-- aprobar → `CLASSIFIED`;
-- rechazar → `CANCELLED`.
-
-## 9. Crear perfil de compatibilidad
-
-Cuando el pedido está `CLASSIFIED`, abrir **Compatibilidad**.
-
-Completar:
-
-- grupo de color;
-- grupo de material;
-- temperatura máxima;
-- secadora;
-- fragancia;
-- suavizante;
-- hipoalergénico;
-- ropa de bebé;
-- contacto con mascotas;
-- suciedad pesada;
-- ciclo exclusivo;
-- notas.
-
-Guardar como `ADMIN` u `OPERATOR`.
-
-### Importante
-
-La respuesta puede ser más restrictiva que el formulario. El backend conserva preferencias del cliente y condiciones del pedido:
-
-- una prohibición de secadora o suavizante no se puede activar;
-- hipoalergénico fuerza fragancia `NONE`;
-- exclusividad no se puede desmarcar si ya era obligatoria.
-
-Revisar el perfil devuelto después de guardar.
-
-## 10. Preparar el segundo pedido
-
-La comparación requiere otro pedido:
-
-- distinto;
-- en `CLASSIFIED`;
-- con recepción;
-- con perfil guardado.
-
-Abrir la compatibilidad del segundo pedido y guardar su perfil.
-
-## 11. Evaluar compatibilidad
-
-Volver al primer pedido:
-
-1. seleccionar el candidato;
-2. pulsar **Evaluar compatibilidad**;
-3. revisar el resultado;
-4. leer todas las razones;
-5. revisar la recomendación.
-
-### Resultado compatible
-
-`compatible=true` y `effectivelyCompatible=true`.
-
-No existen razones `HARD`. Puede haber advertencias que reduzcan temperatura o deshabiliten secadora/suavizante.
-
-### Resultado bloqueado
-
-`compatible=false` y `effectivelyCompatible=false`.
-
-Razones duras posibles:
-
-- `EXCLUSIVE_CYCLE_REQUIRED`;
-- `UNKNOWN_COLOR`;
-- `COLOR_GROUP_MISMATCH`;
-- `MATERIAL_GROUP_MISMATCH`;
-- `HYPOALLERGENIC_ISOLATION`;
-- `BABY_PET_CROSS_CONTAMINATION`;
-- `HEAVY_SOIL_SENSITIVE_LOAD`;
-- `FRAGRANCE_POLICY_MISMATCH`.
-
-### Recomendación
-
-Muestra:
-
-- temperatura máxima común;
-- secadora permitida o no;
-- suavizante permitido o no;
-- política de fragancia;
-- programa `NORMAL` o `GENTLE`;
-- modo `SHARED` o `BLOCKED`.
-
-## 12. Autorizar una excepción
-
-Solo `ADMIN` y solo para una evaluación originalmente incompatible.
-
-1. escribir un motivo concreto;
-2. pulsar **Autorizar excepción**;
-3. verificar actor y fecha.
-
-La excepción no elimina las razones ni cambia `compatible`. El resultado pasa a `effectivelyCompatible=true` y queda auditado.
-
-No usar excepciones para tapar perfiles incorrectos. Corregir el perfil y reevaluar si los datos estaban mal.
-
-## 13. Versionado de evaluaciones
-
-Si se evalúa el mismo par sin cambios, se reutiliza el mismo snapshot.
-
-Si se modifica un perfil:
-
-- aumenta su versión;
-- la próxima evaluación crea un snapshot nuevo;
-- la evaluación anterior permanece consultable por ID;
-- una excepción anterior no se transfiere a la nueva evaluación.
-
-## 14. Pagos
-
-En el pedido con precio confirmado:
-
-1. seleccionar medio;
-2. ingresar importe;
-3. informar referencia/notas;
-4. registrar.
-
-El backend impide sobrepago, incluso ante solicitudes concurrentes.
-
-## 15. Auditoría
-
-Como `ADMIN`, abrir **Auditoría**.
-
-Entidades relevantes:
-
-- `CLIENT`;
-- `ADDRESS`;
-- `ORDER`;
-- `ORDER_RECEPTION`;
-- `PAYMENT`;
-- `TREATMENT_PROFILE`;
-- `COMPATIBILITY_EVALUATION`.
-
-Acciones de compatibilidad:
-
-- `CREATE`/`UPDATE` del perfil;
-- `CREATE` de evaluación;
-- `AUTHORIZE_EXCEPTION`.
-
-## 16. Qué no hace todavía
-
-- no crea ciclos;
-- no elige máquina;
-- no suma capacidad;
-- no inicia lavado o secado;
-- no registra control de calidad real;
-- no arma rutas;
-- no calcula costos o margen;
-- no almacena fotos.
-
-Los estados posteriores pueden cambiar administrativamente, pero no sustituyen módulos físicos pendientes.
+No hay asignación automática, fraccionamiento, tracking físico de separación, costos, consumos, mantenimiento completo, rutas ni almacenamiento de fotos.

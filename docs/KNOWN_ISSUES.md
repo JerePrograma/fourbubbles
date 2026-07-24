@@ -1,83 +1,83 @@
 # Incidencias y deuda técnica conocidas
 
-Referencia: `origin/main` en `6f6d3cd8256408bc574e5b3d4568bf1b2866b0d8`. Fecha: `2026-07-24`.
+Fecha: 2026-07-24. Fuente: `origin/main`.
 
-## KI-001: `CatalogController` accede directamente a repositorios
+## KI-001 — `CatalogController` accede a repositorios
 
-- Estado: VERIFICADO.
-- Evidencia: `backend/src/main/java/ar/com/ropalista/catalog/api/CatalogController.java`.
-- Impacto: contradice el límite documentado controlador → aplicación → persistencia y facilita reglas/consultas en la capa HTTP.
-- Próximo paso exacto: crear un servicio de consulta de catálogo y cubrirlo con tests antes de mover las dependencias.
-- Severidad: media; no rompe funcionalidad actual.
-
-## KI-002: versiones de manifiestos no representan la versión funcional
-
-- Estado: VERIFICADO.
-- Evidencia: documentación `0.3.0`; `backend/pom.xml` usa `0.1.0-SNAPSHOT`; `frontend/package.json` usa `0.1.0`.
-- Impacto: artefactos e informes pueden identificar una versión incorrecta.
-- Próximo paso exacto: definir una política única de versionado y actualizar backend/frontend juntos en un cambio separado.
+- Estado: `VERIFICADO`.
+- Impacto: excepción al límite API → aplicación → persistencia.
+- Próximo paso: introducir servicio de consulta con tests.
 - Severidad: media.
 
-## KI-003: evidencias de recepción almacenan solo metadata
+## KI-002 — Versiones de manifiestos desalineadas
 
-- Estado: VERIFICADO.
-- Evidencia: `ReceptionDtos.EvidenceRequest`, `ReceptionEvidence` y `V7__order_reception.sql`.
-- Impacto: la base puede referenciar un objeto inexistente; no hay carga, descarga, autorización ni retención.
-- Próximo paso exacto: diseñar object storage privado, URLs temporales, integridad y borrado.
+- Estado: `VERIFICADO`.
+- Evidencia: versión funcional `0.4.0`; manifiestos conservan `0.1.0`.
+- Próximo paso: definir política única y actualizar backend/frontend juntos.
+- Severidad: media.
+
+## KI-003 — Evidencias solo metadata
+
+- Estado: `VERIFICADO`.
+- Impacto: una referencia puede apuntar a un objeto inexistente.
+- Próximo paso: object storage privado, autorización, integridad y retención.
 - Severidad: alta antes de producción.
 
-## KI-004: no existe producción física en `main`
+## KI-004 — Producción física ausente
 
-- Estado: VERIFICADO.
-- Evidencia: ausencia de migraciones posteriores a `V8` y de módulo de ciclos/máquinas en `main`.
-- Impacto: estados posteriores a `CLASSIFIED` no prueban lavado/secado real.
-- Próximo paso exacto: implementar el corte `0.4.0` desde la base actual, con migración aditiva y pruebas.
-- Nota: el PR abierto `#7` no es fuente de verdad y no debe documentarse como integrado.
+- Estado: `RESUELTO` en `0.4.0`.
+- Entregado: máquinas, programas, ciclos, capacidad, lavado, secado y calidad.
+- Restante: optimización, insumos, costos y mantenimiento completo.
 
-## KI-005: despliegue productivo no definido
+## KI-005 — Despliegue productivo no definido
 
-- Estado: VERIFICADO.
-- Evidencia: Compose activa `dev`, publica en `127.0.0.1` y no hay manifiestos productivos.
-- Impacto: faltan TLS, secretos administrados, backup/restore, recursos, rollback y observabilidad central.
-- Próximo paso exacto: definir plataforma y SLO antes de almacenar datos reales.
-- Severidad: bloqueante para producción.
+- Estado: `VERIFICADO`.
+- Faltan TLS, secretos administrados, backup/restore, recursos, observabilidad y rollback.
+- Severidad: `BLOQUEANTE` para datos reales.
 
-## KI-006: cobertura E2E limitada a HTTP/stack
+## KI-006 — Sin E2E de navegador
 
-- Estado: VERIFICADO.
-- Evidencia: workflows prueban SPA, login y API; no existe Playwright/Cypress en manifiestos.
-- Impacto: regresiones de navegación, formularios y accesibilidad pueden pasar.
-- Próximo paso exacto: agregar un smoke de navegador sobre el flujo cliente → pedido → recepción → compatibilidad.
+- Estado: `VERIFICADO`.
+- Impacto: navegación, formularios y accesibilidad pueden degradarse.
+- Próximo paso: Playwright para cliente → pedido → recepción → compatibilidad → producción.
 - Severidad: media.
 
-## KI-007: rate limiting local
+## KI-007 — Rate limit local
 
-- Estado: VERIFICADO.
-- Evidencia: `LoginAttemptService` y documentación de seguridad.
-- Impacto: múltiples instancias no comparten intentos ni bloqueos.
-- Próximo paso exacto: usar un almacén compartido o control perimetral antes de escalar.
-- Severidad: alta en despliegue distribuido.
+- Estado: `VERIFICADO`.
+- Impacto: múltiples instancias no comparten bloqueos.
+- Próximo paso: almacén compartido o control perimetral.
+- Severidad: alta al escalar.
 
-## KI-008: recepción no tiene corrección versionada
+## KI-008 — Recepción sin corrección versionada
 
-- Estado: VERIFICADO.
-- Evidencia: una recepción única por pedido y servicio sin endpoint de corrección.
-- Impacto: un error confirmado no puede rectificarse con historial explícito.
-- Próximo paso exacto: diseñar una enmienda inmutable con motivo, actor y snapshot previo/posterior.
+- Estado: `VERIFICADO`.
+- Próximo paso: enmienda inmutable con motivo, actor y snapshots.
 - Severidad: media.
 
-## KI-009: compatibilidad está codificada
+## KI-009 — Reglas `COMPAT-1` codificadas
 
-- Estado: VERIFICADO.
-- Evidencia: `CompatibilityEngine` y `RULE_VERSION="COMPAT-1"`.
-- Impacto: cualquier ajuste requiere release; no hay matriz administrable ni simulador.
-- Próximo paso exacto: medir necesidad real antes de introducir un motor configurable; no mutar `COMPAT-1`.
-- Severidad: baja para el volumen inicial.
+- Estado: `VERIFICADO`.
+- Próximo paso: medir necesidad antes de motor administrable; no mutar `COMPAT-1`.
+- Severidad: baja para volumen inicial.
 
-## KI-010: protección legal y privacidad incompletas
+## KI-010 — Privacidad y protección legal incompletas
 
-- Estado: VERIFICADO como ausencia documental/operativa.
-- Evidencia: aprobación de recepción no es firma digital y las futuras imágenes pueden contener datos personales.
-- Impacto: trazabilidad técnica no equivale a consentimiento, firma ni política de retención.
-- Próximo paso exacto: definir política de privacidad, autorización y retención antes de fotos reales.
-- Severidad: alta antes de producción.
+- Estado: `VERIFICADO`.
+- Impacto: auditoría técnica no equivale a consentimiento ni firma.
+- Severidad: alta antes de fotos/datos reales.
+
+## KI-011 — Separación productiva no rastreada físicamente
+
+- Estado: `VERIFICADO`.
+- Evidencia: `ProductionCycleOrder.separationRequired`.
+- Impacto: se conserva la advertencia, pero no existe identificación de bolsa, compartimento, control o confirmación.
+- Próximo paso: modelar unidades de contención y verificaciones antes de usar excepciones en operación real.
+- Severidad: alta si se habilitan mezclas exceptuadas.
+
+## KI-012 — Sin optimizador ni costos productivos
+
+- Estado: `VERIFICADO`.
+- Impacto: selección manual de cargas y ausencia de rentabilidad por ciclo.
+- Próximo paso: primero instrumentar tiempos, consumos y costo; después optimizar.
+- Severidad: media.
