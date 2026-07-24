@@ -1,15 +1,25 @@
 # Contrato API
 
-Versión documentada: `0.3.0`.
+Versión funcional documentada: `0.3.0`.
 
-La API se sirve bajo `/api`. Swagger local: `/api/swagger-ui.html`.
+Fuente de verdad: controladores y DTO de `backend/src/main/java/ar/com/ropalista`. Referencia inspeccionada: `6f6d3cd8256408bc574e5b3d4568bf1b2866b0d8`.
 
-## Convenciones
+## Base, OpenAPI y envoltorios
+
+Context path: `/api`.
+
+Swagger UI local: `/api/swagger-ui.html`.
+
+OpenAPI JSON: `/api/v3/api-docs`.
 
 Éxito:
 
 ```json
-{"success":true,"data":{},"timestamp":"2026-07-20T20:00:00-03:00"}
+{
+  "success": true,
+  "data": {},
+  "timestamp": "2026-07-24T12:00:00-03:00"
+}
 ```
 
 Error:
@@ -21,99 +31,196 @@ Error:
   "message": "Descripción segura",
   "status": 422,
   "path": "/api/...",
-  "timestamp": "2026-07-20T20:00:00-03:00",
+  "timestamp": "2026-07-24T12:00:00-03:00",
   "violations": []
 }
 ```
 
-Las rutas protegidas requieren `Authorization: Bearer <access-token>`. El refresh token viaja en cookie `HttpOnly`.
+Las rutas protegidas usan `Authorization: Bearer <ACCESS_TOKEN>`. El refresh viaja en la cookie `ropa_lista_refresh`, `HttpOnly`, `SameSite=Strict`, path `/api/auth`.
+
+Los controladores devuelven `200 OK` mediante `ApiResponse.ok`, incluso en altas. Los errores de validación, autenticación, autorización y negocio usan el contrato uniforme.
 
 ## Autenticación
 
-| Método | Ruta | Uso |
-|---|---|---|
-| POST | `/auth/login` | autenticar y emitir sesión |
-| POST | `/auth/refresh` | rotar refresh y emitir access token |
-| POST | `/auth/logout` | revocar sesión actual |
+Controlador: `auth/api/AuthController`.
+
+| Método y ruta | Método Java | Acceso | Request | Response | Efectos e idempotencia |
+|---|---|---|---|---|---|
+| `POST /auth/login` | `login` | público | `LoginRequest`: `username`, `password`, ambos no vacíos | `AuthResponse`: access token, TTL, usuario y roles; cookie refresh | crea/rota sesión; no idempotente |
+| `POST /auth/refresh` | `refresh` | cookie refresh | sin body | nuevo access token y cookie rotada | rota y revoca refresh anterior; no idempotente |
+| `POST /auth/logout` | `logout` | cookie opcional | sin body | `data=null`; cookie expirada | revoca la sesión si existe; repetición segura |
+
+Errores relevantes: credenciales inválidas/bloqueo, refresh ausente o revocado, JSON inválido.
+
+## Catálogo
+
+Controlador: `catalog/api/CatalogController`.
+
+No posee `@PreAuthorize` por método; la configuración global exige autenticación, confirmado por runtime smoke.
+
+| Método y ruta | Método Java | Request | Response | Efectos |
+|---|---|---|---|---|
+| `GET /catalog/equivalences` | `equivalences` | ninguno | lista de códigos, nombres, categoría, piezas/grupo, unidades, peso y restricciones | lectura |
+| `GET /catalog/services` | `services` | ninguno | última oferta vigente por código | lectura |
+
+Nota de arquitectura: este controlador accede directamente a repositorios. Es una deuda conocida; consultar [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
 
 ## Clientes y domicilios
 
-| Método | Ruta | Uso |
-|---|---|---|
-| POST | `/clients` | crear cliente con domicilio principal |
-| GET | `/clients` | búsqueda paginada |
-| GET | `/clients/{id}` | detalle |
-| PUT | `/clients/{id}` | actualizar perfil/preferencias |
-| POST | `/clients/{id}/addresses` | agregar domicilio |
-| PUT | `/clients/{id}/addresses/{addressId}/primary` | cambiar principal |
-| DELETE | `/clients/{id}/addresses/{addressId}` | baja lógica |
+Controlador: `customer/api/ClientController`.
+
+### DTO principales
+
+`CreateClientRequest`:
+
+- `firstName`, `lastName`, `phone`, `whatsapp`: obligatorios;
+- `email`: formato email;
+- `acquisitionSource`: máximo 100;
+- `preferencesJson` o `preferences`;
+- `notes`: máximo 2000;
+- `addresses`: lista no vacía de `AddressRequest`.
+
+`AddressRequest` exige `zoneCode`, calle, número y localidad. `primaryAddress` determina la principal.
+
+| Método y ruta | Método Java | Permisos | Request | Response | Efectos |
+|---|---|---|---|---|---|
+| `POST /clients` | `create` | `ADMIN`, `OPERATOR` | `CreateClientRequest` | `ClientResponse` | crea cliente y domicilios; audita |
+| `PUT /clients/{id}` | `update` | `ADMIN`, `OPERATOR` | `UpdateClientRequest` | `ClientResponse` | actualiza perfil/preferencias; audita |
+| `POST /clients/{id}/addresses` | `addAddress` | `ADMIN`, `OPERATOR` | `AddressRequest` | `ClientResponse` | agrega versión de domicilio |
+| `POST /clients/{id}/addresses/{addressId}/make-primary` | `makePrimary` | `ADMIN`, `OPERATOR` | sin body | `ClientResponse` | cambia principal conservando historial |
+| `DELETE /clients/{id}/addresses/{addressId}` | `deactivateAddress` | `ADMIN`, `OPERATOR` | sin body | `ClientResponse` | baja lógica; conserva historial |
+| `GET /clients/{id}` | `get` | `ADMIN`, `OPERATOR`, `REPORT_VIEWER` | path UUID | `ClientResponse` | lectura |
+| `GET /clients?lastName=&page=0&size=20` | `search` | `ADMIN`, `OPERATOR`, `REPORT_VIEWER` | filtros query | página de `ClientResponse` | lectura |
+
+Validaciones de dominio confirmadas: WhatsApp activo único, domicilio principal único y conservación de al menos un domicilio activo.
 
 ## Pedidos
 
-| Método | Ruta | Uso |
-|---|---|---|
-| POST | `/orders` | crear pedido declarado |
-| GET | `/orders` | buscar por número, cliente o estado |
-| GET | `/orders/{id}` | detalle |
-| PATCH | `/orders/{id}/planning` | retiro, promesa y notas tempranas |
-| POST | `/orders/{id}/manual-quote` | cotización manual `ADMIN` |
-| POST | `/orders/{id}/confirm-price` | confirmar precio y promoción |
-| PATCH | `/orders/{id}/status` | transición permitida |
+Controlador: `order/api/OrderController`.
+
+`CreateOrderRequest` exige `clientId`, `addressId`, `serviceCode` e ítems. Cada ítem exige `equivalenceCode` y `physicalPieces > 0`.
+
+| Método y ruta | Método Java | Permisos | Request | Response | Efectos e idempotencia |
+|---|---|---|---|---|---|
+| `POST /orders` | `create` | `ADMIN`, `OPERATOR` | `CreateOrderRequest` | `OrderResponse` | calcula equivalencias/precio y crea pedido; no idempotente |
+| `GET /orders` | `search` | cuatro roles | `orderNumber`, `clientId`, `status`, `page`, `size` | página de `OrderSummaryResponse` | lectura |
+| `GET /orders/{id}` | `get` | cuatro roles | UUID | `OrderResponse` | lectura |
+| `PATCH /orders/{id}/planning` | `updatePlanning` | `ADMIN`, `OPERATOR` | fechas retiro/promesa y notas | `OrderResponse` | actualiza planificación |
+| `POST /orders/{id}/manual-quote` | `manualQuote` | `ADMIN` | monto positivo y motivo obligatorio | `OrderResponse` | cotización manual trazable; no idempotente |
+| `POST /orders/{id}/confirm-price` | `confirmPrice` | `ADMIN`, `OPERATOR` | sin body | `OrderResponse` | bloquea/revalida promoción y confirma precio |
+| `PATCH /orders/{id}/status` | `changeStatus` | `ADMIN`, `OPERATOR`, `DRIVER` | `newStatus`, observación, ubicación, referencia | `OrderResponse` | aplica política de transición y audita |
+
+`OrderResponse.allowedTransitions` es calculado por backend. El frontend no debe inventar transiciones.
 
 ## Recepción
 
+Controlador: `reception/api/ReceptionController`.
+
 ### Registrar
 
-`POST /orders/{id}/reception`
+`POST /orders/{orderId}/reception`
+
+Método Java: `receive`.
+
+Permisos actuales: `ADMIN`, `OPERATOR`. `DRIVER` recibe `403` al crear y puede consultar una recepción existente; esto está cubierto en `ReceptionFlowIT.driverCanReadReceptionButCannotCreateIt`.
 
 Header obligatorio:
 
 ```http
-Idempotency-Key: web-reception-550e8400-e29b-41d4-a716-446655440000
+Idempotency-Key: reception-<identificador-unico>
 ```
 
-Ejemplo:
+Formato: 16–120 caracteres de `[A-Za-z0-9._:-]`.
+
+Request `CreateReceptionRequest`:
 
 ```json
 {
-  "receivedAt": "2026-07-20T18:00:00-03:00",
-  "actualWeightGrams": 2350,
+  "receivedAt": "2026-07-24T12:00:00-03:00",
+  "actualWeightGrams": 2600,
+  "conditionNotes": "Sin observaciones relevantes",
   "bagCode": "BAG-001",
-  "notes": "Recepción sin novedades",
   "items": [
     {
       "equivalenceCode": "TSHIRT",
-      "physicalPieces": 4,
-      "damaged": false,
-      "stained": false,
+      "actualPhysicalPieces": 2,
+      "damageDetected": false,
+      "stainDetected": false,
       "observations": null
     }
   ],
-  "evidences": []
+  "evidences": [
+    {
+      "objectKey": "receptions/<UUID>/front.jpg",
+      "fileName": "front.jpg",
+      "contentType": "image/jpeg",
+      "sizeBytes": 1024,
+      "sha256": "<64_HEX>",
+      "caption": "Vista frontal"
+    }
+  ]
 }
 ```
 
-La misma clave devuelve el mismo agregado. Una clave diferente no puede crear una segunda recepción para el pedido.
+Precondiciones y efectos:
 
-### Consultar y decidir
+- pedido existente y bloqueado;
+- estado `PICKED_UP`;
+- una recepción por pedido;
+- todos los códigos declarados deben estar presentes;
+- códigos adicionales requieren equivalencia vigente;
+- al menos una pieza real total;
+- `actualWeightGrams > 0`;
+- fecha no más de cinco minutos en el futuro;
+- genera etiqueta, snapshot real, diferencias, auditoría y transiciones;
+- misma clave/mismo pedido devuelve el mismo agregado;
+- otra clave para un pedido recibido devuelve `409`;
+- clave usada por otro pedido devuelve `409`;
+- guarda metadata de evidencia, no binarios.
 
-| Método | Ruta | Uso |
-|---|---|---|
-| GET | `/orders/{id}/reception` | consultar snapshot real |
-| POST | `/orders/{id}/reception/decision` | `APPROVED` o `REJECTED` |
+Errores verificados: `IDEMPOTENCY_KEY_REQUIRED`, `INVALID_IDEMPOTENCY_KEY`, `IDEMPOTENCY_KEY_CONFLICT`, `ORDER_ALREADY_RECEIVED`, `ORDER_NOT_READY_FOR_RECEPTION`, `INVALID_RECEPTION_TIME`, `DUPLICATE_RECEPTION_ITEM`, `MISSING_DECLARED_RECEPTION_ITEMS`, `EQUIVALENCE_NOT_FOUND`, `EMPTY_RECEPTION`.
+
+### Consultar
+
+`GET /orders/{orderId}/reception`
+
+Método Java: `get`.
+
+Permisos: cuatro roles.
+
+Respuesta: `ReceptionResponse` o `data=null` cuando el pedido existe sin recepción.
+
+### Decidir
+
+`POST /orders/{orderId}/reception/decision`
+
+Método Java: `decide`.
+
+Permisos: `ADMIN`, `OPERATOR`.
+
+Request:
+
+```json
+{"decision":"APPROVED","notes":"Cliente acepta la diferencia"}
+```
+
+Solo `APPROVED` o `REJECTED`. Requiere estado `WAITING_PRICE_APPROVAL` y recepción `PENDING`. Aprobar lleva a `CLASSIFIED`; rechazar a `CANCELLED`.
 
 ## Compatibilidad
 
-### Guardar perfil
+Controlador: `compatibility/api/CompatibilityController`.
+
+### Perfil
 
 `PUT /orders/{orderId}/compatibility-profile`
 
-Permisos: `ADMIN` u `OPERATOR`.
+Método: `saveProfile`.
 
-Precondiciones:
+Permisos: `ADMIN`, `OPERATOR`.
 
-- pedido `CLASSIFIED`;
-- recepción existente.
+Precondiciones: pedido `CLASSIFIED` y recepción existente.
+
+Request `TreatmentProfileRequest`:
 
 ```json
 {
@@ -132,13 +239,23 @@ Precondiciones:
 }
 ```
 
-El backend devuelve el perfil efectivo. Puede endurecer el request según cliente/pedido.
+Temperatura permitida: 20–95. El backend puede endurecer secadora, suavizante, hipoalergénico, fragancia y exclusividad.
 
-`GET /orders/{orderId}/compatibility-profile` permite consulta a los cuatro roles y devuelve `null` cuando aún no existe perfil.
+`GET /orders/{orderId}/compatibility-profile`
 
-### Evaluar dos pedidos
+Método: `getProfile`.
+
+Permisos: cuatro roles. Devuelve perfil o `data=null`.
+
+### Evaluar
 
 `POST /compatibility/evaluate`
+
+Método: `evaluate`.
+
+Permisos: `ADMIN`, `OPERATOR`.
+
+Request:
 
 ```json
 {
@@ -147,81 +264,69 @@ El backend devuelve el perfil efectivo. Puede endurecer el request según client
 }
 ```
 
-Permisos: `ADMIN` u `OPERATOR`.
+Efectos:
 
-Respuesta principal:
+- rechaza el mismo pedido;
+- normaliza UUID;
+- bloquea ambos pedidos en orden estable;
+- exige `CLASSIFIED` y perfiles;
+- reutiliza snapshot por versiones y `COMPAT-1`, o crea uno;
+- persiste razones y recomendación;
+- audita.
 
-```json
-{
-  "id": "33333333-3333-3333-3333-333333333333",
-  "orderAId": "11111111-1111-1111-1111-111111111111",
-  "orderBId": "22222222-2222-2222-2222-222222222222",
-  "profileAVersion": 0,
-  "profileBVersion": 0,
-  "ruleVersion": "COMPAT-1",
-  "compatible": false,
-  "overridden": false,
-  "effectivelyCompatible": false,
-  "reasons": [
-    {
-      "code": "COLOR_GROUP_MISMATCH",
-      "severity": "HARD",
-      "message": "Los grupos de color no coinciden"
-    }
-  ],
-  "recommendation": {
-    "maxTemperatureC": 30,
-    "dryerAllowed": false,
-    "softenerAllowed": false,
-    "fragrancePolicy": "NONE",
-    "programMode": "NORMAL",
-    "cycleMode": "BLOCKED"
-  },
-  "exception": null
-}
-```
-
-El orden de entrada no altera la identidad de la evaluación: el par se normaliza por UUID.
-
-### Consultar evaluación
+No es idempotencia por clave, pero la identidad única hace converger repeticiones con las mismas versiones.
 
 `GET /compatibility/evaluations/{evaluationId}`
 
-Permisos de lectura: todos los roles.
+Permisos: cuatro roles. Lectura del snapshot.
 
-### Autorizar excepción
+### Excepción
 
 `POST /compatibility/evaluations/{evaluationId}/exception`
 
-Solo `ADMIN`.
+Permiso: solo `ADMIN`.
+
+Request:
 
 ```json
 {"reason":"Separación mediante bolsas y supervisión reforzada"}
 ```
 
-No se permite si la evaluación original ya era compatible o si ya existe una excepción.
+Requiere evaluación originalmente incompatible y sin excepción. Bloquea evaluación, conserva resultado original y cambia solo `effectivelyCompatible`.
 
-## Pagos y auditoría
+Errores verificados: `ORDER_NOT_FOUND`, `ORDER_NOT_READY_FOR_COMPATIBILITY`, `RECEPTION_NOT_FOUND`, `TREATMENT_PROFILE_NOT_FOUND`, `SAME_ORDER_COMPATIBILITY`, `COMPATIBILITY_EVALUATION_NOT_FOUND`, `COMPATIBILITY_EXCEPTION_NOT_REQUIRED`, `COMPATIBILITY_EXCEPTION_ALREADY_EXISTS`.
 
-| Método | Ruta | Uso |
-|---|---|---|
-| POST | `/payments` | registrar pago |
-| GET | `/payments/order/{orderId}` | historial por pedido |
-| GET | `/audit` | consulta administrativa paginada |
+## Pagos
 
-## Códigos de error relevantes de compatibilidad
+Controlador: `payment/api/PaymentController`.
 
-| Código | Estado | Significado |
-|---|---:|---|
-| `ORDER_NOT_FOUND` | 404 | pedido inexistente |
-| `ORDER_NOT_READY_FOR_COMPATIBILITY` | 422 | pedido fuera de `CLASSIFIED` |
-| `RECEPTION_NOT_FOUND` | 422 | no existe recepción |
-| `TREATMENT_PROFILE_NOT_FOUND` | 422 | falta perfil de uno de los pedidos |
-| `SAME_ORDER_COMPATIBILITY` | 400 | se seleccionó el mismo pedido |
-| `COMPATIBILITY_EVALUATION_NOT_FOUND` | 404 | evaluación inexistente |
-| `COMPATIBILITY_EXCEPTION_NOT_REQUIRED` | 422 | resultado original compatible |
-| `COMPATIBILITY_EXCEPTION_ALREADY_EXISTS` | 409 | excepción duplicada |
+| Método y ruta | Método Java | Permisos | Request | Response | Efectos |
+|---|---|---|---|---|---|
+| `POST /payments` | `register` | `ADMIN`, `OPERATOR` | `orderId`, `methodCode`, monto positivo, fecha, referencia y notas | `PaymentResponse` | bloquea pedido, impide sobrepago, actualiza saldo/estado y audita |
+| `GET /payments?orderId={UUID}` | `history` | `ADMIN`, `OPERATOR`, `REPORT_VIEWER` | query obligatorio `orderId` | lista de `PaymentHistoryResponse` | lectura |
+
+No existe idempotencia para proveedores/webhooks externos.
+
+## Auditoría
+
+Controlador: `audit/api/AuditController`.
+
+`GET /audit?entityType=&entityId=&action=&page=0&size=20`
+
+Permiso: solo `ADMIN`.
+
+Respuesta: página de `AuditEventResponse` con entidad, acción, valores, motivo, fecha y actor.
+
+## Códigos HTTP y errores
+
+- `400`: request, parámetro, enum o precondición sintáctica inválida;
+- `401`: sin autenticación o sesión inválida;
+- `403`: rol insuficiente;
+- `404`: recurso inexistente;
+- `409`: unicidad, idempotencia o concurrencia conflictiva;
+- `422`: regla de negocio o transición no permitida;
+- `500`: error inesperado; el cliente no recibe stack trace.
 
 ## Fuera del contrato actual
 
-No existen endpoints productivos para ciclos, máquinas, rutas, caja, costos, inventario ni carga binaria de evidencias.
+No existen endpoints en `main` para máquinas, programas, ciclos, rutas, caja, costos, inventario, carga binaria de evidencias, backups ni administración completa de usuarios.

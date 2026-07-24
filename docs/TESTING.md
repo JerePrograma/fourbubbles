@@ -1,10 +1,10 @@
 # Estrategia y estado de pruebas
 
-Última actualización: 2026-07-21.
+Referencia funcional: `0.3.0`.
 
-Versión funcional: `0.3.0`.
+Base inspeccionada: `6f6d3cd8256408bc574e5b3d4568bf1b2866b0d8`.
 
-## Gate continuo
+## Gates canónicos
 
 ### Backend
 
@@ -13,14 +13,16 @@ cd backend
 mvn clean verify
 ```
 
-El gate usa Java 21, PostgreSQL 16 mediante Testcontainers, Flyway V1-V8 y validación JPA.
+Ejecuta pruebas unitarias y `*IT` mediante Failsafe. Las integraciones usan Java 21, PostgreSQL 16 con Testcontainers, Flyway `V1`–`V8` y validación JPA.
 
-Resultado histórico aceptado para 0.3.0:
+Resultado histórico documentado para `0.3.0`:
 
 - 25 pruebas unitarias;
 - 19 pruebas de integración;
-- 44 casos backend totales;
+- 44 casos backend;
 - 0 fallos.
+
+Es un dato histórico, no un conteo recalculado por esta actualización.
 
 ### Frontend
 
@@ -32,7 +34,10 @@ npm test
 npm run build
 ```
 
-El gate comprueba TypeScript estricto, Vitest y build Vite.
+- `lint` ejecuta TypeScript project build sin emisión;
+- `test` ejecuta Vitest;
+- `build` ejecuta TypeScript y Vite;
+- Node 22 se usa en CI.
 
 ### PowerShell
 
@@ -40,17 +45,7 @@ El gate comprueba TypeScript estricto, Vitest y build Vite.
 .\scripts\tests\Local.Common.Tests.ps1
 ```
 
-Las pruebas no requieren Docker y cubren:
-
-- lectura de `.env`, comentarios, comillas y valores con `=`;
-- agregado idempotente de variables faltantes;
-- preservación de secretos existentes;
-- normalización de salida Compose vacía, objeto único, array y JSON por líneas;
-- normalización de IDs Docker completos al formato abreviado usado para detectar recursos propios;
-- validación de rango y duplicación de puertos;
-- inicialización de un `.env` existente sin reemplazos.
-
-El job `powershell` se ejecuta con PowerShell 7 en GitHub Actions.
+Cubre lectura de `.env`, valores con `=`, creación/completado idempotente, preservación de secretos, puertos, normalización de JSON Compose e identidad abreviada de contenedores.
 
 ### Contenedores
 
@@ -59,102 +54,93 @@ docker compose config --quiet
 docker compose build
 ```
 
-El job usa puertos host alternativos para comprobar que Compose no depende de `5432`, `8080` ni `8081`.
+CI usa puertos alternativos para detectar dependencias accidentales de `5432`, `8080` o `8081`.
 
-## Runtime smoke
+### Runtime smoke
 
-El workflow `Runtime smoke` prueba el stack real con:
+Workflow: `.github/workflows/runtime-smoke.yml`.
 
-```text
-POSTGRES_HOST_PORT=15432
-BACKEND_HOST_PORT=18081
-FRONTEND_HOST_PORT=18080
-```
+Secuencia:
 
-Secuencia validada por el workflow:
-
-1. construye e inicia frontend con `--no-deps`, antes de que exista backend;
-2. exige que Nginx permanezca saludable, validando resolución DNS diferida;
-3. inicia PostgreSQL y backend;
+1. inicia frontend sin backend;
+2. valida Nginx y DNS diferido;
+3. inicia PostgreSQL/backend;
 4. espera readiness;
 5. valida SPA;
-6. valida rechazo anónimo 401/403 por el proxy frontend;
-7. realiza login por Nginx;
+6. valida rechazo anónimo;
+7. hace login;
 8. consulta catálogo protegido por Nginx;
-9. consulta `flyway_schema_history` y exige ocho migraciones o más;
-10. imprime diagnóstico ante falla y elimina stack y volumen al finalizar.
+9. exige ocho migraciones exitosas;
+10. muestra diagnóstico y limpia.
 
-## Estados agregados de commit
-
-Los workflows publican estados consultables también para pushes directos a `main`:
-
-- `validation/ci-summary`: resume backend, frontend, PowerShell y contenedores;
-- `validation/runtime-smoke`: resume el smoke completo.
-
-Ambos deben estar en `success`. Esto evita depender de una vista de Pull Request para comprobar GitHub Actions y permite reutilizarlos en reglas de protección de rama.
-
-## Verificación local
+### Verificación local
 
 ```powershell
 .\scripts\Start-Local.ps1 -Rebuild -SkipOpen
 .\scripts\Verify-Local.ps1
 ```
 
-`Verify-Local.ps1` no continúa después de una aserción fallida. En su bloque de error muestra `docker compose ps --all` y logs recientes.
+`Verify-Local.ps1` comprueba servicios, health, puertos efectivos, readiness, Flyway, SPA, proxy, 401/403, login y catálogo.
 
-## Cobertura funcional existente
+## Trazabilidad por funcionalidad
 
-### Compatibilidad
+| Funcionalidad | Pruebas representativas | Gate |
+|---|---|---|
+| equivalencias, límites y transiciones | `GarmentEquivalenceCalculatorTest`, `OrderLimitPolicyTest`, `OrderTransitionPolicyTest` | `mvn clean verify` |
+| contrato 401/403/error | `ApiContractIT`, `AdministrativeAuthorizationIT` | `mvn clean verify` |
+| flujo administrativo | `OperationalFlowIT`, `AdministrativeFlowIT` | `mvn clean verify` |
+| promoción concurrente | pruebas de `PricingService`/integración | `mvn clean verify` |
+| pagos sin sobrecobro | `ConcurrentPaymentIT` | `mvn clean verify` |
+| diferencias de recepción | `ReceptionDifferencePolicyTest` | `mvn clean verify` |
+| recepción e idempotencia | `ReceptionFlowIT` | `mvn clean verify` |
+| permiso de recepción | `ReceptionFlowIT.driverCanReadReceptionButCannotCreateIt` | `mvn clean verify` |
+| compatibilidad pura | `CompatibilityEngineTest` | `mvn clean verify` |
+| perfil/evaluación/excepción | `CompatibilityServiceTest`, `CompatibilityFlowIT` | `mvn clean verify` |
+| concurrencia A/B | `ConcurrentCompatibilityIT` | `mvn clean verify` |
+| borrador frontend | `frontend/src/order/orderDraft.test.ts` | `npm test` |
+| helpers locales | `scripts/tests/Local.Common.Tests.ps1` | PowerShell |
+| stack real | `runtime-smoke.yml` | GitHub Actions |
 
-- carga compatible sin razones duras;
-- exclusividad bloqueante;
-- color desconocido/distinto;
-- materiales compatibles e incompatibles;
-- aislamiento hipoalergénico;
-- cruce bebé/mascotas;
-- suciedad pesada contra carga sensible;
-- fragancia incompatible;
-- reducción de temperatura;
-- deshabilitación de secadora y suavizante;
-- persistencia de perfil efectivo;
-- orden UUID canónico;
-- reevaluación por cambio de versión;
-- excepción exclusiva de `ADMIN`;
-- concurrencia A/B y B/A sin snapshots duplicados.
+## Estados remotos
 
-### Seguridad y concurrencia
+Los workflows publican:
 
-- 401 sin autenticación;
-- 403 por rol insuficiente;
-- cotización manual y auditoría `ADMIN`;
-- recepción permitida a `DRIVER`;
-- decisión de recepción restringida;
-- promoción concurrente;
-- pagos sin sobrecobro;
-- recepción idempotente concurrente;
-- compatibilidad concurrente.
+- `validation/ci-summary`;
+- `validation/runtime-smoke`.
 
-## Diagnóstico de fallos
+Ambos estaban en `success` para la base `6f6d3cd`.
 
-Los gates válidos son:
+Jobs esperados:
 
 - `CI / backend`;
 - `CI / frontend`;
 - `CI / powershell`;
 - `CI / containers`;
-- `Runtime smoke / compose-smoke`;
-- `validation/ci-summary`;
-- `validation/runtime-smoke`.
+- `Runtime smoke / compose-smoke`.
 
-No se declara validado un cambio solo porque `docker compose config` pase: el smoke debe confirmar ejecución real.
+## Criterios de aceptación
 
-## Casos aún faltantes
+Un cambio de código no está verificado solo por compilar. Según alcance:
 
-- pruebas E2E de navegador;
-- accesibilidad automatizada;
-- property-based testing del motor;
-- pruebas de carga;
-- restauración desde backup;
-- seguridad dinámica;
-- ciclos/máquinas y capacidad;
-- logística y costos.
+- regla pura: test unitario positivo, negativo y límite;
+- persistencia/transacción: integración PostgreSQL real;
+- concurrencia/idempotencia: test simultáneo o de repetición;
+- API/rol: MockMvc con autorizado y denegado;
+- frontend: TypeScript, Vitest y build;
+- infraestructura: Compose build y runtime smoke;
+- migración: Flyway + JPA validate sobre base nueva.
+
+## Limitaciones actuales
+
+- sin E2E de navegador;
+- sin accesibilidad automatizada;
+- sin property-based testing;
+- sin pruebas de carga;
+- sin restore de backup;
+- sin DAST;
+- sin producción/ciclos;
+- sin logística/costos.
+
+## Alcance de esta actualización documental
+
+`NO VERIFICADO`: no se ejecutaron Maven, npm, PowerShell ni Docker en el entorno que generó esta documentación porque no había checkout local ni resolución DNS. Se verificaron comandos, configuración, pruebas existentes y estados remotos de la base mediante GitHub.

@@ -1,124 +1,135 @@
 # Seguridad
 
-Versión: `0.3.0`.
+Versión funcional: `0.3.0`.
 
-## Credenciales y sesiones
+Fuente de verdad: `SecurityConfig`, controladores, servicios de autenticación, configuración y pruebas de integración.
 
-- BCrypt costo 12.
-- JWT HS256 de corta duración.
-- clave HMAC mínima de 256 bits.
-- refresh token opaco, aleatorio, hasheado, rotativo y revocable.
-- cookie `HttpOnly`, `SameSite=Strict`, `Secure` en producción.
-- access token solo en memoria del frontend.
-- bloqueo local ante intentos repetidos de login.
+## Sesiones
 
-## Roles
+- contraseñas con BCrypt, costo documentado 12;
+- access JWT HS256 de corta duración;
+- clave HMAC de al menos 256 bits;
+- refresh token opaco, aleatorio, hasheado, rotativo y revocable;
+- cookie `HttpOnly`, `SameSite=Strict`, path `/api/auth`;
+- `Secure=true` en perfil `prod`;
+- access token exclusivamente en memoria del frontend;
+- una sola renovación HTTP en vuelo;
+- throttling local de login.
 
-Jerarquía:
+No guardar access/refresh en `localStorage`, `sessionStorage` ni logs.
+
+## Roles y jerarquía
 
 ```text
 ADMIN > OPERATOR > DRIVER > REPORT_VIEWER
 ```
 
-| Operación sensible | Rol mínimo |
+La jerarquía amplía permisos, pero no elimina precondiciones de dominio.
+
+### Matriz verificada en controladores
+
+| Operación | Permiso mínimo efectivo |
 |---|---|
-| cotización manual | ADMIN |
-| consulta de auditoría | ADMIN |
-| excepción de compatibilidad | ADMIN |
-| decidir diferencias de recepción | OPERATOR |
-| guardar perfil/evaluar compatibilidad | OPERATOR |
-| registrar recepción | DRIVER |
-| consultar perfiles/evaluaciones | REPORT_VIEWER |
+| login/refresh/logout | contrato de sesión |
+| catálogo | usuario autenticado |
+| crear/actualizar cliente y domicilios | `OPERATOR` |
+| consultar clientes | `REPORT_VIEWER` |
+| crear pedido y confirmar precio | `OPERATOR` |
+| cotización manual | `ADMIN` |
+| cambiar estado de pedido | `DRIVER` |
+| registrar recepción | `OPERATOR` |
+| consultar recepción | `REPORT_VIEWER` |
+| decidir recepción | `OPERATOR` |
+| guardar perfil/evaluar compatibilidad | `OPERATOR` |
+| consultar perfiles/evaluaciones | `REPORT_VIEWER` |
+| autorizar excepción | `ADMIN` |
+| registrar pago | `OPERATOR` |
+| consultar pagos | `REPORT_VIEWER` |
+| consultar auditoría | `ADMIN` |
 
-La jerarquía no sustituye las precondiciones de dominio. Un `ADMIN` tampoco puede crear un perfil fuera de `CLASSIFIED` ni exceptuar una evaluación originalmente compatible.
+`ReceptionFlowIT.driverCanReadReceptionButCannotCreateIt` confirma que `DRIVER` no puede registrar recepción en el código actual.
 
-## Datos y validación
+## Autoridad del backend
 
-- Bean Validation en DTO.
-- errores uniformes sin stack trace al cliente.
-- valores rechazados de contraseña/token no se reflejan.
-- JSON de preferencias normalizado al persistir.
-- restricciones del cliente y pedido se aplican en backend.
-- el frontend no es autoridad para permisos ni compatibilidad.
+- Bean Validation valida DTO.
+- Spring Security valida autenticación y rol.
+- Servicios validan precondiciones y transiciones.
+- PostgreSQL aplica constraints.
+- La UI no es control de seguridad.
 
-### Restricciones efectivas de compatibilidad
+Un `ADMIN` tampoco puede crear un perfil fuera de `CLASSIFIED`, crear una segunda recepción, sobrepagar ni exceptuar una evaluación compatible.
 
-El formulario puede solicitar un tratamiento, pero el backend conserva las restricciones más estrictas:
+## Preferencias y compatibilidad
 
-- `dryerAllowed=false` del cliente prevalece;
-- `softenerAllowed=false` del cliente prevalece;
-- `hypoallergenic=true` prevalece y fuerza fragancia `NONE`;
-- `exclusiveCycle=true` del pedido o cliente prevalece.
+`CompatibilityService.effectiveProfile` preserva la opción más restrictiva:
 
-Esto evita que una edición accidental convierta una carga restringida en una carga estándar.
+- prohibición de secadora;
+- prohibición de suavizante;
+- exigencia hipoalergénica;
+- fragancia `NONE` para hipoalergénico;
+- exclusividad del pedido/cliente.
+
+Una excepción:
+
+- requiere `ADMIN`;
+- requiere motivo;
+- registra actor y fecha;
+- es única;
+- no modifica resultado original;
+- cambia solo compatibilidad efectiva.
 
 ## Concurrencia e idempotencia
 
-- promociones bloqueadas al confirmar;
-- pedido bloqueado al registrar pagos;
-- pedido bloqueado al registrar recepción;
-- recepción única por pedido y clave idempotente;
-- perfil creado/actualizado bajo bloqueo del pedido;
-- evaluación bloquea ambos pedidos en orden UUID;
-- excepción bloquea la evaluación.
+- promociones: bloqueo al confirmar;
+- pagos: bloqueo de pedido;
+- recepción: bloqueo de pedido + clave idempotente + constraints;
+- perfil: bloqueo de pedido;
+- evaluación: bloqueo de dos pedidos en orden UUID;
+- excepción: bloqueo de evaluación.
 
-El orden UUID evita interbloqueos entre dos evaluaciones que consultan el mismo par en orden inverso.
+El orden canónico evita interbloqueos A/B contra B/A.
 
-## Compatibilidad y excepciones
+## Errores y correlación
 
-El resultado original se conserva en `compatible`. Una excepción:
+- `X-Request-ID` se valida o genera.
+- Se propaga por MDC.
+- Producción usa logs JSON.
+- Errores inesperados se registran con stack en servidor.
+- El cliente recibe mensaje seguro sin stack trace.
+- Credenciales/tokens rechazados no deben reflejarse.
 
-- requiere `ADMIN`;
-- requiere motivo concreto;
-- registra actor y fecha;
-- no puede duplicarse;
-- no cambia las razones ni la recomendación originales;
-- solo cambia `effectivelyCompatible`.
+## CORS y cookies
 
-La excepción es una decisión operativa excepcional, no una modificación encubierta de reglas.
+`CORS_ALLOWED_ORIGINS` debe enumerar orígenes confiables. En producción se deben revisar dominio, TLS, cookies, reverse proxy y cabeceras reenviadas como un conjunto.
+
+## Secretos
+
+Obligatorios fuera de test:
+
+```text
+POSTGRES_PASSWORD
+DB_PASSWORD
+JWT_SECRET_BASE64
+APP_DEV_ADMIN_PASSWORD en dev
+```
+
+El repositorio contiene solo placeholders o secretos de prueba no productivos. No copiar valores reales.
 
 ## Auditoría
 
-Se auditan, entre otros:
-
-- cliente y domicilio;
-- pedido, precio y estado;
-- pago;
-- recepción y decisión;
-- perfil de tratamiento;
-- evaluación de compatibilidad;
-- excepción administrativa.
-
-Los eventos incluyen tipo de entidad, identificador, acción, actor, cambios relevantes, motivo y fecha.
-
-## Correlación y logs
-
-- `X-Request-ID` se acepta o genera.
-- el identificador se propaga mediante MDC.
-- producción usa logs JSON.
-- errores inesperados se registran en servidor con stack trace.
-- el cliente recibe un mensaje seguro.
+Eventos sensibles incluyen entidad, identificador, acción, actor, valores relevantes, motivo y fecha. La auditoría técnica no equivale a firma digital, consentimiento ni no repudio legal.
 
 ## Riesgos abiertos
 
-1. Rate limiting local, no distribuido.
-2. Sin MFA.
-3. Sin administración completa de usuarios/roles.
-4. Sin WAF ni reverse proxy productivo definido.
-5. Sin política formal de retención/borrado de evidencias.
-6. Evidencias solo metadata; la seguridad del objeto externo depende del proveedor futuro.
-7. Sin secretos administrados ni rotación automatizada.
-8. Sin backups/restore automatizados.
-9. Sin idempotencia de webhooks de pago externos.
-10. Las reglas `COMPAT-1` están en código; cambios requieren release y nueva versión de reglas.
+1. throttling local, no distribuido;
+2. sin MFA;
+3. sin gestión completa de usuarios/sesiones/roles;
+4. sin WAF ni topología productiva;
+5. sin gestor/rotación de secretos;
+6. sin backup/restore probado;
+7. sin política de privacidad y retención de evidencias;
+8. sin idempotencia de webhooks de pago;
+9. reglas `COMPAT-1` en código;
+10. sin pruebas DAST ni carga.
 
-## Requisitos antes de producción
-
-- TLS extremo a extremo.
-- secretos administrados.
-- cookies y CORS revisados para el dominio final.
-- backups cifrados y restauración ensayada.
-- object storage privado con URLs temporales.
-- rate limit distribuido.
-- monitoreo, alertas y retención de auditoría.
-- política de privacidad y tratamiento de imágenes/datos personales.
+Antes de producción, todos los puntos de severidad alta de [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) deben resolverse.
