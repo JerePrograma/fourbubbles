@@ -33,6 +33,8 @@ El circuito administrativo, la recepción física y la evaluación explicable de
 
 El detalle funcional está en [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) y [docs/ROADMAP.md](docs/ROADMAP.md).
 
+Para nuevas sesiones automatizadas, comenzar por [docs/AI_CONTEXT.md](docs/AI_CONTEXT.md) y navegar desde [docs/README.md](docs/README.md).
+
 ## Inicio local resistente a conflictos
 
 Requisitos: Git, Docker Desktop con contenedores Linux y PowerShell 7.
@@ -144,6 +146,13 @@ La compatibilidad no crea ni ejecuta ciclos: solo determina si dos pedidos podr�
 
 ## Documentación
 
+- [Autorreferencia técnica para agentes](docs/AI_CONTEXT.md)
+- [Índice documental](docs/README.md)
+- [Mapa del repositorio](docs/REPOSITORY_MAP.md)
+- [Configuración](docs/CONFIGURATION.md)
+- [Decisiones técnicas](docs/DECISIONS.md)
+- [Incidencias conocidas](docs/KNOWN_ISSUES.md)
+- [Glosario](docs/GLOSSARY.md)
 - [Estado integral](docs/PROJECT_STATUS.md)
 - [Guía Windows](docs/WINDOWS_SETUP.md)
 - [Operación](docs/OPERATIONS.md)
