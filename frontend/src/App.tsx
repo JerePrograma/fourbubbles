@@ -12,6 +12,7 @@ import { NewClientPage } from './pages/NewClientPage';
 import { NewOrderPage } from './pages/NewOrderPage';
 import { OrderDetailPage } from './pages/OrderDetailPage';
 import { OrdersPage } from './pages/OrdersPage';
+import { ProductionPage } from './pages/ProductionPage';
 import { ReceptionPage } from './pages/ReceptionPage';
 
 export default function App(): JSX.Element {
@@ -29,6 +30,7 @@ export default function App(): JSX.Element {
           <Route path="/orders/:id" element={<OrderDetailPage />} />
           <Route path="/orders/:id/reception" element={<ReceptionPage />} />
           <Route path="/orders/:id/compatibility" element={<CompatibilityPage />} />
+          <Route path="/production" element={<ProductionPage />} />
           <Route path="/agenda" element={<AgendaPage />} />
           <Route path="/audit" element={<AuditPage />} />
         </Route>

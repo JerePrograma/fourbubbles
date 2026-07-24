@@ -1,0 +1,57 @@
+.production-planner {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.production-grid,
+.production-admin {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.production-admin {
+  margin-top: 1rem;
+}
+
+.production-admin .card {
+  display: grid;
+  gap: .8rem;
+  align-content: start;
+}
+
+.production-planner textarea,
+.production-admin textarea,
+.compact-textarea,
+.quality-actions textarea {
+  min-height: 70px;
+  resize: vertical;
+}
+
+.compact-input,
+.compact-textarea {
+  width: 100%;
+  margin-bottom: .45rem;
+}
+
+.quality-actions {
+  display: grid;
+  gap: .35rem;
+  margin-top: .75rem;
+  padding-top: .75rem;
+  border-top: 1px solid var(--border-color, #d8d8d8);
+}
+
+.production-planner button,
+.production-admin button,
+.quality-actions button {
+  justify-self: start;
+}
+
+@media (max-width: 760px) {
+  .production-grid,
+  .production-admin {
+    grid-template-columns: 1fr;
+  }
+}

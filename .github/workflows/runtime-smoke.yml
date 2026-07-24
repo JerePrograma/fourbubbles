@@ -119,7 +119,7 @@ jobs:
           migration_count=$(docker compose exec -T postgres \
             psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc \
             'select count(*) from flyway_schema_history where success = true;')
-          test "${migration_count//[[:space:]]/}" -ge 8
+          test "${migration_count//[[:space:]]/}" -ge 10
 
           docker compose ps --all
 

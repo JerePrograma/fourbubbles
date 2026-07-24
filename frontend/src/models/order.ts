@@ -11,6 +11,7 @@ export type OrderStatus =
   | 'CLASSIFIED'
   | 'WAITING_WASH'
   | 'WASHING'
+  | 'WAITING_DRY'
   | 'DRYING'
   | 'QUALITY_CONTROL'
   | 'REWASH_REQUIRED'
