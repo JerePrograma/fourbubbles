@@ -14,8 +14,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
@@ -82,14 +80,12 @@ class ProductionMetricsIT extends PostgresIntegrationTestSupport {
     void invalidRangeIsRejectedAndAnonymousAccessIsDenied() throws Exception {
         String token = login(Role.ADMIN);
         OffsetDateTime now = OffsetDateTime.now();
-        String invalid = query(now, now.minusHours(1));
-        mockMvc.perform(get("/production/metrics" + invalid)
+        mockMvc.perform(metricsRequest(now, now.minusHours(1))
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_METRICS_RANGE"));
 
-        String tooLarge = query(now.minusDays(367), now);
-        mockMvc.perform(get("/production/metrics" + tooLarge)
+        mockMvc.perform(metricsRequest(now.minusDays(367), now)
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("METRICS_RANGE_TOO_LARGE"));
@@ -99,16 +95,15 @@ class ProductionMetricsIT extends PostgresIntegrationTestSupport {
     }
 
     private JsonNode metrics(String token, OffsetDateTime from, OffsetDateTime to) throws Exception {
-        return performJson(get("/production/metrics" + query(from, to))
+        return performJson(metricsRequest(from, to)
                 .header("Authorization", bearer(token)));
     }
 
-    private String query(OffsetDateTime from, OffsetDateTime to) {
-        return "?from=" + encode(from.toString()) + "&to=" + encode(to.toString());
-    }
-
-    private String encode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder metricsRequest(
+            OffsetDateTime from, OffsetDateTime to) {
+        return get("/production/metrics")
+                .queryParam("from", from.toString())
+                .queryParam("to", to.toString());
     }
 
     private String createMachine(String token) throws Exception {
