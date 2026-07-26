@@ -1,6 +1,6 @@
 # Hoja de ruta
 
-Versión base: `0.4.2`.
+Versión base: `0.4.3`.
 
 ## Completado
 
@@ -28,9 +28,13 @@ Flyway `V11`, contenedores por pedido, confirmación auditada, bloqueo de inicio
 
 Estados, etapas, pesos, duración, cargas compartidas y preparación de separación por período.
 
+### 0.4.3 — Límite de catálogo restaurado
+
+`CatalogController` delega en `CatalogQueryService`; `KI-001` queda cerrado.
+
 ## Endurecimiento siguiente
 
-1. E2E de navegador para producción/separación.
+1. E2E de navegador para producción, separación y métricas.
 2. Alinear versiones de `pom.xml` y `package.json` con la versión funcional.
 3. Administración UI completa de máquinas/programas.
 4. Snapshot de capacidad si se requiere utilización histórica.

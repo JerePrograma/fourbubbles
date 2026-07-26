@@ -1,6 +1,6 @@
 # Guía de uso funcional
 
-Versión: `0.4.2`.
+Versión: `0.4.3`.
 
 ## 1. Preparar el pedido
 
@@ -62,6 +62,10 @@ La observación es obligatoria.
 - `DRIVER`: consulta;
 - `REPORT_VIEWER`: consulta.
 
-## 9. Límites
+## 9. Catálogo
+
+Los listados de servicios y equivalencias mantienen el mismo comportamiento visible. El cambio 0.4.3 es interno y no exige acciones nuevas.
+
+## 10. Límites
 
 La confirmación es una declaración operativa auditada. No hay sensor, imagen obligatoria, optimizador, costos, rutas ni almacenamiento binario de fotos.

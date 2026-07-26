@@ -1,6 +1,6 @@
 # Alcance funcional
 
-Versión: `0.4.2`. Solo se describe comportamiento utilizable.
+Versión: `0.4.3`. Solo se describe comportamiento utilizable.
 
 ## Estado por módulo
 
@@ -8,7 +8,7 @@ Versión: `0.4.2`. Solo se describe comportamiento utilizable.
 |---|---|---|---|
 | autenticación/RBAC | base | sesión y jerarquía | MFA, gestión UI, rate limit distribuido |
 | clientes/domicilios | avanzado | alta, preferencias, historial | timeline y geocodificación |
-| catálogo/precios | base | servicios, equivalencias, precios, promociones | CRUD UI completo |
+| catálogo/precios | base | servicios, equivalencias, precios, promociones y consultas por aplicación | CRUD UI completo |
 | pedidos | avanzado | declaración, cotización, planificación, estados | correcciones físicas versionadas |
 | recepción | base | idempotencia, realidad física, decisión | binarios y enmiendas |
 | compatibilidad | base | perfil, evaluación, explicación, excepción | matriz administrable |

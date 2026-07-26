@@ -4,15 +4,13 @@ Fecha: 2026-07-26. Fuente: `origin/main`.
 
 ## KI-001 — `CatalogController` accede a repositorios
 
-- Estado: `VERIFICADO`.
-- Impacto: excepción al límite API → aplicación → persistencia.
-- Próximo paso: servicio de consulta con tests.
-- Severidad: media.
+- Estado: `RESUELTO` en `0.4.3`.
+- Entregado: `CatalogQueryService`, controlador delegante y pruebas unitarias.
 
 ## KI-002 — Versiones de manifiestos desalineadas
 
 - Estado: `VERIFICADO`.
-- Evidencia: versión funcional `0.4.2`; Maven/npm conservan `0.1.0`.
+- Evidencia: versión funcional `0.4.3`; Maven/npm conservan `0.1.0`.
 - Próximo paso: actualizar Maven, npm y lockfile mediante generación reproducible y agregar gate de consistencia.
 - Severidad: media.
 

@@ -2,7 +2,7 @@
 
 Sistema de gestión para una lavandería doméstica con retiro y entrega, inicialmente orientado a Marcos Paz y Mariano Acosta.
 
-> Versión funcional: **0.4.2**. Última actualización documental: **2026-07-26**.
+> Versión funcional: **0.4.3**. Última actualización documental: **2026-07-26**.
 
 ## Estado
 
@@ -13,7 +13,8 @@ Están implementados:
 - compatibilidad explicable mediante perfiles, razones, recomendación y excepción administrativa;
 - producción con máquinas, programas, ciclos, capacidad, lavado, secado y control de calidad;
 - separación física trazable por contenedor para ciclos compartidos habilitados mediante excepción;
-- métricas productivas por período sobre estados, etapas, pesos, duración y separación.
+- métricas productivas por período sobre estados, etapas, pesos, duración y separación;
+- arquitectura de catálogo alineada: el controlador delega en `CatalogQueryService`.
 
 Una carga compartida exige perfiles vigentes, compatibilidad efectiva, ausencia de exclusividad y capacidad suficiente. Cuando depende de una excepción, cada pedido debe tener un contenedor distinto confirmado por un operador antes de iniciar el ciclo.
 
@@ -68,6 +69,7 @@ Los scripts preservan secretos existentes, detectan conflictos de puertos, esper
 - [Contexto para agentes](docs/AI_CONTEXT.md)
 - [Índice documental](docs/README.md)
 - [Estado integral](docs/PROJECT_STATUS.md)
+- [Release 0.4.3](docs/RELEASE_0_4_3.md)
 - [Release 0.4.2](docs/RELEASE_0_4_2.md)
 - [Release 0.4.1](docs/RELEASE_0_4_1.md)
 - [API](docs/API.md)

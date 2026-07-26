@@ -1,6 +1,6 @@
 # Modelo de datos
 
-Versión: `0.4.2`.
+Versión: `0.4.3`.
 
 ## Principios
 
@@ -68,4 +68,4 @@ ProductionCycle 1---N ProductionCycleHistory
 | V10 | protección de programas usados |
 | V11 | separación física trazable |
 
-Las migraciones publicadas no se editan. Cambios futuros usan `V12+`. El corte 0.4.2 no altera esquema: agrega consultas agregadas sobre ciclos y asignaciones existentes.
+Las migraciones publicadas no se editan. Cambios futuros usan `V12+`. Los cortes 0.4.2 y 0.4.3 no alteran el esquema; agregan consultas y refactorizaciones sobre estructuras existentes.

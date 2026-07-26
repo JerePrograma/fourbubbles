@@ -1,6 +1,6 @@
 # Estrategia y estado de pruebas
 
-Versión funcional: `0.4.2`.
+Versión funcional: `0.4.3`.
 
 ## Gates canónicos
 
@@ -40,6 +40,7 @@ Cuando backend falla en CI, `backend-failure-reports` conserva `/tmp/backend.log
 | separación de dominio | `ProductionCycleSeparationTest` |
 | separación integrada | `ProductionSeparationIT` |
 | métricas productivas | `ProductionMetricsIT` |
+| consulta y proyección de catálogo | `CatalogQueryServiceTest` |
 | frontend separación | `separationState.test.ts` + TypeScript/build |
 | frontend métricas | `metricsState.test.ts` + TypeScript/build |
 | recepción/compatibilidad | integraciones existentes |

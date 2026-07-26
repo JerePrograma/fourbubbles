@@ -1,10 +1,10 @@
 # Estado integral del proyecto
 
-Última actualización: 2026-07-26. Versión funcional: `0.4.2`.
+Última actualización: 2026-07-26. Versión funcional: `0.4.3`.
 
 ## Veredicto ejecutivo
 
-Four Bubbles dispone de administración, recepción física, compatibilidad explicable, producción controlada, separación trazable y métricas operativas. El corte 0.4.1 cierra el principal hueco operativo de las excepciones: un ciclo exceptuado no inicia hasta identificar y confirmar un contenedor distinto para cada pedido.
+Four Bubbles dispone de administración, recepción física, compatibilidad explicable y producción controlada, separación trazable y métricas operativas. El corte 0.4.3 elimina el acceso directo del catálogo a persistencia desde la capa HTTP. El corte 0.4.1 cierra el principal hueco operativo de las excepciones: un ciclo exceptuado no inicia hasta identificar y confirmar un contenedor distinto para cada pedido.
 
 No está listo para producción comercial: faltan despliegue seguro, evidencias binarias, logística, costos y pruebas no funcionales.
 
@@ -47,6 +47,14 @@ No está listo para producción comercial: faltan despliegue seguro, evidencias 
 - [x] separación requerida/pendiente;
 - [x] acceso de lectura para cuatro roles;
 - [x] UI y pruebas de integración/frontend.
+
+## Arquitectura 0.4.3 entregada
+
+- [x] `CatalogQueryService` como capa de aplicación;
+- [x] `CatalogController` exclusivamente delegante;
+- [x] contratos HTTP conservados;
+- [x] proyecciones y deduplicación cubiertas por pruebas;
+- [x] `KI-001` cerrado.
 
 ## Parcial
 

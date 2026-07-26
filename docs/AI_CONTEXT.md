@@ -6,7 +6,7 @@
 
 - repositorio: `JerePrograma/fourbubbles`;
 - rama/fuente de verdad: `main` / `origin/main`;
-- versión funcional: `0.4.2`;
+- versión funcional: `0.4.3`;
 - actores: `ADMIN`, `OPERATOR`, `DRIVER`, `REPORT_VIEWER`.
 
 Implementado: plataforma, administración, recepción, compatibilidad, producción, separación trazable y métricas operativas. Pendiente: E2E, logística, caja/costos, crecimiento y hardening productivo.
@@ -20,7 +20,7 @@ Java 21/Spring Boot/Maven/JPA/Flyway, PostgreSQL 16, React 18/TypeScript/Vite/Vi
 - `REPOSITORY_MAP.md`, `ARCHITECTURE.md`, `API.md`, `DATA_MODEL.md`;
 - `FUNCTIONAL_SCOPE.md`, `SECURITY.md`, `TESTING.md`;
 - `PROJECT_STATUS.md`, `ROADMAP.md`, `KNOWN_ISSUES.md`;
-- `RELEASE_0_4_2.md`.
+- `RELEASE_0_4_3.md`.
 
 ## Invariantes
 
@@ -38,6 +38,7 @@ Java 21/Spring Boot/Maven/JPA/Flyway, PostgreSQL 16, React 18/TypeScript/Vite/Vi
 12. Métricas usan `[from,to)`, máximo 366 días y solo completados para peso real/duración.
 13. No reinterpretar capacidad histórica ni inferir costos.
 14. Access token en memoria; refresh en cookie `HttpOnly`.
+15. Todos los controladores vigentes delegan en aplicación; catálogo usa `CatalogQueryService`.
 
 ## Puntos de entrada
 
@@ -46,6 +47,7 @@ ProductionController → ProductionService
 ProductionSeparationController → ProductionSeparationService
 ProductionCycle.start → exige separaciones confirmadas
 ProductionMetricsController → ProductionMetricsService
+CatalogController → CatalogQueryService
 frontend/src/pages/ProductionPage.tsx
 frontend/src/pages/ProductionSeparationPage.tsx
 frontend/src/pages/ProductionMetricsPage.tsx

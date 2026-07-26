@@ -1,6 +1,6 @@
 # Mapa del repositorio
 
-Versión funcional: `0.4.2`.
+Versión funcional: `0.4.3`.
 
 ## Raíz
 
@@ -22,9 +22,18 @@ Raíz: `backend/src/main/java/ar/com/ropalista`.
 | `customer/order/pricing/payment` | servicios de administración | operación comercial |
 | `reception` | `ReceptionService` | snapshot físico |
 | `compatibility` | `CompatibilityService`, `CompatibilityEngine` | perfiles/evaluaciones |
+| `catalog` | `CatalogController`, `CatalogQueryService` | servicios/equivalencias vigentes y proyección |
 | `production` | `ProductionController`, `ProductionService` | máquinas, programas, ciclos, calidad |
 | `production` | `ProductionSeparationController`, `ProductionSeparationService` | contenedores y confirmación |
 | `production` | `ProductionMetricsController`, `ProductionMetricsService` | KPIs por período |
+
+### Consulta de catálogo
+
+```text
+catalog/api/CatalogController.java
+catalog/application/CatalogQueryService.java
+catalog/persistence/*Repository.java
+```
 
 ### Producción y separación
 
@@ -50,7 +59,8 @@ production/application/ProductionMetricsService.java
 
 - `ProductionCycleSeparationTest`;
 - `ProductionSeparationIT`;
-- `ProductionMetricsIT`.
+- `ProductionMetricsIT`;
+- `CatalogQueryServiceTest`.
 
 ## Frontend
 

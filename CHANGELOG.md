@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.3 — Límite de catálogo restaurado
+
+Fecha: 2026-07-26.
+
+### Corregido
+
+- `CatalogController` deja de acceder directamente a repositorios;
+- vigencia, deduplicación y proyección se trasladan a `CatalogQueryService`;
+- rutas y campos JSON permanecen compatibles;
+- `CatalogQueryServiceTest` cubre equivalencias y selección de la primera versión aplicable por código.
+
+### Deuda cerrada
+
+`KI-001` queda `RESUELTO`: todos los controladores vigentes delegan en aplicación.
+
 ## 0.4.2 — Métricas productivas
 
 Fecha: 2026-07-26.

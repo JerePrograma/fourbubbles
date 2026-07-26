@@ -1,6 +1,6 @@
 # Contrato API
 
-Versión funcional: `0.4.2`. Fuente de verdad: controladores y DTO bajo `backend/src/main/java/ar/com/ropalista`.
+Versión funcional: `0.4.3`. Fuente de verdad: controladores y DTO bajo `backend/src/main/java/ar/com/ropalista`.
 
 ## Convenciones
 
@@ -15,6 +15,7 @@ Versión funcional: `0.4.2`. Fuente de verdad: controladores y DTO bajo `backend
 | Módulo | Rutas | Escritura |
 |---|---|---|
 | autenticación | `/auth/login`, `/refresh`, `/logout` | sesión |
+| catálogo | `/catalog/services`, `/catalog/equivalences` | solo lectura; delega en `CatalogQueryService` |
 | clientes/pedidos | `/clients`, `/orders` | según endpoint |
 | recepción | `/orders/{id}/reception`, `/decision` | `ADMIN`/`OPERATOR` |
 | compatibilidad | perfiles, `/compatibility/evaluate`, excepción | excepción solo `ADMIN` |

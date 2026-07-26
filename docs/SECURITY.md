@@ -1,6 +1,6 @@
 # Seguridad
 
-Versión funcional: `0.4.2`.
+Versión funcional: `0.4.3`.
 
 ## Sesiones
 
@@ -32,7 +32,8 @@ ADMIN > OPERATOR > DRIVER > REPORT_VIEWER
 - servicios validan ciclo, asignación, unicidad e idempotencia;
 - dominio impide iniciar con separaciones pendientes;
 - PostgreSQL aplica constraints e índice único;
-- UI no es control de seguridad.
+- UI no es control de seguridad;
+- controladores, incluido catálogo, delegan en aplicación.
 
 ## Separación
 

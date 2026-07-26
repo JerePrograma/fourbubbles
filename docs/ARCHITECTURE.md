@@ -1,6 +1,6 @@
 # Arquitectura
 
-Versión funcional: `0.4.2`.
+Versión funcional: `0.4.3`.
 
 ## Vista general
 
@@ -19,7 +19,7 @@ flowchart LR
 ```text
 auth            identidad y sesiones
 audit           eventos sensibles
-catalog         servicios/equivalencias
+catalog         servicios/equivalencias y consultas vigentes
 customer        clientes/domicilios
 pricing         precios/promociones
 order           pedido y estados
@@ -30,7 +30,19 @@ production      máquinas, programas, ciclos, separación, métricas y calidad
 common/config   contratos e infraestructura
 ```
 
-Capas: `api → application → domain/persistence`. `CatalogController` conserva una excepción histórica; no replicarla.
+Capas: `api → application → domain/persistence`. Desde 0.4.3, `CatalogController` delega en `CatalogQueryService`; no quedan accesos directos conocidos desde controladores a repositorios.
+
+## Catálogo
+
+```text
+GET /catalog/services|equivalences
+→ CatalogController
+→ CatalogQueryService
+→ repositorios de catálogo
+→ vistas inmutables
+```
+
+La deduplicación por código conserva la primera versión aplicable en el orden entregado por persistencia.
 
 ## Ciclos y separación
 
@@ -64,7 +76,7 @@ El agregado usa `created_at` en `[from,to)`, máximo 366 días. Peso real y dura
 - `V9`: producción;
 - `V10`: inmutabilidad de programas usados;
 - `V11`: contenedores/confirmaciones;
-- 0.4.2 no agrega migración.
+- 0.4.2 y 0.4.3 no agregan migraciones.
 
 ## Concurrencia
 
