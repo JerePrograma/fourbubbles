@@ -38,6 +38,17 @@ jobs:
             grep -E 'Tests run:|BUILD SUCCESS' /tmp/backend.log | tail -n 20
           fi
           exit "$code"
+      - name: Upload backend failure reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-failure-reports
+          path: |
+            /tmp/backend.log
+            backend/target/surefire-reports
+            backend/target/failsafe-reports
+          if-no-files-found: warn
+          retention-days: 7
 
   frontend:
     runs-on: ubuntu-latest
