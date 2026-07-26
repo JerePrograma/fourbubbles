@@ -1,6 +1,6 @@
 # Guía de uso funcional
 
-Versión: `0.4.1`.
+Versión: `0.4.2`.
 
 ## 1. Preparar el pedido
 
@@ -36,7 +36,11 @@ El ciclo no podrá iniciarse mientras exista una confirmación pendiente. Repeti
 
 No confirmar códigos ficticios. La operación queda auditada con usuario y fecha.
 
-## 5. Ejecutar ciclo
+## 5. Consultar métricas
+
+Abrir **Métricas** para revisar los últimos 30 días: ciclos, finalización, duración media, pedidos, pesos y separación. Usar **Actualizar** para recalcular. No interpretar como costo, margen o utilización histórica.
+
+## 6. Ejecutar ciclo
 
 - `PLANNED`: iniciar o cancelar;
 - `RUNNING`: completar;
@@ -44,20 +48,20 @@ No confirmar códigos ficticios. La operación queda auditada con usuario y fech
 
 El lavado lleva a `WAITING_DRY` o `QUALITY_CONTROL`. El secado lleva a `QUALITY_CONTROL`.
 
-## 6. Calidad
+## 7. Calidad
 
 - `PASS → FOLDING`;
 - `REWASH → REWASH_REQUIRED`.
 
 La observación es obligatoria.
 
-## 7. Roles
+## 8. Roles
 
 - `ADMIN`: configuración, operación, separación, excepción y auditoría;
 - `OPERATOR`: operación y separación;
 - `DRIVER`: consulta;
 - `REPORT_VIEWER`: consulta.
 
-## 8. Límites
+## 9. Límites
 
 La confirmación es una declaración operativa auditada. No hay sensor, imagen obligatoria, optimizador, costos, rutas ni almacenamiento binario de fotos.

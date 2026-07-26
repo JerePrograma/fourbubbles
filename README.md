@@ -2,7 +2,7 @@
 
 Sistema de gestión para una lavandería doméstica con retiro y entrega, inicialmente orientado a Marcos Paz y Mariano Acosta.
 
-> Versión funcional: **0.4.1**. Última actualización documental: **2026-07-26**.
+> Versión funcional: **0.4.2**. Última actualización documental: **2026-07-26**.
 
 ## Estado
 
@@ -12,7 +12,8 @@ Están implementados:
 - recepción física idempotente con peso, conteo, inspección, diferencias y decisión;
 - compatibilidad explicable mediante perfiles, razones, recomendación y excepción administrativa;
 - producción con máquinas, programas, ciclos, capacidad, lavado, secado y control de calidad;
-- separación física trazable por contenedor para ciclos compartidos habilitados mediante excepción.
+- separación física trazable por contenedor para ciclos compartidos habilitados mediante excepción;
+- métricas productivas por período sobre estados, etapas, pesos, duración y separación.
 
 Una carga compartida exige perfiles vigentes, compatibilidad efectiva, ausencia de exclusividad y capacidad suficiente. Cuando depende de una excepción, cada pedido debe tener un contenedor distinto confirmado por un operador antes de iniciar el ciclo.
 
@@ -48,12 +49,14 @@ Los scripts preservan secretos existentes, detectan conflictos de puertos, esper
 5. Planificar un ciclo de uno o dos pedidos.
 6. Cuando el ciclo compartido dependa de excepción, abrir **Separación** y confirmar un contenedor distinto por pedido.
 7. Iniciar/completar lavado y secado cuando corresponda.
-8. Resolver calidad: `PASS → FOLDING`; `REWASH → REWASH_REQUIRED`.
-9. Registrar pagos y consultar auditoría.
+8. Abrir **Métricas** para revisar la operación del período.
+9. Resolver calidad: `PASS → FOLDING`; `REWASH → REWASH_REQUIRED`.
+10. Registrar pagos y consultar auditoría.
 
 ## Límites actuales
 
 - la confirmación de separación es operativa, no una verificación física automatizada;
+- las métricas no calculan costos ni capacidad histórica;
 - no hay asignación automática óptima, insumos, costos ni mantenimiento completo;
 - evidencias de recepción almacenan metadata, no archivos;
 - no hay rutas, caja completa, inventario ni reclamos;
@@ -65,6 +68,7 @@ Los scripts preservan secretos existentes, detectan conflictos de puertos, esper
 - [Contexto para agentes](docs/AI_CONTEXT.md)
 - [Índice documental](docs/README.md)
 - [Estado integral](docs/PROJECT_STATUS.md)
+- [Release 0.4.2](docs/RELEASE_0_4_2.md)
 - [Release 0.4.1](docs/RELEASE_0_4_1.md)
 - [API](docs/API.md)
 - [Modelo de datos](docs/DATA_MODEL.md)

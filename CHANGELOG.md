@@ -1,43 +1,33 @@
 # Changelog
 
-## 0.4.1 — Separación física trazable
+## 0.4.2 — Métricas productivas
 
 Fecha: 2026-07-26.
 
 ### Agregado
 
-- migración Flyway `V11`;
-- código de contenedor por pedido dentro de un ciclo compartido exceptuado;
-- confirmación con actor y fecha;
-- unicidad de contenedor dentro del ciclo;
-- API de consulta y confirmación de separación;
-- pantalla **Separación** para ciclos planificados;
-- auditoría `CONFIRM_SEPARATION`;
-- pruebas unitarias, integración, permisos, replay y duplicados;
-- runtime smoke y verificación local actualizados a once migraciones.
-
-### Endurecido
-
-- un ciclo con `separationRequired=true` no puede iniciar hasta confirmar todos los contenedores;
-- la misma confirmación/código es idempotente;
-- cambiar el contenedor después de confirmar devuelve conflicto;
-- confirmar después de iniciar el ciclo devuelve conflicto;
-- `DRIVER` y `REPORT_VIEWER` conservan solo lectura.
+- endpoint autenticado `GET /production/metrics`;
+- ventana predeterminada de 30 días y máximo de 366 días;
+- conteos por estado y etapa;
+- pedidos asignados, cargas compartidas y separación pendiente;
+- pesos planificado/real y duración media de ciclos completados;
+- porcentajes de finalización y preparación de separación;
+- pantalla **Métricas** para los cuatro roles;
+- pruebas de integración, autorización y lógica frontend.
 
 ### Límite consciente
 
-La confirmación acredita una acción del operador y queda auditada. No existe sensor, fotografía obligatoria ni verificación independiente de que las prendas permanezcan separadas durante todo el ciclo.
+Las métricas usan snapshots ya persistidos. No calculan costos, capacidad histórica ni rendimiento económico, y no reinterpretan la capacidad actual de una máquina sobre ciclos pasados.
+
+## 0.4.1 — Separación física trazable
+
+- Flyway `V11`;
+- contenedores por pedido, confirmación auditada, unicidad y bloqueo de inicio;
+- API, UI y pruebas.
 
 ## 0.4.0 — Producción base
 
-Fecha: 2026-07-24.
-
-- máquinas `WASHER`/`DRYER`, programas y ciclos;
-- asignación idempotente de uno o dos pedidos;
-- capacidad, bloqueos y compatibilidad vigente;
-- lavado, secado, calidad y relavado;
-- Flyway `V9`/`V10`;
-- UI, pruebas y documentación.
+- máquinas, programas, ciclos, capacidad, lavado, secado, calidad, UI y pruebas.
 
 ## 0.3.0 — Compatibilidad explicable
 

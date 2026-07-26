@@ -1,6 +1,6 @@
 # Alcance funcional
 
-Versión: `0.4.1`. Solo se describe comportamiento utilizable.
+Versión: `0.4.2`. Solo se describe comportamiento utilizable.
 
 ## Estado por módulo
 
@@ -14,6 +14,7 @@ Versión: `0.4.1`. Solo se describe comportamiento utilizable.
 | compatibilidad | base | perfil, evaluación, explicación, excepción | matriz administrable |
 | producción | base | máquinas, programas, ciclos, capacidad, calidad | optimización, insumos, métricas |
 | separación | base | contenedor, confirmación, bloqueo de inicio | evidencia automatizada |
+| métricas | base | estados, etapas, pesos, duración, separación | costos/capacidad histórica |
 | logística | pendiente | retiro/promesa | rutas, paradas, kilómetros, agenda |
 | finanzas | parcial | cobros | caja, costos, margen |
 
@@ -42,6 +43,10 @@ Cuando una carga compartida solo es efectivamente compatible por excepción:
 
 La aplicación prueba que un operador confirmó la separación; no prueba mediante hardware que se mantuvo físicamente durante el ciclo.
 
+## Métricas
+
+Los cuatro roles consultan una ventana de hasta 366 días. Se informan conteos, pesos, duración, cargas compartidas y preparación de separación. Solo ciclos completados aportan duración/peso real. No se infieren costos ni utilización histórica.
+
 ## Roles
 
 | Operación | ADMIN | OPERATOR | DRIVER | REPORT_VIEWER |
@@ -49,7 +54,7 @@ La aplicación prueba que un operador confirmó la separación; no prueba median
 | configurar máquinas/programas | Sí | No | No | No |
 | operar ciclos/calidad | Sí | Sí | No | No |
 | confirmar separación | Sí | Sí | No | No |
-| consultar producción/separación | Sí | Sí | Sí | Sí |
+| consultar producción/separación/métricas | Sí | Sí | Sí | Sí |
 | registrar/decidir recepción | Sí | Sí | No | No |
 | excepción de compatibilidad | Sí | No | No | No |
 
@@ -60,4 +65,5 @@ La aplicación prueba que un operador confirmó la separación; no prueba median
 - mantenimiento básico por estado;
 - sin secado natural modelado;
 - sin rutas ni agenda real;
-- sin evidencia física automatizada de separación.
+- sin evidencia física automatizada de separación;
+- métricas sin costos, consumos ni snapshot de capacidad.

@@ -1,10 +1,10 @@
 # Arquitectura
 
-Versión funcional: `0.4.0`.
+Versión funcional: `0.4.2`.
 
 ## Vista general
 
-Monolito modular Spring Boot, SPA React y PostgreSQL. Se priorizan transacciones consistentes, snapshots históricos y operación simple.
+Monolito modular Spring Boot, SPA React y PostgreSQL. Se priorizan transacciones, snapshots históricos y operación simple.
 
 ```mermaid
 flowchart LR
@@ -17,105 +17,67 @@ flowchart LR
 ## Módulos backend
 
 ```text
-auth            identidad, JWT, refresh y roles
+auth            identidad y sesiones
 audit           eventos sensibles
-catalog         servicios y equivalencias
-customer        clientes y domicilios
-location        zonas
-pricing         precios y promociones
-order           pedido declarado y estados
+catalog         servicios/equivalencias
+customer        clientes/domicilios
+pricing         precios/promociones
+order           pedido y estados
 payment         cobros
-reception       snapshot físico y diferencias
-compatibility   perfiles, motor y excepciones
-production      máquinas, programas, ciclos y calidad
-common/config   contratos e infraestructura transversal
+reception       snapshot físico
+compatibility   perfiles/evaluaciones
+production      máquinas, programas, ciclos, separación, métricas y calidad
+common/config   contratos e infraestructura
 ```
 
-Capas: `api → application → domain/persistence`.
+Capas: `api → application → domain/persistence`. `CatalogController` conserva una excepción histórica; no replicarla.
 
-`CatalogController` conserva una excepción histórica de acceso directo a repositorios; no replicarla.
-
-## Dependencias principales
-
-```mermaid
-flowchart LR
-  customer --> order
-  catalog --> order
-  pricing --> order
-  order --> reception
-  reception --> compatibility
-  compatibility --> production
-  order --> production
-  production --> order
-  order --> payment
-  audit -. transversal .-> production
-```
-
-## Flujo de ciclo
+## Ciclos y separación
 
 ```text
 POST /production/cycles + Idempotency-Key
-→ ProductionController.createCycle
-→ ProductionService.createCycle
-→ advisory lock por clave
+→ advisory lock
 → bloqueo de máquina/programa/pedidos
-→ validación de etapa, perfil, programa y capacidad
-→ evaluación vigente si hay dos pedidos
-→ ProductionCycle + asignaciones + historial
-→ actualización WAITING_WASH cuando corresponde
-→ auditoría
+→ validación de etapa, perfil, capacidad y compatibilidad
+→ ciclo/asignaciones
+→ si existe excepción: separationRequired
+→ confirmación de contenedores bajo bloqueo del ciclo
+→ ProductionCycle.start exige todas las confirmaciones
 ```
 
-Inicio/completado bloquean ciclo, máquina y pedidos. Las transiciones de pedido siempre pasan por `OrderTransitionPolicy`.
+## Métricas
+
+```text
+GET /production/metrics?from&to
+→ ProductionMetricsController
+→ ProductionMetricsService
+→ validación de rango
+→ agregado SQL sobre production_cycles / programs / assignments
+→ DTO inmutable
+```
+
+El agregado usa `created_at` en `[from,to)`, máximo 366 días. Peso real y duración provienen solo de ciclos completados. No usa capacidad actual de máquina ni infiere costos.
 
 ## Persistencia
 
-- PostgreSQL 16;
-- Flyway `V1`–`V10`;
-- `ddl-auto=validate`;
-- UUID internos y números legibles separados;
-- gramos enteros;
-- dinero `NUMERIC`;
-- eventos `TIMESTAMPTZ`;
-- JSONB para snapshots explicables;
-- constraints únicos/parciales como última defensa.
-
-`V9` agrega producción. `V10` impide alterar parámetros técnicos de programas usados. Migraciones futuras: `V11+`.
+- Flyway `V1`–`V11`, `ddl-auto=validate`;
+- `V9`: producción;
+- `V10`: inmutabilidad de programas usados;
+- `V11`: contenedores/confirmaciones;
+- 0.4.2 no agrega migración.
 
 ## Concurrencia
 
-- promoción al confirmar precio;
-- pedido al pagar/recibir/guardar perfil;
-- dos pedidos en orden UUID al evaluar;
-- evaluación al exceptuar;
-- advisory lock por `Idempotency-Key` de ciclo;
-- máquina, programa, pedidos y ciclo con bloqueo pesimista;
-- índice parcial impide dos ciclos activos por máquina;
-- clave idempotente global única.
+Bloqueos pesimistas en promociones, pedidos, evaluaciones, máquina, programa y ciclo; advisory lock por clave; orden UUID canónico; índices únicos/parciales como última defensa.
 
 ## Modelo histórico
 
-- pedido declarado no se sobrescribe con recepción;
-- recepción no se recalcula con catálogo futuro;
-- evaluación conserva versiones y `COMPAT-1`;
-- excepción se guarda separada;
-- ciclo conserva programa referenciado e historial;
-- parámetros técnicos de programa usado quedan protegidos.
-
-Limitación: la capacidad de la máquina es configuración mutable fuera de ciclos activos; el ciclo conserva pesos planificado/real, no un snapshot completo de la máquina.
+Pedido, recepción, evaluación y ciclo no se sobrescriben. La capacidad de máquina sigue siendo mutable fuera de ciclos activos; por ello 0.4.2 no publica utilización histórica.
 
 ## Frontend
 
-`App.tsx` define rutas protegidas. `ProductionPage.tsx` consulta máquinas/programas/ciclos y ejecuta el flujo base. `httpClient.ts` conserva access token en memoria, envía cookies y renueva una sola vez en vuelo.
-
-## Infraestructura local
-
-```text
-frontend:Nginx → backend:8080 → postgres:5432
-```
-
-Los puertos host son configurables y se publican en loopback. Nginx resuelve `backend` de forma diferida.
+`ProductionPage`, `ProductionSeparationPage` y `ProductionMetricsPage` consumen contratos backend. El access token permanece en memoria.
 
 ## Límites
 
-Sin event bus, object storage, rutas, caja/costos completos, optimizador de producción, tracking físico de separación, observabilidad central, backup automatizado ni despliegue productivo.
+Sin object storage, rutas, caja/costos, optimizador, snapshot histórico de capacidad, observabilidad central, backup automatizado ni despliegue productivo.

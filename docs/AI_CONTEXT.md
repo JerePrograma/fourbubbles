@@ -6,10 +6,10 @@
 
 - repositorio: `JerePrograma/fourbubbles`;
 - rama/fuente de verdad: `main` / `origin/main`;
-- versión funcional: `0.4.1`;
+- versión funcional: `0.4.2`;
 - actores: `ADMIN`, `OPERATOR`, `DRIVER`, `REPORT_VIEWER`.
 
-Implementado: plataforma, administración, recepción, compatibilidad, producción y separación trazable. Pendiente: E2E, logística, caja/costos, crecimiento y hardening productivo.
+Implementado: plataforma, administración, recepción, compatibilidad, producción, separación trazable y métricas operativas. Pendiente: E2E, logística, caja/costos, crecimiento y hardening productivo.
 
 ## Stack
 
@@ -20,7 +20,7 @@ Java 21/Spring Boot/Maven/JPA/Flyway, PostgreSQL 16, React 18/TypeScript/Vite/Vi
 - `REPOSITORY_MAP.md`, `ARCHITECTURE.md`, `API.md`, `DATA_MODEL.md`;
 - `FUNCTIONAL_SCOPE.md`, `SECURITY.md`, `TESTING.md`;
 - `PROJECT_STATUS.md`, `ROADMAP.md`, `KNOWN_ISSUES.md`;
-- `RELEASE_0_4_1.md`.
+- `RELEASE_0_4_2.md`.
 
 ## Invariantes
 
@@ -35,7 +35,9 @@ Java 21/Spring Boot/Maven/JPA/Flyway, PostgreSQL 16, React 18/TypeScript/Vite/Vi
 9. Ciclos usan idempotencia, advisory lock, bloqueos pesimistas y capacidad en gramos.
 10. Programas usados conservan parámetros técnicos.
 11. La UI no es autoridad de permisos o reglas.
-12. Access token en memoria; refresh en cookie `HttpOnly`.
+12. Métricas usan `[from,to)`, máximo 366 días y solo completados para peso real/duración.
+13. No reinterpretar capacidad histórica ni inferir costos.
+14. Access token en memoria; refresh en cookie `HttpOnly`.
 
 ## Puntos de entrada
 
@@ -43,8 +45,10 @@ Java 21/Spring Boot/Maven/JPA/Flyway, PostgreSQL 16, React 18/TypeScript/Vite/Vi
 ProductionController → ProductionService
 ProductionSeparationController → ProductionSeparationService
 ProductionCycle.start → exige separaciones confirmadas
+ProductionMetricsController → ProductionMetricsService
 frontend/src/pages/ProductionPage.tsx
 frontend/src/pages/ProductionSeparationPage.tsx
+frontend/src/pages/ProductionMetricsPage.tsx
 scripts/Verify-Local.ps1 → Flyway >= 11
 ```
 

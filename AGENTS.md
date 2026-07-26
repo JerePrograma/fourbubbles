@@ -55,6 +55,7 @@ Cambios locales ajenos, remoto incorrecto, conflictos o divergencia no resoluble
 - Si `separationRequired=true`, cada pedido debe tener un `separationContainerCode` distinto y confirmado antes de iniciar el ciclo.
 - La confirmación de separación es una declaración operativa auditada; no equivale a una verificación física automatizada.
 - La creación de ciclos conserva idempotencia, bloqueo de máquina, bloqueo ordenado de pedidos y capacidad en gramos.
+- Las métricas aceptan como máximo 366 días, usan ciclos persistidos y no deben reinterpretar capacidad histórica ni inferir costos.
 - Un programa usado conserva sus parámetros técnicos; la base lo protege mediante `V10`.
 - El frontend no decide permisos, transiciones, capacidad, compatibilidad ni precio.
 - Access token en memoria; refresh en cookie `HttpOnly`.

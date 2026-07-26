@@ -1,6 +1,6 @@
 # Hoja de ruta
 
-Versión base: `0.4.1`.
+Versión base: `0.4.2`.
 
 ## Completado
 
@@ -24,13 +24,18 @@ Flyway `V9`/`V10`, máquinas, programas, ciclos, capacidad, lavado, secado y cal
 
 Flyway `V11`, contenedores por pedido, confirmación auditada, bloqueo de inicio, UI y pruebas.
 
+### 0.4.2 — Métricas productivas
+
+Estados, etapas, pesos, duración, cargas compartidas y preparación de separación por período.
+
 ## Endurecimiento siguiente
 
 1. E2E de navegador para producción/separación.
 2. Alinear versiones de `pom.xml` y `package.json` con la versión funcional.
 3. Administración UI completa de máquinas/programas.
-4. Métricas de duración, capacidad y fallos.
-5. Evidencia opcional de separación sin almacenar binarios en PostgreSQL.
+4. Snapshot de capacidad si se requiere utilización histórica.
+5. Instrumentar consumos/costos antes de rentabilidad.
+6. Evidencia opcional de separación sin almacenar binarios en PostgreSQL.
 
 ## 0.5 — Logística y agenda
 

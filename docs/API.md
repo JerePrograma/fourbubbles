@@ -1,6 +1,6 @@
 # Contrato API
 
-Versión funcional: `0.4.1`. Fuente de verdad: controladores y DTO bajo `backend/src/main/java/ar/com/ropalista`.
+Versión funcional: `0.4.2`. Fuente de verdad: controladores y DTO bajo `backend/src/main/java/ar/com/ropalista`.
 
 ## Convenciones
 
@@ -72,6 +72,16 @@ Respuesta:
   "confirmedBy":"operator"
 }
 ```
+
+## Métricas productivas
+
+`GET /production/metrics?from=<ISO_OFFSET_DATE_TIME>&to=<ISO_OFFSET_DATE_TIME>`
+
+Acceso: los cuatro roles. Ambos parámetros son opcionales; por defecto se consultan 30 días y el máximo permitido es 366 días. El intervalo es `[from,to)` por `production_cycles.created_at`.
+
+La respuesta incluye estados, lavados/secados completados, cargas compartidas, separación requerida/pendiente, pedidos asignados, pesos, duración media y porcentajes de finalización/preparación. Solo ciclos completados aportan peso real y duración.
+
+Errores: `INVALID_METRICS_RANGE`, `METRICS_RANGE_TOO_LARGE`. No calcula costos ni capacidad histórica.
 
 ## Control de calidad
 

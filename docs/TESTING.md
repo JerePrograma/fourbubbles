@@ -1,6 +1,6 @@
 # Estrategia y estado de pruebas
 
-Versión funcional: `0.4.1`.
+Versión funcional: `0.4.2`.
 
 ## Gates canónicos
 
@@ -37,7 +37,9 @@ El runtime smoke valida frontend antes del backend, readiness, SPA, proxy, login
 | permisos/concurrencia | `ProductionAuthorizationIT`, `ConcurrentProductionIT` |
 | separación de dominio | `ProductionCycleSeparationTest` |
 | separación integrada | `ProductionSeparationIT` |
+| métricas productivas | `ProductionMetricsIT` |
 | frontend separación | `separationState.test.ts` + TypeScript/build |
+| frontend métricas | `metricsState.test.ts` + TypeScript/build |
 | recepción/compatibilidad | integraciones existentes |
 | stack | runtime smoke |
 
@@ -52,6 +54,13 @@ El runtime smoke valida frontend antes del backend, readiness, SPA, proxy, login
 - lectura habilitada a cuatro roles;
 - escritura denegada a `DRIVER`/`REPORT_VIEWER`;
 - migración V11 y JPA validate.
+
+## Casos de métricas obligatorios
+
+- ciclo completado incrementa conteos, pedidos y pesos;
+- duración/porcentajes numéricos;
+- `REPORT_VIEWER` autorizado; anónimo rechazado;
+- rango invertido y rango excesivo rechazados.
 
 ## Estados remotos
 

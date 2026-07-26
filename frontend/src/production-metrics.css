@@ -1,0 +1,39 @@
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.metric-card {
+  display: grid;
+  gap: .35rem;
+}
+
+.metric-card strong {
+  font-size: 1.7rem;
+}
+
+.metric-card small {
+  color: var(--muted-color, #666);
+}
+
+.metrics-breakdown dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: .75rem;
+  margin: 0;
+}
+
+.metrics-breakdown dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .6rem 0;
+  border-bottom: 1px solid var(--border-color, #d8d8d8);
+}
+
+.metrics-breakdown dt,
+.metrics-breakdown dd {
+  margin: 0;
+}

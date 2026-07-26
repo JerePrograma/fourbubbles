@@ -1,6 +1,6 @@
 # Seguridad
 
-Versión funcional: `0.4.1`.
+Versión funcional: `0.4.2`.
 
 ## Sesiones
 
@@ -19,7 +19,7 @@ ADMIN > OPERATOR > DRIVER > REPORT_VIEWER
 | configurar máquina/programa | `ADMIN` |
 | operar ciclo/calidad | `OPERATOR` |
 | confirmar separación | `OPERATOR` |
-| consultar producción/separación | `REPORT_VIEWER` |
+| consultar producción/separación/métricas | `REPORT_VIEWER` |
 | excepción de compatibilidad | `ADMIN` |
 | auditoría | `ADMIN` |
 
@@ -44,6 +44,10 @@ ADMIN > OPERATOR > DRIVER > REPORT_VIEWER
 - lectura para cuatro roles, escritura para `ADMIN`/`OPERATOR`.
 
 La confirmación prueba una acción autenticada, no la permanencia física de la separación. No inventar códigos ni usar este control como sustituto de procedimientos operativos reales.
+
+## Métricas
+
+Endpoint de solo lectura para cuatro roles. El servicio valida rango y no acepta escrituras ni parámetros de consulta mayores a 366 días.
 
 ## Riesgos abiertos
 
