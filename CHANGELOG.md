@@ -13,7 +13,13 @@ Fecha: 2026-07-26.
 - pesos planificado/real y duración media de ciclos completados;
 - porcentajes de finalización y preparación de separación;
 - pantalla **Métricas** para los cuatro roles;
-- pruebas de integración, autorización y lógica frontend.
+- pruebas de integración, autorización y lógica frontend;
+- artefactos de diagnóstico backend en CI cuando Maven falla.
+
+### Corregido
+
+- las pruebas MockMvc envían `from` y `to` como parámetros reales, sin codificar una URL completa;
+- los reportes Surefire/Failsafe y el log Maven quedan disponibles durante siete días ante fallos.
 
 ### Límite consciente
 

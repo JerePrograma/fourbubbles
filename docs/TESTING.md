@@ -29,6 +29,8 @@ docker compose build
 
 El runtime smoke valida frontend antes del backend, readiness, SPA, proxy, login, catálogo y al menos once migraciones.
 
+Cuando backend falla en CI, `backend-failure-reports` conserva `/tmp/backend.log` y los reportes Surefire/Failsafe durante siete días. La publicación del artefacto no cambia el resultado del gate.
+
 ## Trazabilidad
 
 | Función | Pruebas |
