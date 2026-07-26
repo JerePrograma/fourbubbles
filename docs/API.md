@@ -1,113 +1,85 @@
 # Contrato API
 
-Versión funcional: `0.4.0`. Fuente de verdad: controladores y DTO bajo `backend/src/main/java/ar/com/ropalista`.
+Versión funcional: `0.4.1`. Fuente de verdad: controladores y DTO bajo `backend/src/main/java/ar/com/ropalista`.
 
 ## Convenciones
 
 - context path: `/api`;
 - Swagger: `/api/swagger-ui.html`;
-- OpenAPI: `/api/v3/api-docs`;
 - autenticación: `Authorization: Bearer <ACCESS_TOKEN>`;
-- refresh: cookie `ropa_lista_refresh`, `HttpOnly`, `SameSite=Strict`;
 - éxito: `ApiResponse.ok(data)`;
 - error: código de negocio, mensaje seguro, status, path, timestamp y violaciones.
 
-## Rutas existentes
+## Rutas principales
 
-| Módulo | Rutas principales | Escritura |
+| Módulo | Rutas | Escritura |
 |---|---|---|
-| autenticación | `/auth/login`, `/auth/refresh`, `/auth/logout` | contrato de sesión |
-| catálogo | `/catalog/services`, `/catalog/equivalences` | lectura autenticada |
-| clientes | `/clients`, `/clients/{id}`, domicilios | `ADMIN`/`OPERATOR` |
-| pedidos | `/orders`, planificación, cotización, precio, estado | según operación |
+| autenticación | `/auth/login`, `/refresh`, `/logout` | sesión |
+| clientes/pedidos | `/clients`, `/orders` | según endpoint |
 | recepción | `/orders/{id}/reception`, `/decision` | `ADMIN`/`OPERATOR` |
-| compatibilidad | perfiles, `/compatibility/evaluate`, excepción | `ADMIN`/`OPERATOR`; excepción solo `ADMIN` |
-| pagos | `/payments` | `ADMIN`/`OPERATOR` |
-| auditoría | `/audit` | solo `ADMIN` |
+| compatibilidad | perfiles, `/compatibility/evaluate`, excepción | excepción solo `ADMIN` |
+| producción | `/production/machines`, `/programs`, `/cycles` | configuración `ADMIN`; operación `ADMIN`/`OPERATOR` |
+| pagos/auditoría | `/payments`, `/audit` | auditoría solo `ADMIN` |
 
-## Producción
+## Ciclos
 
-Base: `/production`.
+`POST /production/cycles` requiere `Idempotency-Key` de 8–120 caracteres y uno o dos pedidos. Una carga compartida exige evaluación vigente y no exclusividad. Si se habilita mediante excepción, las asignaciones responden con `separationRequired=true`.
 
-### Máquinas
+Estados:
 
-| Método | Ruta | Acceso | Contrato |
-|---|---|---|---|
-| `POST` | `/machines` | `ADMIN` | crea `MachineRequest` |
-| `PUT` | `/machines/{id}` | `ADMIN` | actualiza nombre, capacidad, estado, activo y notas; código/tipo inmutables |
-| `GET` | `/machines` | cuatro roles | lista máquinas |
+```text
+PLANNED → RUNNING → COMPLETED
+PLANNED → CANCELLED
+```
 
-`MachineRequest`: `code`, `name`, `machineType`, `capacityGrams`, `status`, `active`, `notes`.
+## Separación física
 
-### Programas
-
-| Método | Ruta | Acceso | Contrato |
-|---|---|---|---|
-| `POST` | `/programs` | `ADMIN` | crea programa |
-| `PUT` | `/programs/{id}` | `ADMIN` | actualiza programa; código/etapa inmutables |
-| `GET` | `/programs?stage=WASH|DRY` | cuatro roles | lista o filtra activos por etapa |
-
-`ProgramRequest`: `code`, `name`, `stage`, `durationMinutes`, `maxTemperatureC`, `gentle`, `usesSoftener`, `fragrancePolicy`, `active`, `notes`.
-
-Lavado exige temperatura y fragancia. Secado no admite temperatura de lavado, fragancia ni suavizante.
-
-### Ciclos
+Base: `/production/cycles/{cycleId}/separations`.
 
 | Método | Ruta | Acceso | Efecto |
 |---|---|---|---|
-| `POST` | `/cycles` | `ADMIN`/`OPERATOR` | planifica ciclo idempotente |
-| `GET` | `/cycles/{id}` | cuatro roles | detalle e historial |
-| `GET` | `/cycles?status=&stage=&page=&size=` | cuatro roles | búsqueda paginada |
-| `POST` | `/cycles/{id}/start` | `ADMIN`/`OPERATOR` | `PLANNED → RUNNING` |
-| `POST` | `/cycles/{id}/complete` | `ADMIN`/`OPERATOR` | `RUNNING → COMPLETED` |
-| `POST` | `/cycles/{id}/cancel` | `ADMIN`/`OPERATOR` | `PLANNED → CANCELLED` |
+| `GET` | `/production/cycles/{cycleId}/separations` | cuatro roles | lista asignaciones que requieren separación |
+| `PUT` | `/production/cycles/{cycleId}/separations/{orderId}` | `ADMIN`/`OPERATOR` | confirma el contenedor físico |
 
-Header obligatorio al crear:
+Request:
 
-```http
-Idempotency-Key: cycle-<identificador>
+```json
+{"containerCode":"BAG-001"}
 ```
 
-Longitud: 8–120 caracteres.
+Reglas:
 
-`CreateCycleRequest`:
+- solo ciclos `PLANNED`;
+- el pedido debe pertenecer al ciclo y requerir separación;
+- código normalizado a mayúsculas;
+- 3–80 caracteres `[A-Za-z0-9._:-]`;
+- contenedor único dentro del ciclo;
+- repetir el mismo código sobre la misma asignación es idempotente;
+- un código diferente después de confirmar devuelve conflicto;
+- el ciclo no inicia mientras exista una separación requerida sin confirmar.
+
+Respuesta:
 
 ```json
 {
-  "machineId": "UUID",
-  "programId": "UUID",
-  "orderIds": ["UUID"],
-  "notes": "opcional"
+  "cycleId":"UUID",
+  "cycleNumber":"PC-000001",
+  "orderId":"UUID",
+  "orderNumber":"RL-000001",
+  "separationRequired":true,
+  "containerCode":"BAG-001",
+  "confirmedAt":"2026-07-26T12:00:00-03:00",
+  "confirmedBy":"operator"
 }
 ```
 
-Admite uno o dos pedidos distintos. La repetición con misma clave/máquina/programa/conjunto devuelve el mismo ciclo. Una carga diferente con la misma clave devuelve conflicto.
+## Control de calidad
 
-`CompleteCycleRequest` exige `actualWeightGrams > 0`.
+`PATCH /production/orders/{orderId}/quality-control`:
 
-### Control de calidad
+- `PASS → FOLDING`;
+- `REWASH → REWASH_REQUIRED`.
 
-`PATCH /production/orders/{orderId}/quality-control`
+## Errores productivos relevantes
 
-Acceso: `ADMIN`/`OPERATOR`.
-
-```json
-{"decision":"PASS","observation":"Resultado conforme"}
-```
-
-- `PASS` → `FOLDING`;
-- `REWASH` → `REWASH_REQUIRED`.
-
-## Precondiciones productivas
-
-- máquina activa, disponible y del tipo requerido;
-- programa activo y permitido por cada perfil;
-- peso real de recepción;
-- capacidad suficiente;
-- pedido listo para etapa;
-- sin asignación activa de la misma etapa;
-- dos pedidos: perfiles no exclusivos y evaluación vigente `effectivelyCompatible=true`.
-
-## Errores relevantes
-
-`PRODUCTION_MACHINE_NOT_FOUND`, `PRODUCTION_PROGRAM_NOT_FOUND`, `PRODUCTION_CYCLE_NOT_FOUND`, `PRODUCTION_MACHINE_BUSY`, `PRODUCTION_MACHINE_UNAVAILABLE`, `PRODUCTION_MACHINE_CAPACITY_EXCEEDED`, `PROGRAM_NOT_ALLOWED_FOR_ORDER`, `ORDER_ALREADY_ASSIGNED_TO_ACTIVE_CYCLE`, `CURRENT_COMPATIBILITY_EVALUATION_REQUIRED`, `ORDERS_NOT_EFFECTIVELY_COMPATIBLE`, `EXCLUSIVE_ORDER_CANNOT_SHARE_CYCLE`, `IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD`, `ORDER_NOT_IN_QUALITY_CONTROL`.
+`PRODUCTION_MACHINE_BUSY`, `PRODUCTION_MACHINE_CAPACITY_EXCEEDED`, `PROGRAM_NOT_ALLOWED_FOR_ORDER`, `CURRENT_COMPATIBILITY_EVALUATION_REQUIRED`, `EXCLUSIVE_ORDER_CANNOT_SHARE_CYCLE`, `PRODUCTION_CYCLE_NOT_STARTABLE`, `PRODUCTION_CYCLE_ALREADY_STARTED`, `PRODUCTION_CYCLE_ORDER_NOT_FOUND`, `SEPARATION_NOT_REQUIRED`, `SEPARATION_CONTAINER_ALREADY_USED`, `SEPARATION_ALREADY_CONFIRMED`.

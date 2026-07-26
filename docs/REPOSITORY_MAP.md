@@ -1,18 +1,16 @@
 # Mapa del repositorio
 
-Versión funcional: `0.4.0`.
+Versión funcional: `0.4.1`.
 
 ## Raíz
 
 | Ruta | Responsabilidad |
 |---|---|
-| `README.md` | presentación y arranque |
+| `README.md` | presentación e inicio |
 | `AGENTS.md` | reglas de agentes |
 | `CHANGELOG.md` | evolución |
-| `.env.example` | plantilla segura |
-| `docker-compose.yml` | topología local |
 | `.github/workflows/ci.yml` | backend, frontend, PowerShell y contenedores |
-| `.github/workflows/runtime-smoke.yml` | stack real y mínimo de diez migraciones |
+| `.github/workflows/runtime-smoke.yml` | stack real y Flyway >= 11 |
 
 ## Backend
 
@@ -20,62 +18,48 @@ Raíz: `backend/src/main/java/ar/com/ropalista`.
 
 | Módulo | Símbolos principales | Responsabilidad |
 |---|---|---|
-| `auth` | `AuthController`, `AuthService`, `SecurityConfig` | identidad y sesiones |
-| `audit` | `AuditService`, `AuditController` | trazabilidad |
-| `catalog` | `CatalogController` | catálogo vigente |
-| `customer` | `ClientService`, `ClientController` | clientes/domicilios |
-| `pricing` | `PricingService` | precios/promociones |
-| `order` | `OrderService`, `LaundryOrder`, `OrderTransitionPolicy` | pedido y estados |
-| `payment` | `PaymentService` | cobros |
-| `reception` | `ReceptionService`, `OrderReception` | realidad física |
+| `auth` | `AuthController`, `AuthService` | identidad/sesiones |
+| `customer/order/pricing/payment` | servicios de administración | operación comercial |
+| `reception` | `ReceptionService` | snapshot físico |
 | `compatibility` | `CompatibilityService`, `CompatibilityEngine` | perfiles/evaluaciones |
-| `production` | `ProductionController`, `ProductionService`, `ProductionProgramPolicy` | máquinas, programas, ciclos y calidad |
-| `common/config` | contratos y configuración | transversal |
+| `production` | `ProductionController`, `ProductionService` | máquinas, programas, ciclos, calidad |
+| `production` | `ProductionSeparationController`, `ProductionSeparationService` | contenedores y confirmación |
 
-### Producción
+### Producción y separación
 
 ```text
 production/api/ProductionController.java
-production/api/ProductionDtos.java
+production/api/ProductionSeparationController.java
+production/api/ProductionSeparationDtos.java
 production/application/ProductionService.java
-production/application/ProductionProgramPolicy.java
-production/domain/*
-production/persistence/*
+production/application/ProductionSeparationService.java
+production/domain/ProductionCycle.java
+production/domain/ProductionCycleOrder.java
 ```
 
 ### Migraciones
 
-- `V1`–`V6`: plataforma/administración;
-- `V7`: recepción;
-- `V8`: compatibilidad;
-- `V9`: máquinas, programas y ciclos;
-- `V10`: protección de programas usados.
+- `V9`: producción;
+- `V10`: protección de programas;
+- `V11`: separación trazable.
 
-### Pruebas representativas
+### Pruebas nuevas
 
-- `ProductionProgramPolicyTest`;
-- `ProductionFlowIT`;
-- `ProductionAuthorizationIT`;
-- `ConcurrentProductionIT`;
-- pruebas históricas de administración, recepción y compatibilidad.
+- `ProductionCycleSeparationTest`;
+- `ProductionSeparationIT`.
 
 ## Frontend
 
 | Ruta | Responsabilidad |
 |---|---|
-| `App.tsx` | rutas protegidas |
-| `components/AppShell.tsx` | navegación |
-| `pages/ProductionPage.tsx` | operación productiva |
-| `models/production.ts` | contratos TypeScript |
-| `production.css` | estilos de producción |
-| `api/httpClient.ts` | cliente HTTP y refresh |
-| páginas existentes | clientes, pedidos, recepción, compatibilidad, auditoría |
+| `pages/ProductionPage.tsx` | ciclos y calidad |
+| `pages/ProductionSeparationPage.tsx` | confirmación de contenedores |
+| `models/productionSeparation.ts` | contrato TypeScript |
+| `production/separationState.ts` | normalización y pendientes |
+| `production-separation.css` | estilos responsive |
+| `App.tsx`, `AppShell.tsx` | ruta y navegación |
 
 ## Operación
 
-| Ruta | Responsabilidad |
-|---|---|
-| `scripts/Start-Local.ps1` | inicio y health |
-| `scripts/Verify-Local.ps1` | smoke autenticado y Flyway ≥10 |
-| `scripts/Local.Common.ps1` | `.env`, puertos, Compose |
-| `infra/nginx/default.conf` | SPA y proxy diferido |
+- `scripts/Verify-Local.ps1`: smoke autenticado y Flyway >= 11;
+- `runtime-smoke.yml`: stack real y Flyway >= 11.

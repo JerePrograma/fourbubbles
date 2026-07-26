@@ -2,18 +2,19 @@
 
 Sistema de gestión para una lavandería doméstica con retiro y entrega, inicialmente orientado a Marcos Paz y Mariano Acosta.
 
-> Versión funcional: **0.4.0**. Última actualización documental: **2026-07-24**.
+> Versión funcional: **0.4.1**. Última actualización documental: **2026-07-26**.
 
 ## Estado
 
-Están implementados cuatro cortes funcionales:
+Están implementados:
 
 - administración de clientes, domicilios, catálogo, pedidos, precios, promociones, pagos y auditoría;
 - recepción física idempotente con peso, conteo, inspección, diferencias y decisión;
 - compatibilidad explicable mediante perfiles, razones, recomendación y excepción administrativa;
-- producción base con máquinas, programas, ciclos, capacidad, lavado, secado y control de calidad.
+- producción con máquinas, programas, ciclos, capacidad, lavado, secado y control de calidad;
+- separación física trazable por contenedor para ciclos compartidos habilitados mediante excepción.
 
-La producción admite uno o dos pedidos. Una carga compartida exige perfiles vigentes, compatibilidad efectiva, ausencia de exclusividad y capacidad suficiente. Una excepción no elimina el riesgo original: el ciclo queda marcado con `separationRequired`.
+Una carga compartida exige perfiles vigentes, compatibilidad efectiva, ausencia de exclusividad y capacidad suficiente. Cuando depende de una excepción, cada pedido debe tener un contenedor distinto confirmado por un operador antes de iniciar el ciclo.
 
 ## Stack
 
@@ -22,11 +23,9 @@ La producción admite uno o dos pedidos. Una carga compartida exige perfiles vig
 - React 18, TypeScript, Vite y Vitest;
 - Docker Compose, Nginx, PowerShell 7 y GitHub Actions.
 
-Flyway `V1`–`V10` es la autoridad del esquema. Hibernate usa `ddl-auto=validate`.
+Flyway `V1`–`V11` es la autoridad del esquema. Hibernate usa `ddl-auto=validate`.
 
 ## Inicio local
-
-Requisitos: Git, Docker Desktop con contenedores Linux y PowerShell 7.
 
 ```powershell
 git clone https://github.com/JerePrograma/fourbubbles.git
@@ -38,36 +37,23 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\Verify-Local.ps1
 ```
 
-Los scripts crean o completan `.env` sin reemplazar secretos, detectan conflictos de puertos, esperan health real y validan al menos diez migraciones.
-
-Puertos host configurables:
-
-| Variable | Predeterminado |
-|---|---:|
-| `POSTGRES_HOST_PORT` | 5432 |
-| `BACKEND_HOST_PORT` | 8081 |
-| `FRONTEND_HOST_PORT` | 8080 |
-
-Los puertos internos no cambian: `postgres:5432`, `backend:8080`, `frontend:80`.
+Los scripts preservan secretos existentes, detectan conflictos de puertos, esperan health real y validan al menos once migraciones.
 
 ## Flujo funcional
 
-1. Crear cliente y domicilio.
-2. Crear pedido, revisar precio y confirmar.
-3. Programar retiro y avanzar a `PICKED_UP`.
-4. Registrar recepción y resolver diferencias hasta `CLASSIFIED`.
-5. Guardar perfil de tratamiento.
-6. Evaluar compatibilidad cuando dos pedidos puedan compartir tratamiento.
-7. Abrir **Producción**, seleccionar máquina, programa y uno o dos pedidos.
-8. Planificar ciclo con `Idempotency-Key`.
-9. Iniciar y completar lavado.
-10. Planificar/completar secado cuando el perfil lo permite.
-11. Resolver control de calidad: `PASS` lleva a `FOLDING`; `REWASH` a `REWASH_REQUIRED`.
-12. Registrar pagos y consultar auditoría.
+1. Crear cliente, domicilio y pedido.
+2. Confirmar precio, retirar y registrar recepción.
+3. Resolver diferencias hasta `CLASSIFIED`.
+4. Guardar perfil y evaluar compatibilidad cuando se comparta tratamiento.
+5. Planificar un ciclo de uno o dos pedidos.
+6. Cuando el ciclo compartido dependa de excepción, abrir **Separación** y confirmar un contenedor distinto por pedido.
+7. Iniciar/completar lavado y secado cuando corresponda.
+8. Resolver calidad: `PASS → FOLDING`; `REWASH → REWASH_REQUIRED`.
+9. Registrar pagos y consultar auditoría.
 
 ## Límites actuales
 
-- separación física interna no modelada: solo existe `separationRequired`;
+- la confirmación de separación es operativa, no una verificación física automatizada;
 - no hay asignación automática óptima, insumos, costos ni mantenimiento completo;
 - evidencias de recepción almacenan metadata, no archivos;
 - no hay rutas, caja completa, inventario ni reclamos;
@@ -79,14 +65,11 @@ Los puertos internos no cambian: `postgres:5432`, `backend:8080`, `frontend:80`.
 - [Contexto para agentes](docs/AI_CONTEXT.md)
 - [Índice documental](docs/README.md)
 - [Estado integral](docs/PROJECT_STATUS.md)
-- [Release 0.4.0](docs/RELEASE_0_4_0.md)
-- [Arquitectura](docs/ARCHITECTURE.md)
+- [Release 0.4.1](docs/RELEASE_0_4_1.md)
 - [API](docs/API.md)
 - [Modelo de datos](docs/DATA_MODEL.md)
 - [Alcance funcional](docs/FUNCTIONAL_SCOPE.md)
 - [Guía de uso](docs/USER_GUIDE.md)
 - [Pruebas](docs/TESTING.md)
-- [Operación](docs/OPERATIONS.md)
 - [Roadmap](docs/ROADMAP.md)
-- [Incidencias](docs/KNOWN_ISSUES.md)
 - [Changelog](CHANGELOG.md)

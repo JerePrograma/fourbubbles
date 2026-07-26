@@ -1,32 +1,36 @@
 # Hoja de ruta
 
-Versión base: `0.4.0`.
+Versión base: `0.4.1`.
 
 ## Completado
 
 ### 0.1 — Plataforma y administración
 
-Seguridad, catálogo, clientes, pedidos, pagos, React, Docker, CI, operación y auditoría.
+Seguridad, catálogo, clientes, pedidos, pagos, React, Docker, CI y auditoría.
 
 ### 0.2 — Recepción física
 
-Flyway `V7`, idempotencia, peso/conteo real, diferencias, decisión y metadata de evidencia.
+Flyway `V7`, idempotencia, realidad física, diferencias y decisión.
 
 ### 0.3 — Compatibilidad explicable
 
-Flyway `V8`, perfiles, `COMPAT-1`, evaluaciones históricas, recomendación y excepción.
+Flyway `V8`, perfiles, `COMPAT-1`, evaluaciones y excepción.
 
 ### 0.4 — Producción base
 
-Flyway `V9`/`V10`, máquinas, programas, ciclos, capacidad, lavado, secado, calidad, UI y concurrencia.
+Flyway `V9`/`V10`, máquinas, programas, ciclos, capacidad, lavado, secado y calidad.
 
-## Endurecimiento inmediato de 0.4
+### 0.4.1 — Separación trazable
 
-1. E2E de navegador para el flujo productivo.
-2. Trazabilidad física de separación para ciclos exceptuados.
+Flyway `V11`, contenedores por pedido, confirmación auditada, bloqueo de inicio, UI y pruebas.
+
+## Endurecimiento siguiente
+
+1. E2E de navegador para producción/separación.
+2. Alinear versiones de `pom.xml` y `package.json` con la versión funcional.
 3. Administración UI completa de máquinas/programas.
 4. Métricas de duración, capacidad y fallos.
-5. Cierre de versiones de artefactos `0.4.0`.
+5. Evidencia opcional de separación sin almacenar binarios en PostgreSQL.
 
 ## 0.5 — Logística y agenda
 
@@ -34,38 +38,27 @@ Flyway `V9`/`V10`, máquinas, programas, ciclos, capacidad, lavado, secado, cali
 - conductor y orden de visita;
 - retiro/entrega real;
 - kilómetros, combustible y tiempo;
-- incidencias y mensajes;
-- capacidad diaria.
+- incidencias, mensajes y capacidad diaria.
 
 ## 0.6 — Caja, costos y rentabilidad
 
-- caja y arqueo;
-- ingresos/egresos/reembolsos;
+- caja/arqueo;
+- ingresos, egresos y reembolsos;
 - conciliación;
-- insumos, energía, agua, transporte y mano de obra;
-- costo por ciclo/pedido;
-- amortización, margen y rentabilidad.
+- costos por ciclo/pedido;
+- margen y rentabilidad.
 
 ## 0.7 — Crecimiento
 
-- abonos y SLA;
+- abonos/SLA;
 - inventario/lotes;
-- compras/consumo;
-- mantenimiento completo;
-- reclamos, compensaciones y políticas;
+- mantenimiento;
+- reclamos/compensaciones;
 - tableros y alertas.
 
 ## Transversal antes de producción real
 
-- TLS/dominio;
-- secretos administrados;
-- backup/restore probado;
-- object storage;
-- observabilidad;
-- rate limit distribuido;
-- privacidad/retención;
-- recursos y rollback;
-- E2E, accesibilidad, carga y DAST.
+TLS, secretos administrados, backup/restore, object storage, observabilidad, rate limit distribuido, privacidad, recursos, rollback, E2E, accesibilidad, carga y DAST.
 
 ## Criterio de avance
 

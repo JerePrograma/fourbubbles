@@ -1,19 +1,14 @@
 # Estrategia y estado de pruebas
 
-Versión funcional: `0.4.0`.
+Versión funcional: `0.4.1`.
 
 ## Gates canónicos
 
-### Backend
-
 ```bash
-cd backend
-mvn clean verify
+cd backend && mvn clean verify
 ```
 
-Ejecuta unitarias y `*IT` con Java 21, PostgreSQL 16 Testcontainers, Flyway `V1`–`V10` y JPA validate.
-
-### Frontend
+Ejecuta unitarias y `*IT` con PostgreSQL 16 Testcontainers, Flyway `V1`–`V11` y JPA validate.
 
 ```bash
 cd frontend
@@ -23,68 +18,45 @@ npm test
 npm run build
 ```
 
-### PowerShell
-
 ```powershell
 .\scripts\tests\Local.Common.Tests.ps1
 ```
-
-### Contenedores
 
 ```bash
 docker compose config --quiet
 docker compose build
 ```
 
-### Runtime
-
-`.github/workflows/runtime-smoke.yml` valida frontend antes del backend, readiness, SPA, proxy, rechazo anónimo, login, catálogo y al menos diez migraciones.
+El runtime smoke valida frontend antes del backend, readiness, SPA, proxy, login, catálogo y al menos once migraciones.
 
 ## Trazabilidad
 
 | Función | Pruebas |
 |---|---|
-| reglas de programa | `ProductionProgramPolicyTest` |
-| flujo máquina/programa/ciclo/calidad | `ProductionFlowIT` |
-| permisos productivos | `ProductionAuthorizationIT` |
-| idempotencia y competencia por máquina/pedido | `ConcurrentProductionIT` |
-| recepción | `ReceptionFlowIT` |
-| compatibilidad | `CompatibilityFlowIT`, `ConcurrentCompatibilityIT` |
-| administración/pagos | integraciones históricas |
-| frontend | Vitest + TypeScript + build |
-| entorno local | `Local.Common.Tests.ps1` |
+| programa/ciclo/calidad | `ProductionProgramPolicyTest`, `ProductionFlowIT` |
+| permisos/concurrencia | `ProductionAuthorizationIT`, `ConcurrentProductionIT` |
+| separación de dominio | `ProductionCycleSeparationTest` |
+| separación integrada | `ProductionSeparationIT` |
+| frontend separación | `separationState.test.ts` + TypeScript/build |
+| recepción/compatibilidad | integraciones existentes |
 | stack | runtime smoke |
 
-## Casos productivos obligatorios
+## Casos de separación obligatorios
 
-- capacidad exacta admitida;
-- sobrepeso rechazado;
-- máquina no disponible rechazada;
-- programa incompatible rechazado;
-- pedido exclusivo no compartido;
-- evaluación vigente requerida;
-- excepción efectiva marcada con separación;
-- misma clave/mismo plan idempotente;
-- misma clave/otro plan en conflicto;
-- doble asignación concurrente impedida;
-- transiciones de lavado/secado/calidad;
-- roles autorizados y denegados;
-- protección de programa usado.
+- ciclo exceptuado no inicia sin confirmaciones;
+- contenedores distintos por pedido;
+- replay del mismo código es idempotente;
+- código duplicado en otro pedido es conflicto;
+- cambio posterior de código es conflicto;
+- confirmación tras iniciar es conflicto;
+- lectura habilitada a cuatro roles;
+- escritura denegada a `DRIVER`/`REPORT_VIEWER`;
+- migración V11 y JPA validate.
 
 ## Estados remotos
 
-Los workflows publican:
-
-- `validation/ci-summary`;
-- `validation/runtime-smoke`.
-
-Un cambio no está `VERIFICADO` hasta que ambos estén en `success` para el commit de `main`.
+Un cambio no está `VERIFICADO` hasta que `validation/ci-summary` y `validation/runtime-smoke` estén en `success` para el commit de `main`.
 
 ## Limitaciones
 
-- sin navegador E2E;
-- sin accesibilidad automatizada;
-- sin property-based testing;
-- sin carga, restore ni DAST;
-- sin prueba de separación física;
-- sin despliegue productivo.
+Sin navegador E2E, accesibilidad automatizada, property-based testing, carga, restore, DAST ni verificación física independiente de separación.

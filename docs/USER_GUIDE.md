@@ -1,109 +1,63 @@
 # Guía de uso funcional
 
-Versión: `0.4.0`.
+Versión: `0.4.1`.
 
 ## 1. Preparar el pedido
 
-1. Crear cliente y domicilio.
-2. Crear pedido y confirmar precio.
-3. Programar retiro y avanzar a `PICKED_UP`.
-4. Registrar recepción.
-5. Resolver diferencias hasta `CLASSIFIED`.
-6. Guardar perfil de tratamiento.
+1. Crear cliente, domicilio y pedido.
+2. Confirmar precio y avanzar hasta `PICKED_UP`.
+3. Registrar recepción y resolver diferencias hasta `CLASSIFIED`.
+4. Guardar perfil de tratamiento.
 
 ## 2. Compatibilidad
 
-Para compartir dos pedidos:
+Para compartir dos pedidos, evaluar compatibilidad. Una excepción solo puede autorizarla `ADMIN` y no borra razones ni exclusividad.
 
-1. ambos deben tener perfil;
-2. evaluar compatibilidad;
-3. revisar `compatible`, `effectivelyCompatible`, razones y recomendación;
-4. una excepción solo puede autorizarla `ADMIN`.
-
-Una excepción no borra razones ni exclusividad.
-
-## 3. Abrir Producción
-
-La navegación **Producción** está disponible para usuarios autenticados.
-
-La pantalla permite consultar:
-
-- máquinas;
-- programas;
-- ciclos;
-- estado, etapa, pesos, pedidos e historial.
-
-La administración de máquina/programa por API es solo `ADMIN`. La UI actual prioriza operación base.
-
-## 4. Planificar lavado
+## 3. Planificar producción
 
 Como `ADMIN` u `OPERATOR`:
 
-1. elegir lavadora activa;
-2. elegir programa `WASH`;
+1. abrir **Producción**;
+2. elegir máquina y programa;
 3. seleccionar uno o dos pedidos;
-4. ingresar notas;
-5. crear el ciclo.
+4. planificar el ciclo.
 
-El cliente genera una clave idempotente. Repetir la misma solicitud no duplica el ciclo.
+## 4. Confirmar separación
 
-Dos pedidos requieren evaluación vigente y no exclusividad. Si solo una excepción los habilita, revisar `separationRequired=true`. La aplicación no rastrea la separación física.
+Cuando el ciclo muestre `separationRequired=true`:
+
+1. abrir **Separación**;
+2. localizar el ciclo `PLANNED`;
+3. asignar un código físico distinto a cada pedido, por ejemplo `BAG-001` y `BAG-002`;
+4. confirmar cada asignación;
+5. verificar que el ciclo figure `LISTO`.
+
+El ciclo no podrá iniciarse mientras exista una confirmación pendiente. Repetir el mismo código sobre el mismo pedido es seguro; reutilizarlo en otro pedido del ciclo devuelve conflicto.
+
+No confirmar códigos ficticios. La operación queda auditada con usuario y fecha.
 
 ## 5. Ejecutar ciclo
 
-- `PLANNED`: puede iniciarse o cancelarse;
-- `RUNNING`: puede completarse;
+- `PLANNED`: iniciar o cancelar;
+- `RUNNING`: completar;
 - `COMPLETED`/`CANCELLED`: finales.
 
-Al iniciar lavado: pedidos → `WASHING`.
+El lavado lleva a `WAITING_DRY` o `QUALITY_CONTROL`. El secado lleva a `QUALITY_CONTROL`.
 
-Al completar:
+## 6. Calidad
 
-- con secadora permitida → `WAITING_DRY`;
-- sin secadora → `QUALITY_CONTROL`.
+- `PASS → FOLDING`;
+- `REWASH → REWASH_REQUIRED`.
 
-## 6. Secado
+La observación es obligatoria.
 
-Para pedidos `WAITING_DRY`:
+## 7. Roles
 
-1. elegir secadora;
-2. elegir programa `DRY`;
-3. planificar ciclo;
-4. iniciar;
-5. completar.
-
-Resultado: `QUALITY_CONTROL`.
-
-## 7. Calidad
-
-Abrir el pedido en control de calidad y registrar:
-
-- `PASS`: pasa a `FOLDING`;
-- `REWASH`: pasa a `REWASH_REQUIRED`.
-
-La observación es obligatoria. `REWASH_REQUIRED` permite planificar un nuevo lavado.
-
-## 8. Errores frecuentes
-
-- máquina ocupada/no disponible;
-- capacidad excedida;
-- programa incompatible con perfil;
-- pedido ya asignado;
-- evaluación no vigente;
-- exclusividad;
-- clave idempotente reutilizada con otra planificación.
-
-Corregir la causa; no forzar estados desde base o frontend.
-
-## 9. Roles
-
-- `ADMIN`: configuración, operación, excepción y auditoría;
-- `OPERATOR`: operación productiva;
+- `ADMIN`: configuración, operación, separación, excepción y auditoría;
+- `OPERATOR`: operación y separación;
 - `DRIVER`: consulta;
 - `REPORT_VIEWER`: consulta.
 
-`DRIVER` no registra recepción ni modifica ciclos.
+## 8. Límites
 
-## 10. Límites
-
-No hay asignación automática, fraccionamiento, tracking físico de separación, costos, consumos, mantenimiento completo, rutas ni almacenamiento de fotos.
+La confirmación es una declaración operativa auditada. No hay sensor, imagen obligatoria, optimizador, costos, rutas ni almacenamiento binario de fotos.

@@ -45,14 +45,15 @@ Cambios locales ajenos, remoto incorrecto, conflictos o divergencia no resoluble
 
 - Monolito modular por funcionalidad bajo `ar.com.ropalista`.
 - Los controladores delegan en aplicación; no incorporar reglas ni acceso nuevo a repositorios.
-- Flyway es la autoridad. `V1` a `V10` están publicadas y son inmutables; todo cambio de esquema usa `V11+`.
+- Flyway es la autoridad. `V1` a `V11` están publicadas y son inmutables; todo cambio de esquema usa `V12+`.
 - Hibernate permanece con `ddl-auto=validate`.
 - No mezclar pedido declarado, recepción real, compatibilidad histórica ni ejecución productiva.
 - No reinterpretar precios, recepciones, evaluaciones o ciclos históricos.
 - `COMPAT-1` es semántica histórica; cualquier cambio exige una versión nueva.
 - Los pares de pedidos se bloquean por UUID canónico.
-- Una excepción no cambia el resultado de compatibilidad; en producción solo puede exigir `separationRequired`.
-- `separationRequired` es una marca operativa, no trazabilidad física de bolsas o compartimentos.
+- Una excepción no cambia el resultado de compatibilidad; producción deriva `separationRequired`.
+- Si `separationRequired=true`, cada pedido debe tener un `separationContainerCode` distinto y confirmado antes de iniciar el ciclo.
+- La confirmación de separación es una declaración operativa auditada; no equivale a una verificación física automatizada.
 - La creación de ciclos conserva idempotencia, bloqueo de máquina, bloqueo ordenado de pedidos y capacidad en gramos.
 - Un programa usado conserva sus parámetros técnicos; la base lo protege mediante `V10`.
 - El frontend no decide permisos, transiciones, capacidad, compatibilidad ni precio.
@@ -85,7 +86,7 @@ docker compose config --quiet
 docker compose build
 ```
 
-La instalación debe registrar al menos diez migraciones Flyway exitosas. Los estados remotos esperados son `validation/ci-summary=success` y `validation/runtime-smoke=success`.
+La instalación debe registrar al menos once migraciones Flyway exitosas. Los estados remotos esperados son `validation/ci-summary=success` y `validation/runtime-smoke=success`.
 
 Antes de confirmar:
 

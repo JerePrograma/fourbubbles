@@ -1,95 +1,42 @@
 # Modelo de datos
 
-Versión: `0.4.0`.
+Versión: `0.4.1`.
 
 ## Principios
 
-- PostgreSQL 16.
-- Flyway V1-V10.
-- Hibernate `ddl-auto=validate`.
-- UUID internos, números humanos separados.
-- gramos enteros y dinero `NUMERIC`.
-- `TIMESTAMPTZ` para eventos.
+- PostgreSQL 16;
+- Flyway `V1`–`V11`;
+- Hibernate `ddl-auto=validate`;
+- UUID internos, gramos enteros y `TIMESTAMPTZ`;
 - snapshots históricos para no reinterpretar operaciones.
 
-## Núcleos existentes
+## Núcleos
 
-- identidad/auditoría: `users`, `roles`, `refresh_tokens`, `audit_events`;
-- clientes/ubicación: `clients`, `addresses`, `zones`;
-- catálogo/precio: `service_offerings`, `garment_equivalences`, `price_definitions`, `promotions`;
-- pedidos/pagos: `laundry_orders`, `order_items`, `order_state_history`, `payments`;
-- recepción: `order_receptions`, `reception_items`, `reception_evidences`;
-- compatibilidad: `order_treatment_profiles`, `compatibility_evaluations`, `compatibility_exceptions`.
+- identidad/auditoría;
+- clientes, domicilios y zonas;
+- catálogo, precios y promociones;
+- pedidos, pagos e historial;
+- recepción y evidencias metadata;
+- perfiles/evaluaciones/excepciones de compatibilidad;
+- máquinas, programas, ciclos, asignaciones e historial productivo.
 
-## Producción V9
+## Producción V9/V10
 
-### `production_machines`
+`production_machines`, `production_programs`, `production_cycles`, `production_cycle_orders` y `production_cycle_history` modelan capacidad, programas, ejecución y pedidos. `V10` protege parámetros técnicos de programas usados.
 
-- `code` único;
-- `machine_type`: `WASHER`/`DRYER`;
-- `capacity_grams > 0`;
-- `status`: `ACTIVE`, `MAINTENANCE`, `OUT_OF_SERVICE`;
-- `active` y notas;
-- auditoría/versión.
+## Separación V11
 
-Índice parcial: una máquina solo puede tener un ciclo `PLANNED` o `RUNNING`.
+`production_cycle_orders` agrega:
 
-### `production_programs`
+- `separation_container_code VARCHAR(80)`;
+- `separation_confirmed_at TIMESTAMPTZ`;
+- `separation_confirmed_by VARCHAR(100)`.
 
-- código/nombre;
-- etapa `WASH`/`DRY`;
-- tipo de máquina requerido;
-- duración;
-- temperatura para lavado;
-- modo gentle;
-- suavizante y fragancia;
-- vigencia.
+El constraint `ck_production_separation_confirmation` exige que los tres campos sean nulos o estén completos sobre una asignación con `separation_required=true`.
 
-Constraints distinguen estructura de lavado y secado.
+El índice `uk_production_cycle_separation_container` garantiza unicidad case-insensitive del contenedor dentro del ciclo cuando el código existe.
 
-### `production_cycles`
-
-- `cycle_number` único, formato `PC-000001`;
-- `idempotency_key` única;
-- máquina/programa;
-- estado `PLANNED`, `RUNNING`, `COMPLETED`, `CANCELLED`;
-- peso planificado/real;
-- notas y fechas;
-- auditoría/versión.
-
-Los checks relacionan estado y fechas: un ciclo completado posee inicio/fin; uno cancelado solo fecha de cancelación.
-
-### `production_cycle_orders`
-
-- ciclo/pedido;
-- posición 1 o 2;
-- peso asignado;
-- separación requerida.
-
-Constraints:
-
-- pedido único dentro del ciclo;
-- posición única;
-- máximo estructural de dos posiciones.
-
-La prevención de asignación activa del mismo pedido/etapa se aplica transaccionalmente en servicio.
-
-### `production_cycle_history`
-
-Snapshot de cada transición del ciclo con estado anterior/nuevo, observación, actor y fecha.
-
-## Protección histórica V10
-
-El trigger `trg_protect_used_production_program_parameters` impide cambiar parámetros técnicos de un programa referenciado por cualquier ciclo:
-
-- etapa/tipo de máquina;
-- duración;
-- temperatura;
-- gentle;
-- suavizante;
-- fragancia.
-
-Nombre, notas y activación pueden cambiar. Esto evita reinterpretar un ciclo histórico.
+Las asignaciones históricas previas a V11 permanecen válidas con campos nulos. Un ciclo planificado exceptuado deberá confirmarse antes de iniciar por regla de dominio.
 
 ## Relaciones
 
@@ -101,52 +48,24 @@ LaundryOrder 1---N ProductionCycleOrder
 ProductionCycle 1---N ProductionCycleHistory
 ```
 
-Un pedido puede participar en distintos ciclos históricos o etapas, pero no en dos ciclos activos de la misma etapa.
-
-## Estado del pedido
-
-Se agregó `WAITING_DRY` para separar lavado finalizado de secado iniciado.
-
-Flujo productivo:
-
-```text
-CLASSIFIED/REWASH_REQUIRED
-→ WAITING_WASH
-→ WASHING
-→ WAITING_DRY o QUALITY_CONTROL
-→ DRYING
-→ QUALITY_CONTROL
-→ FOLDING o REWASH_REQUIRED
-```
-
 ## Concurrencia
 
-- idempotencia de ciclo: advisory lock por hash de clave;
-- máquina/programa/pedidos: bloqueos pesimistas;
-- pedidos: orden UUID estable;
-- ciclo/quality: bloqueo antes de transición;
+- advisory lock por clave idempotente;
+- bloqueos pesimistas de máquina, programa, pedidos y ciclo;
+- UUID canónico para pares;
 - unique parcial de máquina activa;
-- unique global de clave idempotente.
-
-## Seeds
-
-V9 crea:
-
-- lavadora principal 10 kg;
-- secadora principal 10 kg;
-- programas de lavado 30° sin fragancia, 40° estándar y delicado;
-- programas de secado normal/delicado.
-
-Son configuración inicial de desarrollo y pueden desactivarse o ampliarse.
+- unique de clave idempotente;
+- unique de contenedor por ciclo.
 
 ## Migraciones
 
 | Versión | Alcance |
 |---|---|
-| V1-V6 | plataforma y administración |
+| V1–V6 | plataforma y administración |
 | V7 | recepción |
 | V8 | compatibilidad |
-| V9 | producción, máquinas, programas y ciclos |
-| V10 | protección histórica de programas usados |
+| V9 | producción |
+| V10 | protección de programas usados |
+| V11 | separación física trazable |
 
-Las migraciones publicadas no se editan. Cambios futuros usan V11 o superior.
+Las migraciones publicadas no se editan. Cambios futuros usan `V12+`.

@@ -1,12 +1,12 @@
 # Estado integral del proyecto
 
-Última actualización: 2026-07-24. Versión funcional: `0.4.0`.
+Última actualización: 2026-07-26. Versión funcional: `0.4.1`.
 
 ## Veredicto ejecutivo
 
-Four Bubbles dispone de administración, recepción física, compatibilidad explicable y producción base. La versión 0.4.0 convierte perfiles/evaluaciones en ciclos reales controlados por máquina, programa, capacidad, idempotencia y bloqueos.
+Four Bubbles dispone de administración, recepción física, compatibilidad explicable y producción controlada. El corte 0.4.1 cierra el principal hueco operativo de las excepciones: un ciclo exceptuado no inicia hasta identificar y confirmar un contenedor distinto para cada pedido.
 
-No está listo para producción comercial: faltan despliegue seguro, evidencias binarias, separación física rastreable, logística, costos y pruebas no funcionales.
+No está listo para producción comercial: faltan despliegue seguro, evidencias binarias, logística, costos y pruebas no funcionales.
 
 ## Estado por fase
 
@@ -16,36 +16,29 @@ No está listo para producción comercial: faltan despliegue seguro, evidencias 
 | administración | `HECHO` base | clientes, catálogo, pedidos, pagos, auditoría | timeline/CRUD completos |
 | recepción 0.2 | `HECHO` base | idempotencia, realidad física, diferencias | binarios y correcciones |
 | compatibilidad 0.3 | `HECHO` base | perfiles, `COMPAT-1`, historial, excepción | matriz administrable |
-| producción 0.4 | `HECHO` base | máquinas, programas, ciclos, capacidad, calidad | optimización, insumos, separación física |
+| producción 0.4 | `HECHO` base | máquinas, programas, ciclos, capacidad, calidad | optimización, insumos, métricas |
+| separación 0.4.1 | `HECHO` base | contenedor, confirmación, bloqueo de inicio, UI y auditoría | evidencia automatizada |
 | logística | `PENDIENTE` | fechas en pedido | rutas y agenda |
 | finanzas | parcial | cobros | caja, costos, margen |
 | crecimiento | `PENDIENTE` | catálogo/promociones | abonos, inventario, reclamos |
 
-## Producción 0.4.0 entregada
+## Separación 0.4.1 entregada
 
-- [x] `production` como módulo funcional;
-- [x] máquinas `WASHER`/`DRYER`;
-- [x] capacidad y estado operativo;
-- [x] programas `WASH`/`DRY`;
-- [x] parámetros técnicos protegidos tras uso;
-- [x] ciclos con número legible e historial;
-- [x] uno o dos pedidos;
-- [x] clave idempotente y advisory lock;
-- [x] bloqueo de máquina, programa, pedidos y ciclo;
-- [x] capacidad planificada/real;
-- [x] evaluación vigente para compartir;
-- [x] exclusividad respetada;
-- [x] `separationRequired` para excepción;
-- [x] lavado, secado, calidad y relavado;
-- [x] auditoría;
-- [x] Flyway `V9`/`V10`;
-- [x] UI productiva;
-- [x] pruebas de policy, flujo, autorización y concurrencia;
-- [x] smoke/verificación actualizados a diez migraciones.
+- [x] Flyway `V11`;
+- [x] `separationContainerCode`, actor y fecha;
+- [x] contenedor único por ciclo;
+- [x] confirmación idempotente;
+- [x] prohibición de iniciar con confirmaciones pendientes;
+- [x] prohibición de confirmar después de iniciar;
+- [x] API de lectura/escritura con RBAC;
+- [x] auditoría de cada confirmación;
+- [x] UI de pendientes;
+- [x] pruebas de dominio, integración y permisos;
+- [x] verificación operativa elevada a once migraciones.
 
 ## Parcial
 
-- la separación es un booleano operativo;
+- la confirmación depende de la declaración del operador;
 - UI de configuración productiva no cubre administración avanzada;
 - mantenimiento es estado de máquina, no módulo;
 - no hay fraccionamiento ni optimizador;
@@ -56,7 +49,7 @@ No está listo para producción comercial: faltan despliegue seguro, evidencias 
 
 1. Compose no es producción.
 2. Sin backup/restore ni object storage.
-3. Excepciones productivas sin tracking físico de separación.
+3. La separación no tiene evidencia automática ni sensor.
 4. Sin E2E de navegador, accesibilidad, carga ni DAST.
 5. Rate limit local.
 6. Sin corrección versionada de recepción.
@@ -65,8 +58,8 @@ No está listo para producción comercial: faltan despliegue seguro, evidencias 
 
 ## Próximo orden
 
-1. validar continuamente CI/runtime smoke de `main`;
-2. cerrar trazabilidad de separación y E2E productivo;
+1. cerrar E2E de navegador y versiones de artefactos;
+2. completar UI/metricas productivas;
 3. logística 0.5;
 4. caja/costos 0.6;
 5. crecimiento 0.7;
