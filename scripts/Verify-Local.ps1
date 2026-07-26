@@ -68,7 +68,7 @@ try {
     $MigrationText = ($MigrationResult | Out-String).Trim()
     $MigrationCount = 0
     Assert-True -Condition ([int]::TryParse($MigrationText, [ref]$MigrationCount)) -Message "Flyway devolvió un conteo no numérico: '$MigrationText'."
-    Assert-True -Condition ($MigrationCount -ge 10) -Message "Se esperaban al menos 10 migraciones exitosas; se encontraron $MigrationCount."
+    Assert-True -Condition ($MigrationCount -ge 11) -Message "Se esperaban al menos 11 migraciones exitosas; se encontraron $MigrationCount."
 
     Write-Host '4/6 Verificando SPA y proxy Nginx...'
     $FrontendUri = "http://localhost:$FrontendPort/"

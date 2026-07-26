@@ -83,6 +83,9 @@ public class ProductionCycle extends AuditableEntity {
         if (status != ProductionCycleStatus.PLANNED) {
             throw new IllegalStateException("Solo puede iniciarse un ciclo planificado");
         }
+        if (orders.stream().anyMatch(order -> order.isSeparationRequired() && !order.isSeparationConfirmed())) {
+            throw new IllegalStateException("Debe confirmarse la separación física de todos los pedidos antes de iniciar");
+        }
         status = ProductionCycleStatus.RUNNING;
         startedAt = at;
     }

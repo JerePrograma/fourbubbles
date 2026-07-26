@@ -11,6 +11,8 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.OffsetDateTime;
+
 @Getter
 @NoArgsConstructor
 @Entity
@@ -33,6 +35,15 @@ public class ProductionCycleOrder extends AuditableEntity {
     @Column(name = "separation_required", nullable = false)
     private boolean separationRequired;
 
+    @Column(name = "separation_container_code", length = 80)
+    private String separationContainerCode;
+
+    @Column(name = "separation_confirmed_at")
+    private OffsetDateTime separationConfirmedAt;
+
+    @Column(name = "separation_confirmed_by", length = 100)
+    private String separationConfirmedBy;
+
     public ProductionCycleOrder(LaundryOrder order, int assignmentOrder,
                                 int assignedWeightGrams, boolean separationRequired) {
         this.order = order;
@@ -43,5 +54,24 @@ public class ProductionCycleOrder extends AuditableEntity {
 
     void attach(ProductionCycle cycle) {
         this.cycle = cycle;
+    }
+
+    public boolean isSeparationConfirmed() {
+        return !separationRequired || separationConfirmedAt != null;
+    }
+
+    public void confirmSeparation(String containerCode, String actor, OffsetDateTime at) {
+        if (!separationRequired) {
+            throw new IllegalStateException("La asignación no requiere separación física");
+        }
+        if (separationConfirmedAt != null) {
+            if (separationContainerCode.equalsIgnoreCase(containerCode)) {
+                return;
+            }
+            throw new IllegalStateException("La separación física ya fue confirmada con otro contenedor");
+        }
+        separationContainerCode = containerCode;
+        separationConfirmedAt = at;
+        separationConfirmedBy = actor;
     }
 }
