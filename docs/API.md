@@ -1,6 +1,6 @@
 # Contrato API
 
-Versión funcional: `0.4.3`. Fuente de verdad: controladores y DTO bajo `backend/src/main/java/ar/com/ropalista`.
+Versión funcional: `0.4.4`. Fuente de verdad: controladores y DTO bajo `backend/src/main/java/ar/com/ropalista`.
 
 ## Convenciones
 
@@ -19,8 +19,12 @@ Versión funcional: `0.4.3`. Fuente de verdad: controladores y DTO bajo `backend
 | clientes/pedidos | `/clients`, `/orders` | según endpoint |
 | recepción | `/orders/{id}/reception`, `/decision` | `ADMIN`/`OPERATOR` |
 | compatibilidad | perfiles, `/compatibility/evaluate`, excepción | excepción solo `ADMIN` |
-| producción | `/production/machines`, `/programs`, `/cycles` | configuración `ADMIN`; operación `ADMIN`/`OPERATOR` |
+| producción | `/production/machines`, `/programs`, `/cycles` | creación/edición `ADMIN`; operación `ADMIN`/`OPERATOR` |
 | pagos/auditoría | `/payments`, `/audit` | auditoría solo `ADMIN` |
+
+## Configuración productiva
+
+La pantalla 0.4.4 consume los contratos existentes `PUT /production/machines/{id}` y `PUT /production/programs/{id}`. Código/tipo y código/etapa permanecen inmutables; ciclos activos y programas usados conservan las restricciones backend/base.
 
 ## Ciclos
 

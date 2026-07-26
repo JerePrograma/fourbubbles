@@ -1,6 +1,6 @@
 # Alcance funcional
 
-Versión: `0.4.3`. Solo se describe comportamiento utilizable.
+Versión: `0.4.4`. Solo se describe comportamiento utilizable.
 
 ## Estado por módulo
 
@@ -12,7 +12,7 @@ Versión: `0.4.3`. Solo se describe comportamiento utilizable.
 | pedidos | avanzado | declaración, cotización, planificación, estados | correcciones físicas versionadas |
 | recepción | base | idempotencia, realidad física, decisión | binarios y enmiendas |
 | compatibilidad | base | perfil, evaluación, explicación, excepción | matriz administrable |
-| producción | base | máquinas, programas, ciclos, capacidad, calidad | optimización, insumos, métricas |
+| producción | base avanzada | máquinas, programas, ciclos, capacidad, calidad y edición ADMIN | optimización, insumos, métricas |
 | separación | base | contenedor, confirmación, bloqueo de inicio | evidencia automatizada |
 | métricas | base | estados, etapas, pesos, duración, separación | costos/capacidad histórica |
 | logística | pendiente | retiro/promesa | rutas, paradas, kilómetros, agenda |
@@ -42,6 +42,10 @@ Cuando una carga compartida solo es efectivamente compatible por excepción:
 - `DRIVER` y `REPORT_VIEWER` solo consultan.
 
 La aplicación prueba que un operador confirmó la separación; no prueba mediante hardware que se mantuvo físicamente durante el ciclo.
+
+## Configuración productiva
+
+`ADMIN` puede editar máquinas y programas existentes desde la SPA. La UI conserva campos de identidad deshabilitados y el backend rechaza ciclos activos o parámetros técnicos históricos.
 
 ## Métricas
 

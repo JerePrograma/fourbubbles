@@ -10,7 +10,7 @@ Fecha: 2026-07-26. Fuente: `origin/main`.
 ## KI-002 — Versiones de manifiestos desalineadas
 
 - Estado: `VERIFICADO`.
-- Evidencia: versión funcional `0.4.3`; Maven/npm conservan `0.1.0`.
+- Evidencia: versión funcional `0.4.4`; Maven/npm conservan `0.1.0`.
 - Próximo paso: actualizar Maven, npm y lockfile mediante generación reproducible y agregar gate de consistencia.
 - Severidad: media.
 

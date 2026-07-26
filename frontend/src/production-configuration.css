@@ -1,0 +1,20 @@
+.production-configuration-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.configuration-form {
+  display: grid;
+  gap: .8rem;
+  align-content: start;
+}
+
+.configuration-form textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.configuration-form button {
+  justify-self: start;
+}

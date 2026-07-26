@@ -1,6 +1,6 @@
 # Arquitectura
 
-Versión funcional: `0.4.3`.
+Versión funcional: `0.4.4`.
 
 ## Vista general
 
@@ -76,7 +76,7 @@ El agregado usa `created_at` en `[from,to)`, máximo 366 días. Peso real y dura
 - `V9`: producción;
 - `V10`: inmutabilidad de programas usados;
 - `V11`: contenedores/confirmaciones;
-- 0.4.2 y 0.4.3 no agregan migraciones.
+- 0.4.2, 0.4.3 y 0.4.4 no agregan migraciones.
 
 ## Concurrencia
 
@@ -88,7 +88,7 @@ Pedido, recepción, evaluación y ciclo no se sobrescriben. La capacidad de máq
 
 ## Frontend
 
-`ProductionPage`, `ProductionSeparationPage` y `ProductionMetricsPage` consumen contratos backend. El access token permanece en memoria.
+`ProductionPage`, `ProductionSeparationPage`, `ProductionMetricsPage` y `ProductionConfigurationPage` consumen contratos backend. El access token permanece en memoria.
 
 ## Límites
 

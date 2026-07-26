@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.4.4 — Configuración productiva administrativa
+
+Fecha: 2026-07-26.
+
+### Agregado
+
+- pantalla exclusiva de `ADMIN` para editar máquinas y programas existentes;
+- actualización de nombre, capacidad, estado, vigencia y notas de máquinas;
+- actualización de nombre, duración, parámetros, vigencia y notas de programas;
+- campos de identidad inmutables visibles y deshabilitados;
+- advertencias operativas sobre ciclos activos y programas ya utilizados;
+- helpers tipados y pruebas Vitest para payloads de actualización.
+
+### Compatibilidad
+
+No cambia endpoints ni esquema. La UI consume los `PUT /production/machines/{id}` y `PUT /production/programs/{id}` existentes; el backend conserva toda autoridad e inmutabilidad.
+
 ## 0.4.3 — Límite de catálogo restaurado
 
 Fecha: 2026-07-26.

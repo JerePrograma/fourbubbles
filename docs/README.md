@@ -7,6 +7,7 @@ Entrada para agentes: [`AI_CONTEXT.md`](AI_CONTEXT.md).
 | [`../README.md`](../README.md) | presentación e inicio |
 | [`AI_CONTEXT.md`](AI_CONTEXT.md) | contexto para nuevas sesiones |
 | [`PROJECT_STATUS.md`](PROJECT_STATUS.md) | estado actual |
+| [`RELEASE_0_4_4.md`](RELEASE_0_4_4.md) | configuración productiva administrativa |
 | [`RELEASE_0_4_3.md`](RELEASE_0_4_3.md) | límite de catálogo restaurado |
 | [`RELEASE_0_4_2.md`](RELEASE_0_4_2.md) | métricas productivas |
 | [`RELEASE_0_4_1.md`](RELEASE_0_4_1.md) | separación física trazable |

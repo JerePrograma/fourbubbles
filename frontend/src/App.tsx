@@ -12,6 +12,7 @@ import { NewClientPage } from './pages/NewClientPage';
 import { NewOrderPage } from './pages/NewOrderPage';
 import { OrderDetailPage } from './pages/OrderDetailPage';
 import { OrdersPage } from './pages/OrdersPage';
+import { ProductionConfigurationPage } from './pages/ProductionConfigurationPage';
 import { ProductionPage } from './pages/ProductionPage';
 import { ProductionMetricsPage } from './pages/ProductionMetricsPage';
 import { ProductionSeparationPage } from './pages/ProductionSeparationPage';
@@ -33,6 +34,7 @@ export default function App(): JSX.Element {
           <Route path="/orders/:id/reception" element={<ReceptionPage />} />
           <Route path="/orders/:id/compatibility" element={<CompatibilityPage />} />
           <Route path="/production" element={<ProductionPage />} />
+          <Route path="/production/configuration" element={<ProductionConfigurationPage />} />
           <Route path="/production/metrics" element={<ProductionMetricsPage />} />
           <Route path="/production/separation" element={<ProductionSeparationPage />} />
           <Route path="/agenda" element={<AgendaPage />} />

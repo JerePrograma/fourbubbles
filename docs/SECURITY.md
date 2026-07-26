@@ -1,6 +1,6 @@
 # Seguridad
 
-Versión funcional: `0.4.3`.
+Versión funcional: `0.4.4`.
 
 ## Sesiones
 
@@ -16,7 +16,7 @@ ADMIN > OPERATOR > DRIVER > REPORT_VIEWER
 
 | Operación | Permiso mínimo |
 |---|---|
-| configurar máquina/programa | `ADMIN` |
+| crear/editar máquina/programa | `ADMIN` |
 | operar ciclo/calidad | `OPERATOR` |
 | confirmar separación | `OPERATOR` |
 | consultar producción/separación/métricas | `REPORT_VIEWER` |
@@ -33,7 +33,8 @@ ADMIN > OPERATOR > DRIVER > REPORT_VIEWER
 - dominio impide iniciar con separaciones pendientes;
 - PostgreSQL aplica constraints e índice único;
 - UI no es control de seguridad;
-- controladores, incluido catálogo, delegan en aplicación.
+- controladores, incluido catálogo, delegan en aplicación;
+- la ruta SPA de configuración se oculta a no administradores, pero el backend sigue siendo la autoridad.
 
 ## Separación
 

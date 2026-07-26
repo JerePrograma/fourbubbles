@@ -1,6 +1,6 @@
 # Mapa del repositorio
 
-Versión funcional: `0.4.3`.
+Versión funcional: `0.4.4`.
 
 ## Raíz
 
@@ -60,7 +60,8 @@ production/application/ProductionMetricsService.java
 - `ProductionCycleSeparationTest`;
 - `ProductionSeparationIT`;
 - `ProductionMetricsIT`;
-- `CatalogQueryServiceTest`.
+- `CatalogQueryServiceTest`;
+- `configurationForms.test.ts`.
 
 ## Frontend
 
@@ -69,6 +70,8 @@ production/application/ProductionMetricsService.java
 | `pages/ProductionPage.tsx` | ciclos y calidad |
 | `pages/ProductionSeparationPage.tsx` | confirmación de contenedores |
 | `pages/ProductionMetricsPage.tsx` | KPIs productivos |
+| `pages/ProductionConfigurationPage.tsx` | edición ADMIN de máquinas/programas |
+| `production/configurationForms.ts` | mapeo y normalización de requests |
 | `models/productionSeparation.ts` | contrato TypeScript |
 | `production/separationState.ts` | normalización y pendientes |
 | `production/metricsState.ts` | labels de métricas |

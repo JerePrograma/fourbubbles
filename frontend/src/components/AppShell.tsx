@@ -14,7 +14,9 @@ const baseNavItems = [
 export function AppShell(): JSX.Element {
   const { session, logout } = useAuth();
   const navItems = session?.roles.includes('ADMIN')
-    ? [...baseNavItems, ['/audit', 'Auditoría'] as const]
+    ? [...baseNavItems,
+      ['/production/configuration', 'Configuración'] as const,
+      ['/audit', 'Auditoría'] as const]
     : [...baseNavItems];
   return (
     <div className="app-shell">

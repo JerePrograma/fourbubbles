@@ -1,6 +1,6 @@
 # Hoja de ruta
 
-Versión base: `0.4.3`.
+Versión base: `0.4.4`.
 
 ## Completado
 
@@ -32,14 +32,17 @@ Estados, etapas, pesos, duración, cargas compartidas y preparación de separaci
 
 `CatalogController` delega en `CatalogQueryService`; `KI-001` queda cerrado.
 
+### 0.4.4 — Configuración productiva administrativa
+
+Edición SPA de máquinas y programas existentes con identidad e invariantes protegidas por backend/base.
+
 ## Endurecimiento siguiente
 
 1. E2E de navegador para producción, separación y métricas.
 2. Alinear versiones de `pom.xml` y `package.json` con la versión funcional.
-3. Administración UI completa de máquinas/programas.
-4. Snapshot de capacidad si se requiere utilización histórica.
-5. Instrumentar consumos/costos antes de rentabilidad.
-6. Evidencia opcional de separación sin almacenar binarios en PostgreSQL.
+3. Snapshot de capacidad si se requiere utilización histórica.
+4. Instrumentar consumos/costos antes de rentabilidad.
+5. Evidencia opcional de separación sin almacenar binarios en PostgreSQL.
 
 ## 0.5 — Logística y agenda
 

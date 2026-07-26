@@ -1,10 +1,10 @@
 # Estado integral del proyecto
 
-Última actualización: 2026-07-26. Versión funcional: `0.4.3`.
+Última actualización: 2026-07-26. Versión funcional: `0.4.4`.
 
 ## Veredicto ejecutivo
 
-Four Bubbles dispone de administración, recepción física, compatibilidad explicable y producción controlada, separación trazable y métricas operativas. El corte 0.4.3 elimina el acceso directo del catálogo a persistencia desde la capa HTTP. El corte 0.4.1 cierra el principal hueco operativo de las excepciones: un ciclo exceptuado no inicia hasta identificar y confirmar un contenedor distinto para cada pedido.
+Four Bubbles dispone de administración, recepción física, compatibilidad explicable y producción controlada, separación trazable y métricas operativas. El corte 0.4.3 elimina el acceso directo del catálogo a persistencia desde la capa HTTP. El corte 0.4.4 completa la edición administrativa de máquinas y programas desde la SPA. El corte 0.4.1 cierra el principal hueco operativo de las excepciones: un ciclo exceptuado no inicia hasta identificar y confirmar un contenedor distinto para cada pedido.
 
 No está listo para producción comercial: faltan despliegue seguro, evidencias binarias, logística, costos y pruebas no funcionales.
 
@@ -56,10 +56,19 @@ No está listo para producción comercial: faltan despliegue seguro, evidencias 
 - [x] proyecciones y deduplicación cubiertas por pruebas;
 - [x] `KI-001` cerrado.
 
+## Configuración 0.4.4 entregada
+
+- [x] página exclusiva de `ADMIN`;
+- [x] selección y edición de máquinas existentes;
+- [x] selección y edición de programas existentes;
+- [x] identidad de código/tipo/etapa deshabilitada;
+- [x] normalización de payloads `WASH`/`DRY`;
+- [x] errores backend visibles sin relajación de reglas;
+- [x] pruebas unitarias frontend y build TypeScript.
+
 ## Parcial
 
 - la confirmación depende de la declaración del operador;
-- UI de configuración productiva no cubre administración avanzada;
 - mantenimiento es estado de máquina, no módulo;
 - no hay fraccionamiento ni optimizador;
 - evidencias no incluyen archivos;
@@ -79,7 +88,7 @@ No está listo para producción comercial: faltan despliegue seguro, evidencias 
 ## Próximo orden
 
 1. cerrar E2E de navegador y versiones de artefactos;
-2. completar UI administrativa y capacidad histórica;
+2. incorporar capacidad histórica y métricas de utilización;
 3. logística 0.5;
 4. caja/costos 0.6;
 5. crecimiento 0.7;

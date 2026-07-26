@@ -1,6 +1,6 @@
 # Guía de uso funcional
 
-Versión: `0.4.3`.
+Versión: `0.4.4`.
 
 ## 1. Preparar el pedido
 
@@ -66,6 +66,16 @@ La observación es obligatoria.
 
 Los listados de servicios y equivalencias mantienen el mismo comportamiento visible. El cambio 0.4.3 es interno y no exige acciones nuevas.
 
-## 10. Límites
+## 10. Configuración productiva
+
+Como `ADMIN`, abrir **Configuración**:
+
+1. seleccionar una máquina o programa existente;
+2. editar únicamente los campos habilitados;
+3. guardar y revisar el mensaje del backend.
+
+Código/tipo de máquina y código/etapa de programa son inmutables. Una máquina con ciclo activo no se modifica. Los parámetros técnicos de un programa utilizado están protegidos por la base.
+
+## 11. Límites
 
 La confirmación es una declaración operativa auditada. No hay sensor, imagen obligatoria, optimizador, costos, rutas ni almacenamiento binario de fotos.
