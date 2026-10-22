@@ -21,6 +21,19 @@ La red externa Docker `proxy` debe existir. Frontend conecta a esa red con alias
 
 La semilla usa la API existente y las reglas de negocio; crea tres personas ficticias identificadas como demo, tres pedidos, dos ciclos simulados completos y una reserva pendiente. Se puede repetir sin duplicar clientes, pedidos o ciclos. Los contactos `DEMO-*`, emails `example.invalid` y domicilios marcados como ficticios no representan personas reales. Las anotaciones de ciclos declaran explícitamente la simulación.
 
+### Entrada pública de solo consulta
+
+El build de este Compose habilita «Entrar a la demo». Los argumentos `PUBLIC_DEMO_USERNAME` y `PUBLIC_DEMO_PASSWORD` proceden **únicamente** de las variables `APP_DEMO_VIEWER_*` ya existentes; no se rota `.env` ni se cambia su contraseña en DB. Esa credencial del visor pasa a ser deliberadamente pública en el bundle JavaScript. Nunca se pasan las credenciales del administrador al build.
+
+Antes de publicarlo, ejecutar la semilla para comprobar el rol exacto `REPORT_VIEWER` y el rechazo de escrituras. El cliente también rechaza y revoca una sesión inesperada o privilegiada antes de instalarla como sesión de demo. La entrada manual y el cierre de sesión conservan sus flujos originales. Los builds normales carecen del botón; construir el Dockerfile sin argumentos también lo deshabilita. El flag solo acepta `true`/`false`, el usuario público no admite nombres administrativos y la contraseña pública mantiene el mínimo de 24 caracteres.
+
+Después de modificar únicamente el frontend, reconstruir sin imprimir credenciales:
+
+```sh
+docker compose --env-file .env -f compose.yaml build frontend
+docker compose --env-file .env -f compose.yaml up -d --no-deps --wait frontend
+```
+
 ## Proxy y rutas públicas
 
 El proxy exterior conserva los prefijos públicos; Nginx resuelve la SPA y reescribe la ruta API internamente:

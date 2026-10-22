@@ -4,6 +4,9 @@ import { useForm } from 'react-hook-form';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { useAuth } from '../auth/AuthContext';
+import { publicDemoCredentials } from '../auth/publicDemo';
+
+const publicDemo = publicDemoCredentials(import.meta.env);
 
 const schema = z.object({
   username: z.string().min(1, 'Ingresá el usuario'),
@@ -12,13 +15,28 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export function LoginPage(): JSX.Element {
-  const { session, login } = useAuth();
+  const { session, login, loginPublicDemo } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [error, setError] = useState<string | null>(null);
+  const [demoSubmitting, setDemoSubmitting] = useState(false);
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
   });
+
+  const enterDemo = async () => {
+    if (!publicDemo) return;
+    setError(null);
+    setDemoSubmitting(true);
+    try {
+      await loginPublicDemo(publicDemo.username, publicDemo.password);
+      navigate('/dashboard', { replace: true });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'No fue posible abrir la demostración');
+    } finally {
+      setDemoSubmitting(false);
+    }
+  };
 
   if (session) return <Navigate to="/dashboard" replace />;
 
@@ -38,12 +56,18 @@ export function LoginPage(): JSX.Element {
       <form className="card login-card" onSubmit={(event) => void submit(event)}>
         <h1>Ropa Lista</h1>
         <p className="muted">Gestión operativa de lavandería</p>
+        {publicDemo && <>
+          <button type="button" disabled={isSubmitting || demoSubmitting} onClick={() => void enterDemo()}>
+            {demoSubmitting ? 'Abriendo la demo…' : 'Entrar a la demo'}
+          </button>
+          <small className="muted">Datos ficticios · acceso de solo consulta.</small>
+        </>}
         <label>Usuario<input autoComplete="username" {...register('username')} /></label>
         {errors.username && <small className="error">{errors.username.message}</small>}
         <label>Contraseña<input type="password" autoComplete="current-password" {...register('password')} /></label>
         {errors.password && <small className="error">{errors.password.message}</small>}
         {error && <div className="alert">{error}</div>}
-        <button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Ingresando…' : 'Ingresar'}</button>
+        <button type="submit" disabled={isSubmitting || demoSubmitting}>{isSubmitting ? 'Ingresando…' : 'Ingresar'}</button>
       </form>
     </main>
   );

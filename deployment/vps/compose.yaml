@@ -73,6 +73,10 @@ services:
     build:
       context: ../..
       dockerfile: deployment/vps/frontend.Dockerfile
+      args:
+        PUBLIC_DEMO_ENABLED: "true"
+        PUBLIC_DEMO_USERNAME: ${APP_DEMO_VIEWER_USERNAME:?Set the public viewer username}
+        PUBLIC_DEMO_PASSWORD: ${APP_DEMO_VIEWER_PASSWORD:?Set the intentionally public viewer password}
     restart: unless-stopped
     mem_limit: 64m
     cpus: 0.25

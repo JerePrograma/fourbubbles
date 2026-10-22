@@ -59,3 +59,11 @@ Credenciales, dump y resultados generados permanecen ignorados por Git. No se cr
 ## Pendiente externo
 
 Despliegue remoto, integración Caddy/Cloudflare conservando prefijos, programación diaria de backup, prueba HTTPS/navegador y registro de SHA publicado. El operador principal coordina estos pasos. Esta evidencia local no acredita producción remota ni uso de datos reales.
+
+## Entrada pública de consulta
+
+Se añadió posteriormente el botón exclusivo del build VPS «Entrar a la demo», utilizando como credencial deliberadamente pública la cuenta `REPORT_VIEWER` existente. `.env`, contraseñas persistidas y backend no se modificaron para este cambio. Se preservaron las funciones originales de login manual y logout.
+
+Validaciones del cambio: lint PASS; 18 tests frontend PASS (siete nuevos para flags/configuración y aceptación exclusiva del rol de consulta, con revocación/rechazo de ADMIN, OPERATOR, roles mixtos o vacíos); build normal PASS; build público con base `/fourbubbles/` PASS. Las pruebas usan credenciales sintéticas expresamente públicas. La comprobación del botón mediante HTTPS queda a cargo de la activación remota del operador principal.
+
+También pasó la construcción Docker del frontend con los argumentos de visor suministrados por Compose, sin imprimir la contraseña. Imagen local posterior de entrada pública: `sha256:d09c89e5a7e5a5ce3873e123e22929fcf876de8fb48323d1dc81066bf9975874`; reemplaza la etiqueta local del frontend de la validación inicial. No se iniciaron contenedores nuevos para este cambio.

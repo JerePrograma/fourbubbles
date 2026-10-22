@@ -2,11 +2,13 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { PropsWithChildren } from 'react';
 import { apiRequest, setAccessToken } from '../api/httpClient';
 import type { AuthSession } from '../models/api';
+import { readOnlyDemoSession } from './publicDemo';
 
 interface AuthContextValue {
   session: AuthSession | null;
   initializing: boolean;
   login(username: string, password: string): Promise<void>;
+  loginPublicDemo(username: string, password: string): Promise<void>;
   logout(): Promise<void>;
 }
 
@@ -28,6 +30,18 @@ export function AuthProvider({ children }: PropsWithChildren): JSX.Element {
       .finally(() => setInitializing(false));
   }, [applySession]);
 
+  const loginPublicDemo = useCallback(async (username: string, password: string) => {
+    const next = await readOnlyDemoSession(
+      () => apiRequest<AuthSession>(
+        '/auth/login',
+        { method: 'POST', body: JSON.stringify({ username, password }) },
+        false,
+      ),
+      () => apiRequest<void>('/auth/logout', { method: 'POST' }, false),
+    );
+    applySession(next);
+  }, [applySession]);
+
   const login = useCallback(async (username: string, password: string) => {
     const next = await apiRequest<AuthSession>(
       '/auth/login',
@@ -45,7 +59,8 @@ export function AuthProvider({ children }: PropsWithChildren): JSX.Element {
     }
   }, [applySession]);
 
-  const value = useMemo(() => ({ session, initializing, login, logout }), [session, initializing, login, logout]);
+  const value = useMemo(() => ({ session, initializing, login, loginPublicDemo, logout }),
+    [session, initializing, login, loginPublicDemo, logout]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
