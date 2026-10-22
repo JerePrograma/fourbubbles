@@ -6,6 +6,11 @@ backend/target/
 # Node
 frontend/node_modules/
 frontend/dist/
+frontend/*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+deployment/vps/__pycache__/
+deployment/vps/.local-backups/
 
 # IDE
 .idea/

@@ -95,3 +95,7 @@ docker compose logs --tail 300 postgres backend frontend
 ## Producción
 
 `NO VERIFICADO`: no existen dominio/TLS, gestor de secretos, backup/restore, límites de recursos, observabilidad, object storage ni rollback ensayado. Compose usa perfil `dev`; no desplegarlo con datos reales.
+
+## Demo sintética de Scalaris
+
+El paquete acotado `deployment/vps/` ofrece un Compose independiente con perfil `prod,vps-demo`, datos ficticios, administrador privado, visor de solo lectura y scripts de respaldo/restauración. Ver [`deployment/vps/README.md`](../deployment/vps/README.md) para arranque, semilla, rutas, recursos y controles. Su validación y eventual publicación deben registrarse por separado; no habilita el uso de datos reales.

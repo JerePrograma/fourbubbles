@@ -89,3 +89,11 @@ APP_DEV_ADMIN_PASSWORD=<DEV_ADMIN_PASSWORD>
 ## Producción
 
 `NO VERIFICADO`: no existe integración con un gestor de secretos, rotación automatizada, configuración de dominio/TLS, backup/restore ni rollback productivo. Consultar [`OPERATIONS.md`](OPERATIONS.md) y [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
+
+### Demo aislada de Scalaris
+
+`deployment/vps/README.md` describe el paquete de evaluación sintética `prod,vps-demo`, separado del Compose local. Usa secretos generados fuera de Git y dos cuentas iniciales distintas: `APP_DEMO_ADMIN_USERNAME`/`APP_DEMO_ADMIN_PASSWORD` y `APP_DEMO_VIEWER_USERNAME`/`APP_DEMO_VIEWER_PASSWORD` (rol `REPORT_VIEWER`). Las contraseñas deben tener entre 24 y 72 caracteres y no se reemplazan al reiniciar.
+
+`REFRESH_COOKIE_NAME` y `REFRESH_COOKIE_PATH` permiten aislar la cookie cuando el proxy publica la API bajo un prefijo; conservan los valores anteriores si no se configuran. BrowserRouter usa la base compilada de Vite para mantener navegación bajo `/fourbubbles/`.
+
+Este paquete agrega límites, respaldo/restauración y red para una demo sintética. No resuelve el hardening ni la habilitación comercial para datos reales.

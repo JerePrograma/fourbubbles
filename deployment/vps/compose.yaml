@@ -1,0 +1,108 @@
+name: fourbubbles-demo
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    mem_limit: 384m
+    cpus: 0.5
+    pids_limit: 100
+    environment:
+      POSTGRES_DB: fourbubbles_demo
+      POSTGRES_USER: fourbubbles_demo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a generated database password}
+      TZ: America/Argentina/Buenos_Aires
+    command: ["postgres", "-c", "shared_buffers=64MB", "-c", "max_connections=30", "-c", "work_mem=4MB"]
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks: [database]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fourbubbles_demo -d fourbubbles_demo"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+  backend:
+    image: scalaris/fourbubbles-backend:${APP_VERSION:-demo-local}
+    build:
+      context: ../../backend
+    restart: unless-stopped
+    mem_limit: 768m
+    cpus: 1.0
+    pids_limit: 160
+    read_only: true
+    tmpfs: ["/tmp:rw,size=64m,uid=10001,gid=10001"]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      SPRING_PROFILES_ACTIVE: prod,vps-demo
+      DB_HOST: postgres
+      DB_NAME: fourbubbles_demo
+      DB_USER: fourbubbles_demo
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set a generated database password}
+      JWT_SECRET_BASE64: ${JWT_SECRET_BASE64:?Set a generated JWT secret}
+      APP_DEMO_ADMIN_USERNAME: ${APP_DEMO_ADMIN_USERNAME:?Set an explicit demo username}
+      APP_DEMO_ADMIN_PASSWORD: ${APP_DEMO_ADMIN_PASSWORD:?Set a generated demo password}
+      APP_DEMO_VIEWER_USERNAME: ${APP_DEMO_VIEWER_USERNAME:?Set an explicit viewer username}
+      APP_DEMO_VIEWER_PASSWORD: ${APP_DEMO_VIEWER_PASSWORD:?Set a separate viewer password}
+      REFRESH_COOKIE_NAME: fourbubbles_demo_refresh
+      REFRESH_COOKIE_PATH: /fourbubbles-api/api/auth
+      CORS_ALLOWED_ORIGINS: https://scalaris.com.ar
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "8"
+      SPRINGDOC_API_DOCS_ENABLED: "false"
+      SPRINGDOC_SWAGGER_UI_ENABLED: "false"
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info
+      MANAGEMENT_ENDPOINT_HEALTH_GROUP_READINESS_INCLUDE: readinessState,db
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx448m -XX:MaxMetaspaceSize=128m -XX:ReservedCodeCacheSize=64m -XX:MaxDirectMemorySize=32m -Xss512k -XX:ActiveProcessorCount=1 -XX:+ExitOnOutOfMemoryError
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [database, web]
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/api/actuator/health/readiness"]
+      interval: 15s
+      timeout: 5s
+      start_period: 90s
+      retries: 12
+    logging: *logging
+  frontend:
+    image: scalaris/fourbubbles-frontend:${APP_VERSION:-demo-local}
+    build:
+      context: ../..
+      dockerfile: deployment/vps/frontend.Dockerfile
+    restart: unless-stopped
+    mem_limit: 64m
+    cpus: 0.25
+    pids_limit: 40
+    read_only: true
+    tmpfs:
+      - /tmp:rw,size=16m,uid=101,gid=101
+      - /var/cache/nginx:rw,size=16m,uid=101,gid=101
+      - /var/run:rw,size=1m,uid=101,gid=101
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    ports: ["127.0.0.1:${FRONTEND_HOST_PORT:-18092}:8080"]
+    networks:
+      web:
+      proxy:
+        aliases: [fourbubbles-demo-web]
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health | grep -Fq '\"status\":\"UP\"'"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    logging: *logging
+networks:
+  database:
+    internal: true
+  web:
+  proxy:
+    external: true
+volumes:
+  postgres_data:

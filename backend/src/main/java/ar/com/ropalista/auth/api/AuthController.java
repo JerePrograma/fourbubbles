@@ -23,13 +23,16 @@ import java.util.Set;
 public class AuthController {
     private final AuthService authService;
     private final String cookieName;
+    private final String cookiePath;
     private final boolean secureCookie;
 
     public AuthController(AuthService authService,
                           @Value("${app.security.refresh-cookie-name}") String cookieName,
+                          @Value("${app.security.refresh-cookie-path:/api/auth}") String cookiePath,
                           @Value("${app.security.secure-cookie}") boolean secureCookie) {
         this.authService = authService;
         this.cookieName = cookieName;
+        this.cookiePath = cookiePath;
         this.secureCookie = secureCookie;
     }
 
@@ -67,7 +70,7 @@ public class AuthController {
                 .httpOnly(true)
                 .secure(secureCookie)
                 .sameSite("Strict")
-                .path("/api/auth")
+                .path(cookiePath)
                 .maxAge(Duration.ofSeconds(maxAge))
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
