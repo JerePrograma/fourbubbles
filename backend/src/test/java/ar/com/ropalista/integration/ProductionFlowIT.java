@@ -30,8 +30,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class ProductionFlowIT extends PostgresIntegrationTestSupport {
-    private static final String WASHER_ID = "94000000-0000-0000-0000-000000000001";
-    private static final String DRYER_ID = "94000000-0000-0000-0000-000000000002";
     private static final String WASH_PROGRAM_ID = "95000000-0000-0000-0000-000000000002";
     private static final String DRY_PROGRAM_ID = "95000000-0000-0000-0000-000000000005";
 
@@ -43,6 +41,8 @@ class ProductionFlowIT extends PostgresIntegrationTestSupport {
     @Test
     void compatibleOrdersCompleteWashDryAndQualityFlow() throws Exception {
         String token = login(Role.ADMIN);
+        String washerId = createMachine(token, "WASHER");
+        String dryerId = createMachine(token, "DRYER");
         String first = createClassifiedOrder(token, "production-first", 2600, false);
         String second = createClassifiedOrder(token, "production-second", 2600, false);
         saveProfile(token, first, true, false);
@@ -50,8 +50,8 @@ class ProductionFlowIT extends PostgresIntegrationTestSupport {
         evaluate(token, first, second);
 
         String washKey = "production-wash-" + UUID.randomUUID();
-        JsonNode wash = createCycle(token, washKey, WASHER_ID, WASH_PROGRAM_ID, List.of(first, second));
-        JsonNode washReplay = createCycle(token, washKey, WASHER_ID, WASH_PROGRAM_ID, List.of(second, first));
+        JsonNode wash = createCycle(token, washKey, washerId, WASH_PROGRAM_ID, List.of(first, second));
+        JsonNode washReplay = createCycle(token, washKey, washerId, WASH_PROGRAM_ID, List.of(second, first));
         assertThat(wash.path("data").path("id").asText())
                 .isEqualTo(washReplay.path("data").path("id").asText());
         assertThat(wash.path("data").path("plannedWeightGrams").asInt()).isEqualTo(5200);
@@ -72,7 +72,7 @@ class ProductionFlowIT extends PostgresIntegrationTestSupport {
                 .isEqualTo("WAITING_DRY");
 
         JsonNode dry = createCycle(token, "production-dry-" + UUID.randomUUID(),
-                DRYER_ID, DRY_PROGRAM_ID, List.of(first, second));
+                dryerId, DRY_PROGRAM_ID, List.of(first, second));
         String dryCycleId = dry.path("data").path("id").asText();
         action(token, dryCycleId, "start", Map.of("observation", "Inicio secado"));
         JsonNode completedDry = action(token, dryCycleId, "complete",
@@ -89,6 +89,7 @@ class ProductionFlowIT extends PostgresIntegrationTestSupport {
     @Test
     void machineCapacityCannotBeExceeded() throws Exception {
         String token = login(Role.ADMIN);
+        String washerId = createMachine(token, "WASHER");
         String order = createClassifiedOrder(token, "production-heavy", 11000, true);
         saveProfile(token, order, true, false);
 
@@ -97,11 +98,25 @@ class ProductionFlowIT extends PostgresIntegrationTestSupport {
                         .header("Idempotency-Key", "production-heavy-" + UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
-                                "machineId", WASHER_ID,
+                                "machineId", washerId,
                                 "programId", WASH_PROGRAM_ID,
                                 "orderIds", List.of(order)))))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("PRODUCTION_MACHINE_CAPACITY_EXCEEDED"));
+    }
+
+    private String createMachine(String token, String machineType) throws Exception {
+        JsonNode response = performJson(post("/production/machines")
+                .header("Authorization", bearer(token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(Map.of(
+                        "code", "FLOW_" + machineType + "_" + UUID.randomUUID().toString().substring(0, 8),
+                        "name", "Máquina de flujo " + machineType,
+                        "machineType", machineType,
+                        "capacityGrams", 10000,
+                        "status", "ACTIVE",
+                        "active", true))));
+        return response.path("data").path("id").asText();
     }
 
     private JsonNode createCycle(String token, String key, String machineId,

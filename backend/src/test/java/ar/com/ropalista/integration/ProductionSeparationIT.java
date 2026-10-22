@@ -31,7 +31,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class ProductionSeparationIT extends PostgresIntegrationTestSupport {
-    private static final String WASHER_ID = "94000000-0000-0000-0000-000000000001";
     private static final String WASH_PROGRAM_ID = "95000000-0000-0000-0000-000000000002";
 
     @Autowired MockMvc mockMvc;
@@ -42,6 +41,7 @@ class ProductionSeparationIT extends PostgresIntegrationTestSupport {
     @Test
     void exceptionBasedSharedCycleRequiresDistinctConfirmedContainersBeforeStart() throws Exception {
         String token = login(Role.ADMIN);
+        String washerId = createMachine(token);
         String first = createClassifiedOrder(token, "separation-first");
         String second = createClassifiedOrder(token, "separation-second");
         saveProfile(token, first, "LIGHT");
@@ -49,7 +49,7 @@ class ProductionSeparationIT extends PostgresIntegrationTestSupport {
         String evaluationId = evaluate(token, first, second);
         authorizeException(token, evaluationId);
 
-        JsonNode cycle = createCycle(token, first, second);
+        JsonNode cycle = createCycle(token, washerId, first, second);
         String cycleId = cycle.path("data").path("id").asText();
         assertThat(cycle.path("data").path("orders").get(0).path("separationRequired").asBoolean()).isTrue();
         assertThat(cycle.path("data").path("orders").get(1).path("separationRequired").asBoolean()).isTrue();
@@ -121,13 +121,27 @@ class ProductionSeparationIT extends PostgresIntegrationTestSupport {
                 .content(objectMapper.writeValueAsString(Map.of("containerCode", containerCode))));
     }
 
-    private JsonNode createCycle(String token, String first, String second) throws Exception {
+    private String createMachine(String token) throws Exception {
+        JsonNode response = performJson(post("/production/machines")
+                .header("Authorization", bearer(token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(Map.of(
+                        "code", "SEPARATION_" + UUID.randomUUID().toString().substring(0, 8),
+                        "name", "Lavadora de separación",
+                        "machineType", "WASHER",
+                        "capacityGrams", 10000,
+                        "status", "ACTIVE",
+                        "active", true))));
+        return response.path("data").path("id").asText();
+    }
+
+    private JsonNode createCycle(String token, String machineId, String first, String second) throws Exception {
         return performJson(post("/production/cycles")
                 .header("Authorization", bearer(token))
                 .header("Idempotency-Key", "production-separation-" + UUID.randomUUID())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(Map.of(
-                        "machineId", WASHER_ID,
+                        "machineId", machineId,
                         "programId", WASH_PROGRAM_ID,
                         "orderIds", List.of(first, second),
                         "notes", "Separación física obligatoria"))));
