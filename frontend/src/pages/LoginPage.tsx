@@ -30,7 +30,7 @@ export function LoginPage(): JSX.Element {
     setDemoSubmitting(true);
     try {
       await loginPublicDemo(publicDemo.username, publicDemo.password);
-      navigate('/dashboard', { replace: true });
+      navigate('/orders', { replace: true });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'No fue posible abrir la demostración');
     } finally {
@@ -38,7 +38,11 @@ export function LoginPage(): JSX.Element {
     }
   };
 
-  if (session) return <Navigate to="/dashboard" replace />;
+  if (session) {
+    const publicViewer = publicDemo && session.username === publicDemo.username
+      && session.roles.length === 1 && session.roles[0] === 'REPORT_VIEWER';
+    return <Navigate to={publicViewer ? '/orders' : '/dashboard'} replace />;
+  }
 
   const submit = handleSubmit(async (data) => {
     setError(null);
